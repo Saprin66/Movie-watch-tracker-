@@ -9,8 +9,9 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors({
-  origin: '*', // Временно разрешаем все источники. Позже заменим на конкретный домен Vercel
-  credentials: true
+  origin: '*', // Разрешаем запросы с любого домена (для MVP это ок)
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json()); // Позволяет серверу понимать JSON в запросах
 
