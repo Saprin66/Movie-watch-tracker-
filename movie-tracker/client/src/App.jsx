@@ -18,7 +18,7 @@ function App() {
 
   const fetchMovies = async () => {
     try {
-      const response = await fetch('https://movie-tracker-backend.onrender.com/api/movies')
+      const response = await fetch('https://movie-watch-tracker.onrender.com/api/movies')
       const data = await response.json()
       setMovies(data)
     } catch (error) {
@@ -50,7 +50,7 @@ function App() {
   // Добавление выбранного фильма на наш бэкенд
   const addMovie = async (movie) => {
     try {
-      const response = await fetch('https://movie-tracker-backend.onrender.com/api/movies', {
+      const response = await fetch('https://movie-watch-tracker.onrender.com/api/moviesgit add .', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
