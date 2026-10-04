@@ -5,20 +5,24 @@ require('dotenv').config();
 
 const app = express();
 const prisma = new PrismaClient();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 10000;
 
-// Middleware
+// 1. Настройки CORS (разрешаем запросы с Vercel и везде)
 app.use(cors({
-  origin: '*', // Разрешаем запросы с любого домена (для MVP это ок)
+  origin: '*', 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json()); // Позволяет серверу понимать JSON в запросах
 
-// Тестовый эндпоинт
-app.get('/', (req, res) => res.send('API is running...'));
+// 2. Разрешаем серверу читать JSON
+app.use(express.json());
 
-// 1. Получить список всех фильмов (пока без привязки к конкретному юзеру)
+// 3. Тестовый эндпоинт (главная страница)
+app.get('/', (req, res) => {
+  res.send('Welcome to the movie-tracker application express server home');
+});
+
+// 4. Получить список всех фильмов
 app.get('/api/movies', async (req, res) => {
   try {
     const movies = await prisma.userMovie.findMany({
@@ -26,18 +30,17 @@ app.get('/api/movies', async (req, res) => {
     });
     res.json(movies);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Something went wrong' });
+    console.error('Ошибка при получении фильмов:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// 2. Добавить новый фильм
+// 5. Добавить новый фильм
 app.post('/api/movies', async (req, res) => {
   try {
     const { tmdbId, title, posterUrl, status } = req.body;
 
-    // Для MVP: создаем тестового юзера, если его еще нет в базе
-    // В будущем тут будет логика авторизации
+    // Создаем тестового пользователя, если его нет
     let user = await prisma.user.findFirst();
     if (!user) {
       user = await prisma.user.create({
@@ -45,24 +48,25 @@ app.post('/api/movies', async (req, res) => {
       });
     }
 
-    // Создаем запись о фильме
+    // Сохраняем фильм в базу
     const newMovie = await prisma.userMovie.create({
       data: {
         tmdbId,
         title,
         posterUrl,
-        status: status || 'WATCHLIST', // По умолчанию "Буду смотреть"
+        status: status || 'WATCHLIST',
         userId: user.id
       }
     });
 
-    res.status(201).json(newMovie); // 201 означает "Создано"
+    res.status(201).json(newMovie);
   } catch (error) {
-    console.error(error);
+    console.error('Ошибка при добавлении фильма:', error);
     res.status(500).json({ error: 'Could not add movie' });
   }
 });
 
+// 6. Запуск сервера
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
