@@ -10,27 +10,23 @@ datasource db {
 model User {
   id        String      @id @default(uuid())
   username  String      @unique
+  email     String      @unique
   password  String
   movies    UserMovie[]
   createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 }
 
 model UserMovie {
-  id        String      @id @default(uuid())
+  id        String   @id @default(uuid())
   tmdbId    Int
   title     String
   posterUrl String?
-  status    MovieStatus @default(WATCHLIST)
-
+  status    String   @default("WATCHLIST")
   userId    String
-  user      User        @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdAt DateTime    @default(now())
-
-  @@unique([userId, tmdbId])
-}
-
-enum MovieStatus {
-  WATCHED
-  WATCHLIST
+  @@index([userId])
 }
