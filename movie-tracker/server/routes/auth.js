@@ -2,16 +2,24 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
+const { Resend } = require('resend');
 
 const router = express.Router();
 const prisma = new PrismaClient();
+const resend = new Resend(process.env.RESEND_API_KEY);
+const JWT_SECRET = process.env.JWT_SECRET || 'movie-grade-secret-key-2024';
 
-// Регистрация
+// ⚠️ ВАЖНО: Замени 'твой-домен.ru' на твой реальный домен, который ты подключил!
+const FROM_EMAIL = 'Movie Grade <hello@sapringrade.ru>'; 
+
+// Генерация случайного 6-значного кода
+const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+// 1. РЕГИСТРАЦИЯ
 router.post('/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    // Проверяем, существует ли пользователь
     const existingUser = await prisma.user.findFirst({
       where: { OR: [{ username }, { email }] }
     });
@@ -20,28 +28,54 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Пользователь с таким именем или email уже существует' });
     }
 
-    // Хешируем пароль
     const hashedPassword = await bcrypt.hash(password, 10);
+    const verificationCode = generateCode();
+    const codeExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 минут
 
-    // Создаем пользователя
     const user = await prisma.user.create({
-      data: { username, email, password: hashedPassword }
+      data: { 
+        username, 
+        email, 
+        password: hashedPassword, 
+        verificationCode,
+        codeExpiresAt 
+      }
     });
 
-    // Создаем токен
-    const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET || 'movie-grade-secret-key-2024',
-      { expiresIn: '7d' }
-    );
+    // Отправка письма через Resend (с твоего домена)
+    try {
+      await resend.emails.send({
+        from: FROM_EMAIL,
+        to: email,
+        subject: 'Подтверждение email - Movie Grade',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #f97316;">🎬 Movie Grade</h1>
+            <p>Привет, <strong>${username}</strong>!</p>
+            <p>Твой код подтверждения:</p>
+            <div style="background: #f97316; color: white; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; border-radius: 8px; margin: 20px 0;">
+              ${verificationCode}
+            </div>
+            <p>Код действителен 10 минут.</p>
+          </div>
+        `
+      });
+      console.log('✅ Email отправлен на:', email);
+    } catch (emailError) {
+      console.error('❌ Ошибка отправки email:', emailError);
+    }
+
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
 
     res.status(201).json({
       token,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email
-      }
+      user: { 
+        id: user.id, 
+        username: user.username, 
+        email: user.email, 
+        isVerified: user.isVerified 
+      },
+      message: 'Код подтверждения отправлен на email'
     });
   } catch (error) {
     console.error('Ошибка регистрации:', error);
@@ -49,38 +83,34 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Вход
+// 2. ВХОД
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+    const user = await prisma.user.findUnique({ where: { username } });
 
-    const user = await prisma.user.findUnique({
-      where: { username }
-    });
-
-    if (!user) {
-      return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
-    }
+    if (!user) return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
 
     const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
 
-    if (!validPassword) {
-      return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
+    if (!user.isVerified) {
+      return res.status(403).json({ 
+        error: 'Пожалуйста, подтвердите ваш email',
+        needsVerification: true 
+      });
     }
 
-    const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET || 'movie-grade-secret-key-2024',
-      { expiresIn: '7d' }
-    );
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
 
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email
-      }
+    res.json({ 
+      token, 
+      user: { 
+        id: user.id, 
+        username: user.username, 
+        email: user.email,
+        isVerified: user.isVerified 
+      } 
     });
   } catch (error) {
     console.error('Ошибка входа:', error);
@@ -88,17 +118,16 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Получить текущего пользователя
+// 3. ПОЛУЧИТЬ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
 router.get('/me', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
-    
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Токен не предоставлен' });
+      return res.status(401).json({ error: 'Нет токена' });
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'movie-grade-secret-key-2024');
+    const decoded = jwt.verify(token, JWT_SECRET);
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
@@ -106,8 +135,8 @@ router.get('/me', async (req, res) => {
         id: true,
         username: true,
         email: true,
-        createdAt: true,
-        movies: true
+        isVerified: true,
+        createdAt: true
       }
     });
 
@@ -118,7 +147,86 @@ router.get('/me', async (req, res) => {
     res.json(user);
   } catch (error) {
     console.error('Ошибка получения пользователя:', error);
-    res.status(500).json({ error: 'Ошибка при получении данных пользователя' });
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// 4. ПОДТВЕРЖДЕНИЕ EMAIL
+router.post('/verify-email', async (req, res) => {
+  try {
+    const { code } = req.body;
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'Нет токена' });
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+    if (user.isVerified) return res.json({ message: 'Email уже подтвержден' });
+
+    if (user.codeExpiresAt && new Date() > user.codeExpiresAt) {
+      return res.status(400).json({ error: 'Код истек. Запросите новый.' });
+    }
+
+    if (user.verificationCode !== code) {
+      return res.status(400).json({ error: 'Неверный код подтверждения' });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { isVerified: true, verificationCode: null, codeExpiresAt: null }
+    });
+
+    res.json({ message: 'Email успешно подтвержден!' });
+  } catch (error) {
+    console.error('Ошибка подтверждения:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// 5. ПОВТОРНАЯ ОТПРАВКА КОДА
+router.post('/resend-code', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'Нет токена' });
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+    if (user.isVerified) return res.json({ message: 'Email уже подтвержден' });
+
+    const newCode = generateCode();
+    const codeExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { verificationCode: newCode, codeExpiresAt }
+    });
+
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: user.email,
+      subject: 'Новый код подтверждения - Movie Grade',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #f97316;">🎬 Movie Grade</h1>
+          <p>Привет, <strong>${user.username}</strong>!</p>
+          <p>Твой новый код подтверждения:</p>
+          <div style="background: #f97316; color: white; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; border-radius: 8px; margin: 20px 0;">
+            ${newCode}
+          </div>
+          <p>Код действителен 10 минут.</p>
+        </div>
+      `
+    });
+
+    res.json({ message: 'Новый код отправлен на email' });
+  } catch (error) {
+    console.error('Ошибка повторной отправки:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 

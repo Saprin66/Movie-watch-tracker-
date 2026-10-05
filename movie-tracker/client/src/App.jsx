@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AuthScreen from './components/AuthScreen';
+import FriendsPanel from './components/FriendsPanel';
+import ProfileModal from './components/ProfileModal';
 
 
 
@@ -21,6 +23,7 @@ const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
 
 
 function MovieTracker() {
+  const [selectedUserId, setSelectedUserId] = useState(null);
   const { token, logout, user } = useAuth();
   const [movies, setMovies] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -146,17 +149,19 @@ function MovieTracker() {
             </form>
           </div>
 
-          <div className="hidden md:flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center font-bold">
-                {user?.username?.[0]?.toUpperCase() || 'U'}
-              </div>
-              <div className="text-right">
-                <div className="font-semibold text-sm">{user?.username || 'Пользователь'}</div>
-                <button onClick={logout} className="text-xs text-red-400 hover:text-red-300 transition-colors">Выйти</button>
-              </div>
-            </div>
-          </div>
+         {/* Замени старый блок с аватаркой на этот */}
+<div 
+  onClick={() => setSelectedUserId(user?.id)}
+  className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+>
+  <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center font-bold">
+    {user?.username?.[0]?.toUpperCase() || 'U'}
+  </div>
+  <div className="text-right hidden md:block">
+    <div className="font-semibold text-sm">{user?.username || 'Пользователь'}</div>
+    <div className="text-xs text-slate-400">Мой профиль</div>
+  </div>
+</div>
         </div>
       </header>
 
@@ -271,24 +276,16 @@ function MovieTracker() {
 
         {/* Правый сайдбар */}
         <aside className="hidden xl:block xl:col-span-3 space-y-6">
-          <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700/50">
-            <h3 className="text-lg font-bold mb-4">Активность друзей</h3>
-            <div className="space-y-4">
-              {[
-                { name: 'Елена Б.', action: 'добавила "Барби" в Просмотрено', avatar: 'Е' },
-                { name: 'Том Г.', action: 'оценил "Оппенгеймер"', avatar: 'Т' },
-              ].map((friend, idx) => (
-                <div key={idx} className="flex items-start gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center font-bold flex-shrink-0 text-sm">{friend.avatar}</div>
-                  <div className="flex-1">
-                    <div className="font-semibold text-sm">{friend.name}</div>
-                    <div className="text-xs text-slate-400">{friend.action}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <FriendsPanel onUserClick={setSelectedUserId} />
         </aside>
+
+        {/* Модальное окно профиля */}
+{selectedUserId && (
+  <ProfileModal 
+    userId={selectedUserId} 
+    onClose={() => setSelectedUserId(null)} 
+  />
+)}
       </div>
 
       {/* Мобильная нижняя навигация */}
@@ -322,7 +319,14 @@ function MovieTracker() {
 }
 
 function App() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+
+  // Если токен есть, но пользователь НЕ подтвердил почту — показываем экран входа (он сам переключится на код)
+  if (token && user && !user.isVerified) {
+    return <AuthScreen />;
+  }
+
+  // Иначе показываем либо фильмы, либо экран входа
   return token ? <MovieTracker /> : <AuthScreen />;
 }
 

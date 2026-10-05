@@ -4,6 +4,7 @@ const { PrismaClient } = require('@prisma/client');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
 const authMiddleware = require('./middleware/auth');
 
 const app = express();
@@ -23,8 +24,11 @@ app.get('/', (req, res) => {
   res.send('Welcome to Movie Grade API');
 });
 
-// Роуты авторизации (без middleware)
+// Роуты авторизации
 app.use('/api/auth', authRoutes);
+
+// Роуты пользователей (друзья, профили)
+app.use('/api/users', userRoutes);
 
 // Получить фильмы текущего пользователя
 app.get('/api/movies', authMiddleware, async (req, res) => {

@@ -2,17 +2,22 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 export default function AuthScreen() {
+  const [step, setStep] = useState('auth'); // 'auth' или 'verify'
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login, register } = useAuth();
+  
+  const { login, register, verifyEmail, resendCode, user } = useAuth();
 
-  const handleSubmit = async (e) => {
+  const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccessMsg('');
     setIsLoading(true);
     
     const result = isLogin 
@@ -23,12 +28,138 @@ export default function AuthScreen() {
     
     if (!result.success) {
       setError(result.error);
+      // Если при входе сервер сказал "нужно подтверждение", переходим на шаг ввода кода
+      if (result.needsVerification) {
+        setStep('verify');
+      }
+    } else {
+      // Если регистрация прошла успешно, переходим к вводу кода
+      if (!isLogin) {
+        setStep('verify');
+        setSuccessMsg('Регистрация успешна! Код отправлен на твой email.');
+      }
     }
   };
 
+  const handleVerifySubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    const result = await verifyEmail(code);
+    setIsLoading(false);
+    
+    if (result.success) {
+      setSuccessMsg('Email подтвержден! Добро пожаловать.');
+      setTimeout(() => {
+        setStep('auth');
+        setCode('');
+        setSuccessMsg('');
+      }, 1500);
+    } else {
+      setError(result.error);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setError('');
+    setSuccessMsg('');
+    setIsLoading(true);
+    const result = await resendCode();
+    setIsLoading(false);
+    
+    if (result.success) {
+      setSuccessMsg('Новый код отправлен на email!');
+    } else {
+      setError(result.error);
+    }
+  };
+
+  // ========== ЭКРАН ПОДТВЕРЖДЕНИЯ КОДА ==========
+  if (step === 'verify') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 flex items-center justify-center p-4">
+        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-orange-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div className="relative w-full max-w-md bg-slate-900/60 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50 shadow-2xl shadow-black/50">
+          <div className="text-center mb-8">
+            <div className="text-5xl mb-3">📧</div>
+            <h1 className="text-2xl font-extrabold text-white mb-2">Подтверждение Email</h1>
+            <p className="text-slate-400 text-sm">Мы отправили 6-значный код на твой email</p>
+            
+            {/* Показываем email, куда отправлен код */}
+            <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+              <p className="text-xs text-blue-300 mb-1">📧 Код отправлен на:</p>
+              <p className="text-sm font-semibold text-white">{user?.email || email}</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleVerifySubmit} className="space-y-5">
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Код подтверждения</label>
+              <input
+                type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                required
+                maxLength={6}
+                className="w-full bg-slate-950/50 border border-slate-700 rounded-xl px-4 py-3 text-white text-center text-2xl tracking-widest font-mono placeholder:text-white/30 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
+                placeholder="000000"
+              />
+            </div>
+
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-sm p-3 rounded-xl text-center">
+                {error}
+              </div>
+            )}
+            {successMsg && (
+              <div className="bg-green-500/10 border border-green-500/30 text-green-300 text-sm p-3 rounded-xl text-center">
+                {successMsg}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoading || code.length !== 6}
+              className="w-full bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-orange-500/25"
+            >
+              {isLoading ? 'Проверка...' : 'Подтвердить'}
+            </button>
+            
+            <button 
+              type="button" 
+              onClick={handleResendCode}
+              disabled={isLoading}
+              className="w-full text-orange-400 hover:text-orange-300 disabled:opacity-50 text-sm py-2 transition-colors flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Отправить код повторно
+            </button>
+
+            <button 
+              type="button" 
+              onClick={() => {
+                setStep('auth');
+                setCode('');
+                setError('');
+                setSuccessMsg('');
+              }} 
+              className="w-full text-slate-400 hover:text-white text-sm py-2 transition-colors"
+            >
+              ← Вернуться ко входу
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ========== ОБЫЧНЫЙ ЭКРАН ВХОДА / РЕГИСТРАЦИИ ==========
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 flex items-center justify-center p-4">
-      {/* Декоративные пятна на фоне */}
       <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-orange-500/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -44,7 +175,7 @@ export default function AuthScreen() {
         {/* Переключатель Вход / Регистрация */}
         <div className="flex bg-slate-950/50 rounded-xl p-1.5 mb-8 border border-slate-800">
           <button
-            onClick={() => { setIsLogin(true); setError(''); }}
+            onClick={() => { setIsLogin(true); setError(''); setSuccessMsg(''); }}
             className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
               isLogin 
                 ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/25' 
@@ -54,7 +185,7 @@ export default function AuthScreen() {
             Вход
           </button>
           <button
-            onClick={() => { setIsLogin(false); setError(''); }}
+            onClick={() => { setIsLogin(false); setError(''); setSuccessMsg(''); }}
             className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
               !isLogin 
                 ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/25' 
@@ -65,7 +196,7 @@ export default function AuthScreen() {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleAuthSubmit} className="space-y-5">
           {/* Поле Имя пользователя */}
           <div>
             <label className="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Имя пользователя</label>
@@ -87,7 +218,7 @@ export default function AuthScreen() {
 
           {/* Поле Email (только для регистрации) */}
           {!isLogin && (
-            <div className="animate-fade-in">
+            <div>
               <label className="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Email</label>
               <div className="relative">
                 <svg className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,11 +258,18 @@ export default function AuthScreen() {
 
           {/* Сообщение об ошибке */}
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-sm p-3 rounded-xl flex items-center gap-2 animate-pulse">
+            <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-sm p-3 rounded-xl flex items-center gap-2">
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               {error}
+            </div>
+          )}
+
+          {/* Сообщение об успехе */}
+          {successMsg && (
+            <div className="bg-green-500/10 border border-green-500/30 text-green-300 text-sm p-3 rounded-xl text-center">
+              {successMsg}
             </div>
           )}
 
