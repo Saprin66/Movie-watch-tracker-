@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AuthScreen from './components/AuthScreen';
 import FriendsPanel from './components/FriendsPanel';
@@ -15,305 +14,440 @@ const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
 
 
 
-
-
-
-
-
-
-
+// ============ ГЛАВНЫЙ КОМПОНЕНТ С ВКЛАДКАМИ ============
 function MovieTracker() {
-  const [selectedUserId, setSelectedUserId] = useState(null);
-  const { token, logout, user } = useAuth();
+  const { user, token, logout } = useAuth();
+  const [activeTab, setActiveTab] = useState('movies');
   const [movies, setMovies] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [activeTab, setActiveTab] = useState('all');
-  const [showSearch, setShowSearch] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [movieFilter, setMovieFilter] = useState('all');
 
-  // Функция для запросов с токеном
-  const fetchWithAuth = async (url, options = {}) => {
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      ...options.headers
-    };
-    return fetch(url, { ...options, headers });
-  };
-
+  // Загрузка фильмов при переключении на вкладку фильмов или поиска
   useEffect(() => {
-    if (token) fetchMovies();
-  }, [token]);
+    if (token && (activeTab === 'movies' || activeTab === 'search')) {
+      fetchMovies();
+    }
+  }, [token, activeTab]);
+
+  // Загружаем популярные фильмы при первом открытии поиска
+  useEffect(() => {
+    if (token && activeTab === 'search' && !searchQuery.trim()) {
+      loadPopularMovies();
+    }
+  }, [token, activeTab]);
 
   const fetchMovies = async () => {
     try {
-      const res = await fetchWithAuth(`${API_URL}/api/movies`);
+      const res = await fetch(`${API_URL}/api/movies`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await res.json();
-      setMovies(data);
+      setMovies(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Ошибка загрузки:', error);
+      console.error('Ошибка загрузки фильмов:', error);
     }
   };
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
+  const loadPopularMovies = async () => {
     try {
-      const res = await fetch(
-        `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchQuery)}&language=ru-RU`
-      );
+      const res = await fetch(`https://api.themoviedb.org/3/movie/popular?api_key=8265bd1679663a7ea12ac168da84d2e8&language=ru-RU&page=1`);
       const data = await res.json();
       setSearchResults(data.results || []);
-      setShowSearch(true);
     } catch (error) {
-      console.error('Ошибка поиска:', error);
+      console.error('Ошибка загрузки популярных фильмов:', error);
     }
   };
 
   const addMovie = async (movie) => {
     try {
-      await fetchWithAuth(`${API_URL}/api/movies`, {
+      await fetch(`${API_URL}/api/movies`, {
         method: 'POST',
-        body: JSON.stringify({
-          tmdbId: movie.id,
-          title: movie.title,
-          posterUrl: movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : null,
-          status: 'WATCHLIST'
-        })
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(movie)
       });
-      setSearchQuery('');
-      setSearchResults([]);
-      setShowSearch(false);
-      fetchMovies();
+      await fetchMovies();
     } catch (error) {
-      console.error('Ошибка:', error);
+      console.error('Ошибка добавления:', error);
     }
   };
 
-  const deleteMovie = async (movieId) => {
-    if (!confirm('Удалить этот фильм?')) return;
+  const deleteMovie = async (id) => {
     try {
-      await fetchWithAuth(`${API_URL}/api/movies/${movieId}`, { method: 'DELETE' });
-      fetchMovies();
+      await fetch(`${API_URL}/api/movies/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      await fetchMovies();
     } catch (error) {
-      console.error('Ошибка:', error);
+      console.error('Ошибка удаления:', error);
     }
   };
 
-  const toggleStatus = async (movie) => {
-    const newStatus = movie.status === 'WATCHED' ? 'WATCHLIST' : 'WATCHED';
+  const deleteMovieByTmdbId = async (tmdbId) => {
+    const movieToDelete = movies.find(m => m.tmdbId === tmdbId);
+    if (movieToDelete) {
+      await deleteMovie(movieToDelete.id);
+    }
+  };
+
+  const updateMovieStatus = async (id, status) => {
     try {
-      await fetchWithAuth(`${API_URL}/api/movies/${movie.id}/status`, {
+      await fetch(`${API_URL}/api/movies/${id}/status`, {
         method: 'PUT',
-        body: JSON.stringify({ status: newStatus })
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status })
       });
-      fetchMovies();
+      await fetchMovies();
     } catch (error) {
-      console.error('Ошибка:', error);
+      console.error('Ошибка обновления статуса:', error);
+    }
+  };
+
+  const searchMovies = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      loadPopularMovies();
+      return;
+    }
+    try {
+      const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=8265bd1679663a7ea12ac168da84d2e8&query=${encodeURIComponent(query)}&language=ru-RU`);
+      const data = await res.json();
+      setSearchResults(data.results || []);
+    } catch (error) {
+      console.error('Ошибка поиска:', error);
     }
   };
 
   const filteredMovies = movies.filter(movie => {
-    if (activeTab === 'all') return true;
-    if (activeTab === 'watched') return movie.status === 'WATCHED';
-    if (activeTab === 'watchlist') return movie.status === 'WATCHLIST';
+    if (movieFilter === 'all') return true;
+    if (movieFilter === 'watchlist') return movie.status === 'WATCHLIST';
+    if (movieFilter === 'watched') return movie.status === 'WATCHED';
     return true;
   });
 
-  const stats = {
-    watched: movies.filter(m => m.status === 'WATCHED').length,
-    watchlist: movies.filter(m => m.status === 'WATCHLIST').length,
-  };
+  const watchlistCount = movies.filter(m => m.status === 'WATCHLIST').length;
+  const watchedCount = movies.filter(m => m.status === 'WATCHED').length;
+
+  const addedMovieIds = new Set(movies.map(m => m.tmdbId));
+
+  const tabs = [
+    { id: 'movies', label: 'Фильмы', icon: '🎬' },
+    { id: 'search', label: 'Поиск', icon: '🔍' },
+    { id: 'friends', label: 'Друзья', icon: '👥' },
+    { id: 'profile', label: 'Профиль', icon: '👤' }
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white pb-20 lg:pb-0">
-      {/* Шапка */}
-      <header className="bg-slate-900/80 backdrop-blur-sm border-b border-slate-700/50 px-4 py-3 md:px-6 md:py-4 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-3 md:gap-0 md:justify-between">
-          <div className="flex items-center gap-2 w-full md:w-auto justify-between">
-            <div className="flex items-center gap-2">
-              <div className="text-2xl md:text-3xl">🎬</div>
-              <h1 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent">
-                Movie Grade
-              </h1>
-            </div>
-            <button onClick={() => setShowSearch(!showSearch)} className="md:hidden bg-orange-500 p-2 rounded-full">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-            </button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white">
+      {/* ШАПКА (десктоп) */}
+      <header className="hidden md:block sticky top-0 z-40 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="text-3xl">🎬</div>
+            <h1 className="text-xl font-extrabold bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent">
+              Movie Grade
+            </h1>
           </div>
 
-          <div className="w-full md:flex-1 md:max-w-xl md:mx-8">
-            <form onSubmit={handleSearch} className="relative">
-              <input type="text" placeholder="Поиск фильмов..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2 pl-10 text-sm md:text-base focus:outline-none focus:border-orange-500 transition-colors" />
-              <svg className="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            </form>
-          </div>
-
-         {/* Замени старый блок с аватаркой на этот */}
-<div 
-  onClick={() => setSelectedUserId(user?.id)}
-  className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
->
-  <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center font-bold">
-    {user?.username?.[0]?.toUpperCase() || 'U'}
-  </div>
-  <div className="text-right hidden md:block">
-    <div className="font-semibold text-sm">{user?.username || 'Пользователь'}</div>
-    <div className="text-xs text-slate-400">Мой профиль</div>
-  </div>
-</div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Левый сайдбар */}
-        <aside className="hidden lg:block lg:col-span-3 space-y-6">
-          <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700/50">
-            <h2 className="text-xl font-bold mb-4">Дневник киномана</h2>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center font-bold text-lg">
-                {user?.username?.[0]?.toUpperCase() || 'U'}
-              </div>
-              <div>
-                <div className="font-semibold">{user?.username || 'Пользователь'}</div>
-                <div className="text-sm text-slate-400">Киноман</div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              <div className="bg-slate-900/50 rounded-lg p-3 text-center">
-                <div className="text-2xl font-bold text-orange-400">{stats.watched}</div>
-                <div className="text-xs text-slate-400">Просмотрено</div>
-              </div>
-              <div className="bg-slate-900/50 rounded-lg p-3 text-center">
-                <div className="text-2xl font-bold text-purple-400">{stats.watchlist}</div>
-                <div className="text-xs text-slate-400">В планах</div>
-              </div>
-            </div>
-            <button onClick={logout} className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg transition-colors text-sm">
-              Выйти из аккаунта
-            </button>
-          </div>
-        </aside>
-
-        {/* Основной контент */}
-        <main className="col-span-1 lg:col-span-6">
-          <div className="flex items-center justify-between mb-4 md:mb-6">
-            <h2 className="text-xl md:text-2xl font-bold">Мои фильмы</h2>
-            <button onClick={() => setShowSearch(!showSearch)} className="hidden md:flex bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-lg font-medium items-center gap-2 transition-colors text-sm">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              Добавить
-            </button>
-          </div>
-
-          <div className="flex gap-4 md:gap-6 mb-6 border-b border-slate-700/50 overflow-x-auto pb-2">
-            {[
-              { id: 'all', label: 'Все' },
-              { id: 'watched', label: 'Просмотрено' },
-              { id: 'watchlist', label: 'В планах' }
-            ].map(tab => (
-              <button key={tab.id} onClick={() => { setActiveTab(tab.id); setShowSearch(false); }} className={`whitespace-nowrap pb-3 font-medium transition-colors text-sm md:text-base ${activeTab === tab.id ? 'text-orange-400 border-b-2 border-orange-400' : 'text-slate-400 hover:text-white'}`}>
+          <nav className="flex gap-1 bg-slate-800/50 rounded-xl p-1">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <span className="mr-2">{tab.icon}</span>
                 {tab.label}
               </button>
             ))}
-          </div>
+          </nav>
 
-          {showSearch && searchResults.length > 0 && (
-            <div className="mb-6 bg-slate-800/50 rounded-xl p-4 md:p-6 border border-slate-700/50">
-              <h3 className="text-lg font-bold mb-4">Результаты поиска</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 max-h-[60vh] overflow-y-auto pr-2">
-                {searchResults.map(movie => (
-                  <div key={movie.id} className="bg-slate-900/50 rounded-lg overflow-hidden hover:scale-105 transition-transform">
-                    <div className="aspect-[2/3] w-full bg-slate-800">
-                      <img src={movie.poster_path ? `${TMDB_IMAGE_BASE}${movie.poster_path}` : 'https://via.placeholder.com/300x450?text=Нет+постера'} alt={movie.title} className="w-full h-full object-contain" loading="lazy" />
-                    </div>
-                    <div className="p-3">
-                      <h4 className="font-semibold text-xs md:text-sm mb-2 line-clamp-2">{movie.title}</h4>
-                      <button onClick={() => addMovie(movie)} className="w-full bg-orange-500 hover:bg-orange-600 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors">+ В список</button>
-                    </div>
-                  </div>
-                ))}
+          <div className="w-32"></div>
+        </div>
+      </header>
+
+      {/* ОСНОВНОЙ КОНТЕНТ */}
+      <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 pb-24 md:pb-6">
+        {/* ============ ВКЛАДКА: ФИЛЬМЫ ============ */}
+        {activeTab === 'movies' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-white">Мои фильмы</h2>
+              <div className="text-sm text-slate-400">{movies.length} фильмов</div>
+            </div>
+
+            <div className="flex gap-2 bg-slate-800/50 rounded-xl p-1.5">
+              <button
+                onClick={() => setMovieFilter('all')}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  movieFilter === 'all'
+                    ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Все ({movies.length})
+              </button>
+              <button
+                onClick={() => setMovieFilter('watchlist')}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  movieFilter === 'watchlist'
+                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Буду смотреть ({watchlistCount})
+              </button>
+              <button
+                onClick={() => setMovieFilter('watched')}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  movieFilter === 'watched'
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Просмотрено ({watchedCount})
+              </button>
+            </div>
+
+            {filteredMovies.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="text-6xl mb-4">🎬</div>
+                <p className="text-slate-400">
+                  {movieFilter === 'all' 
+                    ? 'Список пуст. Найди свой первый фильм!'
+                    : movieFilter === 'watchlist'
+                    ? 'Нет фильмов в списке "Буду смотреть"'
+                    : 'Нет просмотренных фильмов'}
+                </p>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                {filteredMovies.map(movie => (
+                  <div key={movie.id} className="group relative bg-slate-800/50 rounded-lg overflow-hidden hover:scale-105 transition-transform">
+                    {movie.posterUrl ? (
+                      <img src={movie.posterUrl} alt={movie.title} className="w-full aspect-[2/3] object-cover" />
+                    ) : (
+                      <div className="w-full aspect-[2/3] bg-slate-700 flex items-center justify-center text-4xl">🎬</div>
+                    )}
+                    
+                    <div className={`absolute top-2 right-2 w-3 h-3 rounded-full ${
+                      movie.status === 'WATCHED' ? 'bg-green-500' : 'bg-blue-500'
+                    }`}></div>
 
-          {filteredMovies.length === 0 ? (
-            <div className="text-center py-12 text-slate-400">
-              <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /></svg>
-              <p className="text-lg">Список пуст. Добавь свой первый фильм!</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 md:gap-4">
-              {filteredMovies.map(movie => (
-                <div key={movie.id} className="bg-slate-800/50 backdrop-blur-sm rounded-xl overflow-hidden border border-slate-700/50 hover:border-orange-500/50 transition-all group">
-                  <div className="relative bg-slate-900">
-                    <div className="aspect-[2/3] w-full overflow-hidden">
-                      <img src={movie.posterUrl || 'https://via.placeholder.com/300x450?text=Нет+постера'} alt={movie.title} className="w-full h-full object-contain" loading="lazy" />
-                    </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 md:p-4">
-                      <div className="flex gap-1.5 md:gap-2">
-                        <button onClick={() => toggleStatus(movie)} className="flex-1 bg-orange-500 hover:bg-orange-600 py-1.5 md:py-2 rounded-lg text-[10px] md:text-sm font-medium transition-colors">
-                          {movie.status === 'WATCHED' ? '📌 В планы' : '✅ Просмотрено'}
-                        </button>
-                        <button onClick={() => deleteMovie(movie.id)} className="bg-red-500/80 hover:bg-red-600 px-2 md:px-3 py-1.5 md:py-2 rounded-lg transition-colors">
-                          <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2">
+                      <div className="text-xs font-semibold text-white line-clamp-2 mb-1">{movie.title}</div>
+                      <div className="flex gap-1">
+                        {movie.status === 'WATCHLIST' ? (
+                          <button
+                            onClick={() => updateMovieStatus(movie.id, 'WATCHED')}
+                            className="text-xs bg-green-500/80 hover:bg-green-500 px-2 py-1 rounded text-white"
+                          >
+                            ✓ Просмотрен
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => updateMovieStatus(movie.id, 'WATCHLIST')}
+                            className="text-xs bg-blue-500/80 hover:bg-blue-500 px-2 py-1 rounded text-white"
+                          >
+                            📋 В список
+                          </button>
+                        )}
+                        <button
+                          onClick={() => deleteMovie(movie.id)}
+                          className="text-xs bg-red-500/80 hover:bg-red-500 px-2 py-1 rounded text-white"
+                        >
+                          Удалить
                         </button>
                       </div>
                     </div>
                   </div>
-                  <div className="p-2 md:p-4">
-                    <h3 className="font-bold text-xs md:text-base line-clamp-2 leading-tight flex-1 pr-1 mb-1">{movie.title}</h3>
-                    <div className="flex items-center justify-between">
-                      <span className={`text-[9px] md:text-xs px-1.5 md:px-2 py-0.5 md:py-1 rounded whitespace-nowrap ${movie.status === 'WATCHED' ? 'bg-green-500/20 text-green-400' : 'bg-orange-500/20 text-orange-400'}`}>
-                        {movie.status === 'WATCHED' ? 'Просмотрено' : 'В планах'}
-                      </span>
-                    </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ============ ВКЛАДКА: ПОИСК ============ */}
+        {activeTab === 'search' && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-white">Поиск фильмов</h2>
+            
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  searchMovies(e.target.value);
+                }}
+                placeholder="Введите название фильма..."
+                className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 pl-11 text-white placeholder:text-slate-500 focus:outline-none focus:border-orange-500"
+              />
+              <svg className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+
+            {searchResults.length > 0 ? (
+              <>
+                {!searchQuery.trim() && (
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-semibold text-white">🔥 Популярные фильмы</h3>
+                    <div className="text-sm text-slate-400">Топ-20</div>
                   </div>
+                )}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                  {searchResults.map(movie => {
+                    const isAdded = addedMovieIds.has(movie.id);
+                    
+                    return (
+                      <div key={movie.id} className="group relative bg-slate-800/50 rounded-lg overflow-hidden hover:scale-105 transition-transform">
+                        {movie.poster_path ? (
+                          <img src={`https://image.tmdb.org/t/p/w300${movie.poster_path}`} alt={movie.title} className="w-full aspect-[2/3] object-cover" />
+                        ) : (
+                          <div className="w-full aspect-[2/3] bg-slate-700 flex items-center justify-center text-4xl">🎬</div>
+                        )}
+                        
+                        {isAdded && (
+                          <div className="absolute top-2 right-2 z-20 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold flex items-center gap-1 shadow-lg">
+                            ✓ В списке
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                deleteMovieByTmdbId(movie.id);
+                              }}
+                              className="ml-1 bg-red-500 hover:bg-red-600 rounded-full w-5 h-5 flex items-center justify-center transition-colors text-white"
+                              title="Удалить из списка"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col justify-end p-2">
+                          <div className="text-xs font-semibold text-white line-clamp-2 mb-2">{movie.title}</div>
+                          {isAdded ? (
+                            <div className="text-xs text-green-400 font-medium">✓ Уже в твоём списке</div>
+                          ) : (
+                            <button
+                              onClick={() => addMovie({
+                                tmdbId: movie.id,
+                                title: movie.title,
+                                posterUrl: movie.poster_path ? `https://image.tmdb.org/t/p/w300${movie.poster_path}` : null,
+                                status: 'WATCHLIST'
+                              })}
+                              className="text-xs bg-orange-500 hover:bg-orange-600 px-2 py-1 rounded text-white"
+                            >
+                              + В список
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
+              </>
+            ) : searchQuery ? (
+              <div className="text-center py-12 text-slate-400">Ничего не найдено</div>
+            ) : (
+              <div className="text-center py-12 text-slate-400">
+                <div className="text-6xl mb-4">🔍</div>
+                <p>Загрузка популярных фильмов...</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ============ ВКЛАДКА: ДРУЗЬЯ ============ */}
+        {activeTab === 'friends' && (
+          <div className="max-w-2xl mx-auto">
+            <FriendsPanel onUserClick={setSelectedUserId} />
+          </div>
+        )}
+
+        {/* ============ ВКЛАДКА: ПРОФИЛЬ ============ */}
+        {activeTab === 'profile' && (
+          <div className="max-w-2xl mx-auto space-y-6">
+            <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center text-3xl font-bold text-white">
+                  {user?.username?.[0]?.toUpperCase() || 'U'}
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">{user?.username}</h2>
+                  <p className="text-slate-400 text-sm">{user?.email}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="bg-slate-900/50 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-orange-400">{movies.length}</div>
+                  <div className="text-xs text-slate-400">Фильмов</div>
+                </div>
+                <div className="bg-slate-900/50 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-purple-400">0</div>
+                  <div className="text-xs text-slate-400">Друзей</div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedUserId(user?.id)}
+                className="w-full bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-medium mb-3 transition-colors"
+              >
+                Редактировать профиль
+              </button>
+
+              <button
+                onClick={logout}
+                className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 py-3 rounded-lg font-medium transition-colors"
+              >
+                Выйти из аккаунта
+              </button>
             </div>
-          )}
-        </main>
+          </div>
+        )}
+      </main>
 
-        {/* Правый сайдбар */}
-        <aside className="hidden xl:block xl:col-span-3 space-y-6">
-          <FriendsPanel onUserClick={setSelectedUserId} />
-        </aside>
-
-        {/* Модальное окно профиля */}
-{selectedUserId && (
-  <ProfileModal 
-    userId={selectedUserId} 
-    onClose={() => setSelectedUserId(null)} 
-  />
-)}
-      </div>
-
-      {/* Мобильная нижняя навигация */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700/50 px-6 py-2 z-50">
-        <div className="flex justify-around items-center">
-          <button onClick={() => { setActiveTab('all'); setShowSearch(false); }} className={`flex flex-col items-center gap-1 p-2 ${activeTab === 'all' && !showSearch ? 'text-orange-400' : 'text-slate-400'}`}>
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-            <span className="text-[10px]">Все</span>
-          </button>
-          <button onClick={() => { setActiveTab('watched'); setShowSearch(false); }} className={`flex flex-col items-center gap-1 p-2 ${activeTab === 'watched' ? 'text-orange-400' : 'text-slate-400'}`}>
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            <span className="text-[10px]">Просмотрено</span>
-          </button>
-          <button onClick={() => setShowSearch(!showSearch)} className="flex flex-col items-center justify-center -mt-6">
-            <div className="bg-orange-500 hover:bg-orange-600 rounded-full p-4 shadow-lg shadow-orange-500/40 transition-colors">
-              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-            </div>
-          </button>
-          <button onClick={() => { setActiveTab('watchlist'); setShowSearch(false); }} className={`flex flex-col items-center gap-1 p-2 ${activeTab === 'watchlist' ? 'text-orange-400' : 'text-slate-400'}`}>
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
-            <span className="text-[10px]">Планы</span>
-          </button>
-          <button onClick={logout} className="flex flex-col items-center gap-1 p-2 text-slate-400">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-            <span className="text-[10px]">Выйти</span>
-          </button>
+      {/* МОБИЛЬНЫЙ НИЖНИЙ БАР */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800 z-40">
+        <div className="flex justify-around items-center py-2">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${
+                activeTab === tab.id
+                  ? 'text-orange-400'
+                  : 'text-slate-500'
+              }`}
+            >
+              <span className="text-xl">{tab.icon}</span>
+              <span className="text-xs font-medium">{tab.label}</span>
+            </button>
+          ))}
         </div>
       </nav>
+
+      {/* МОДАЛЬНОЕ ОКНО ПРОФИЛЯ */}
+      {selectedUserId && (
+        <ProfileModal
+          userId={selectedUserId}
+          onClose={() => setSelectedUserId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -321,12 +455,10 @@ function MovieTracker() {
 function App() {
   const { token, user } = useAuth();
 
-  // Если токен есть, но пользователь НЕ подтвердил почту — показываем экран входа (он сам переключится на код)
   if (token && user && !user.isVerified) {
     return <AuthScreen />;
   }
 
-  // Иначе показываем либо фильмы, либо экран входа
   return token ? <MovieTracker /> : <AuthScreen />;
 }
 
@@ -337,3 +469,7 @@ export default function Root() {
     </AuthProvider>
   );
 }
+
+
+
+
