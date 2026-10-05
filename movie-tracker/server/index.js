@@ -5,7 +5,7 @@ require('dotenv').config();
 
 const app = express();
 const prisma = new PrismaClient();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3001; 
 
 // 1. Настройки CORS (разрешаем запросы с Vercel и везде)
 app.use(cors({
@@ -63,6 +63,44 @@ app.post('/api/movies', async (req, res) => {
   } catch (error) {
     console.error('Ошибка при добавлении фильма:', error);
     res.status(500).json({ error: 'Could not add movie' });
+  }
+});
+
+// Удалить фильм
+app.delete('/api/movies/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    await prisma.userMovie.delete({
+      where: { id }
+    });
+    
+    res.json({ message: 'Фильм удален' });
+  } catch (error) {
+    console.error('Ошибка при удалении фильма:', error);
+    res.status(500).json({ error: 'Could not delete movie' });
+  }
+});
+
+// Изменить статус фильма
+app.put('/api/movies/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!['WATCHED', 'WATCHLIST'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+    
+    const updatedMovie = await prisma.userMovie.update({
+      where: { id },
+      data: { status }
+    });
+    
+    res.json(updatedMovie);
+  } catch (error) {
+    console.error('Ошибка при обновлении статуса:', error);
+    res.status(500).json({ error: 'Could not update status' });
   }
 });
 

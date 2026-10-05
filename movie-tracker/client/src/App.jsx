@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 
+
+
 // ВСТАВЬ СЮДА СВОЙ API КЛЮЧ ОТ TMDB
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const TMDB_API_KEY = '64608a2a9d2e16b7cd99fcde547034f3' 
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
 
@@ -18,7 +21,7 @@ function App() {
 
   const fetchMovies = async () => {
     try {
-      const response = await fetch('https://movie-watch-tracker.onrender.com/api/movies')
+      const response = await fetch(`${API_URL}/api/movies`)
       const data = await response.json()
       setMovies(data)
     } catch (error) {
@@ -50,7 +53,7 @@ function App() {
   // Добавление выбранного фильма на наш бэкенд
   const addMovie = async (movie) => {
     try {
-      const response = await fetch('https://movie-watch-tracker.onrender.com/api/movies', {
+      const response = await fetch(`${API_URL}/api/movies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -74,6 +77,48 @@ function App() {
       alert('Не удалось связаться с сервером')
     }
   }
+
+    // Удаление фильма
+  const deleteMovie = async (movieId) => {
+    if (!confirm('Удалить этот фильм из списка?')) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/api/movies/${movieId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        fetchMovies(); // Обновляем список
+      } else {
+        alert('Ошибка при удалении фильма');
+      }
+    } catch (error) {
+      console.error('Ошибка:', error);
+      alert('Не удалось связаться с сервером');
+    }
+  };
+
+  // Переключение статуса
+  const toggleStatus = async (movie) => {
+    const newStatus = movie.status === 'WATCHED' ? 'WATCHLIST' : 'WATCHED';
+    
+    try {
+      const response = await fetch(`${API_URL}/api/movies/${movie.id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      
+      if (response.ok) {
+        fetchMovies(); // Обновляем список
+      } else {
+        alert('Ошибка при изменении статуса');
+      }
+    } catch (error) {
+      console.error('Ошибка:', error);
+      alert('Не удалось связаться с сервером');
+    }
+  };
 
   return (
     <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif', maxWidth: '900px', margin: '0 auto' }}>
@@ -162,20 +207,54 @@ function App() {
                 alt={movie.title} 
                 style={{ width: '100%', height: '270px', objectFit: 'cover' }} 
               />
+
               <div style={{ padding: '10px' }}>
-                <h3 style={{ margin: '0 0 10px 0', fontSize: '15px' }}>{movie.title}</h3>
-                <span style={{ 
-                  display: 'inline-block', 
-                  padding: '4px 8px', 
-                  borderRadius: '4px', 
-                  fontSize: '12px', 
-                  fontWeight: 'bold',
-                  backgroundColor: movie.status === 'WATCHED' ? '#4CAF50' : '#FF9800',
-                  color: 'white'
-                }}>
-                  {movie.status === 'WATCHED' ? '✅ Просмотрено' : '📌 Буду смотреть'}
-                </span>
-              </div>
+  <h3 style={{ margin: '0 0 10px 0', fontSize: '15px' }}>{movie.title}</h3>
+  <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '8px' }}>
+    <button
+      onClick={() => toggleStatus(movie)}
+      style={{
+        padding: '6px 10px',
+        borderRadius: '4px',
+        fontSize: '12px',
+        fontWeight: 'bold',
+        backgroundColor: movie.status === 'WATCHED' ? '#FF9800' : '#4CAF50',
+        color: 'white',
+        border: 'none',
+        cursor: 'pointer'
+      }}
+    >
+      {movie.status === 'WATCHED' ? '📌 В планы' : '✅ Просмотрено'}
+    </button>
+    <button
+      onClick={() => deleteMovie(movie.id)}
+      style={{
+        padding: '6px 10px',
+        borderRadius: '4px',
+        fontSize: '12px',
+        fontWeight: 'bold',
+        backgroundColor: '#f44336',
+        color: 'white',
+        border: 'none',
+        cursor: 'pointer'
+      }}
+    >
+      🗑️ Удалить
+    </button>
+  </div>
+  <span style={{
+    display: 'inline-block',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    backgroundColor: movie.status === 'WATCHED' ? '#4CAF50' : '#FF9800',
+    color: 'white'
+  }}>
+    {movie.status === 'WATCHED' ? '✅ Просмотрено' : '📌 Буду смотреть'}
+  </span>
+</div>
+           
             </div>
           ))}
         </div>
