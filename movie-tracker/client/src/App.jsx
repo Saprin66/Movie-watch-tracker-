@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import AuthScreen from './components/AuthScreen';
 import FriendsPanel from './components/FriendsPanel';
 import ProfileModal from './components/ProfileModal';
+import mammoth from 'mammoth';
 
 
 
@@ -14,7 +15,8 @@ const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
 
 
 
-// ============ ГЛАВНЫЙ КОМПОНЕНТ С ВКЛАДКАМИ ============
+
+// ============ ГЛАВНЫЙ КОМПОНЕНТ С ВКЛАДКАМИ ============cd 
 function MovieTracker() {
   const { user, token, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('movies');
@@ -23,6 +25,11 @@ function MovieTracker() {
   const [searchResults, setSearchResults] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [movieFilter, setMovieFilter] = useState('all');
+  
+  // Состояния для импорта
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+  const [importResult, setImportResult] = useState(null); // { success: [], failed: [], skipped: [] }
 
   // Загрузка фильмов при переключении на вкладку фильмов или поиска
   useEffect(() => {
@@ -125,6 +132,141 @@ function MovieTracker() {
       console.error('Ошибка поиска:', error);
     }
   };
+
+  // ============ ИМПОРТ ИЗ DOCX ============
+  // ============ ИМПОРТ ИЗ DOCX ИЛИ TXT ============
+// ============ ИМПОРТ ИЗ TXT/DOCX ============
+const handleDocxImport = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  setImporting(true);
+  setImportProgress({ current: 0, total: 0 });
+  setImportResult(null);
+
+  const success = [];
+  const failed = [];
+  const skipped = [];
+
+  try {
+    const text = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = (e) => reject(e);
+      reader.readAsText(file, 'UTF-8');
+    });
+
+    console.log(' Сырой текст (первые 500 символов):', text.substring(0, 500));
+
+    // Убираем BOM и все невидимые символы Word
+    let cleanText = text
+      .replace(/^\uFEFF/, '')  // BOM в начале
+      .replace(/[\uFEFF\u200B\u200C\u200D\u00A0\u202F\u2060]/g, '')  // невидимые символы
+      .replace(/\r\n/g, '\n')  // Windows переносы
+      .replace(/\r/g, '\n');   // Mac старые переносы
+
+    // Разделяем по переносам строк
+    const lines = cleanText.split('\n')
+      .map(l => l.trim())  // убираем пробелы в начале/конце
+      .filter(l => l.length > 0);  // убираем пустые
+
+    console.log('📝 Найдено строк:', lines.length);
+    console.log('📋 Первые 5 строк:', lines.slice(0, 5));
+
+    const parsedMovies = [];
+    
+    for (const line of lines) {
+      // Пропускаем заголовок "Фильмы"
+      if (line.toLowerCase() === 'фильмы') continue;
+      
+      // Регулярка: ищем оценку в конце строки
+      // Поддерживает: 8/10, 7.5/10, 7,8/10, 6.5, 9.5, 7,8
+      const ratingMatch = line.match(/\s+(\d+[.,]\d+|\d+)\s*(?:\/\s*\d+)?\s*$/);
+      
+      if (ratingMatch) {
+        const ratingStr = ratingMatch[1].replace(',', '.');
+        const rating = parseFloat(ratingStr);
+        const title = line.replace(ratingMatch[0], '').trim();
+        
+        if (title.length > 0 && rating >= 1 && rating <= 10) {
+          parsedMovies.push({ title, status: 'WATCHED' });
+        } else if (title.length > 0) {
+          parsedMovies.push({ title, status: 'WATCHLIST' });
+        }
+      } else {
+        // Нет оценки → буду смотреть
+        const title = line.replace(/\s*[+]+\s*$/, '').trim();
+        if (title.length > 0) {
+          parsedMovies.push({ title, status: 'WATCHLIST' });
+        }
+      }
+    }
+
+    console.log('🎬 Распознано фильмов:', parsedMovies.length);
+    console.log('📋 Примеры:', parsedMovies.slice(0, 5));
+
+    if (parsedMovies.length === 0) {
+      alert('❌ Не удалось найти фильмы в файле.');
+      setImporting(false);
+      return;
+    }
+
+    setImportProgress({ current: 0, total: parsedMovies.length });
+
+    for (let i = 0; i < parsedMovies.length; i++) {
+      const { title, status } = parsedMovies[i];
+      
+      try {
+        const searchRes = await fetch(
+          `https://api.themoviedb.org/3/search/movie?api_key=8265bd1679663a7ea12ac168da84d2e8&query=${encodeURIComponent(title)}&language=ru-RU`
+        );
+        const searchData = await searchRes.json();
+        
+        if (searchData.results && searchData.results.length > 0) {
+          const movie = searchData.results[0];
+          
+          const alreadyAdded = movies.some(m => m.tmdbId === movie.id);
+          if (alreadyAdded) {
+            skipped.push({ title, tmdbTitle: movie.title });
+          } else {
+            await fetch(`${API_URL}/api/movies`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                tmdbId: movie.id,
+                title: movie.title,
+                posterUrl: movie.poster_path ? `https://image.tmdb.org/t/p/w300${movie.poster_path}` : null,
+                status
+              })
+            });
+            success.push({ title, tmdbTitle: movie.title, status });
+            setMovies(prev => [...prev, { tmdbId: movie.id, title: movie.title, status }]);
+          }
+        } else {
+          failed.push({ title });
+        }
+      } catch (err) {
+        console.error('Ошибка обработки фильма:', title, err);
+        failed.push({ title });
+      }
+
+      setImportProgress(prev => ({ ...prev, current: i + 1 }));
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+
+    await fetchMovies();
+    setImportResult({ success, failed, skipped });
+  } catch (error) {
+    console.error('❌ Ошибка импорта:', error);
+    alert(`❌ Ошибка при чтении файла: ${error.message}`);
+  } finally {
+    setImporting(false);
+    event.target.value = '';
+  }
+};
 
   const filteredMovies = movies.filter(movie => {
     if (movieFilter === 'all') return true;
@@ -403,6 +545,45 @@ function MovieTracker() {
                 </div>
               </div>
 
+              {/* Импорт фильмов из DOCX */}
+              <div className="bg-slate-900/50 rounded-lg p-4 mb-4">
+                <h3 className="text-sm font-semibold text-white mb-2">📥 Импорт фильмов из DOCX</h3>
+                <p className="text-xs text-slate-400 mb-3">
+                  Загрузите файл со списком фильмов. Формат:<br/>
+                  <code className="text-orange-400">Название фильма 9</code> → Просмотрено<br/>
+                  <code className="text-orange-400">Название фильма</code> → Буду смотреть
+                </p>
+               <label className={`block w-full text-center py-3 rounded-lg font-medium transition-colors cursor-pointer ${
+  importing 
+    ? 'bg-slate-700 text-slate-400 cursor-not-allowed' 
+    : 'bg-orange-500 hover:bg-orange-600 text-white'
+}`}>
+  {importing 
+    ? `Импорт... ${importProgress.current}/${importProgress.total}` 
+    : '📄 Выбрать файл (TXT или DOCX)'}
+  <input
+    type="file"
+    accept=".txt,.docx"
+    onChange={handleDocxImport}
+    disabled={importing}
+    className="hidden"
+  />
+</label>
+                {importing && importProgress.total > 0 && (
+                  <div className="mt-3">
+                    <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+                      <div 
+                        className="bg-gradient-to-r from-orange-500 to-pink-500 h-full transition-all duration-300"
+                        style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                      ></div>
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1 text-center">
+                      Обработано {importProgress.current} из {importProgress.total}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={() => setSelectedUserId(user?.id)}
                 className="w-full bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-medium mb-3 transition-colors"
@@ -447,6 +628,89 @@ function MovieTracker() {
           userId={selectedUserId}
           onClose={() => setSelectedUserId(null)}
         />
+      )}
+
+      {/* МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТОВ ИМПОРТА */}
+      {importResult && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto border border-slate-700">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-white">📊 Результаты импорта</h3>
+                <button 
+                  onClick={() => setImportResult(null)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Статистика */}
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-green-400">{importResult.success.length}</div>
+                  <div className="text-xs text-slate-400">Добавлено</div>
+                </div>
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-blue-400">{importResult.skipped.length}</div>
+                  <div className="text-xs text-slate-400">Пропущено</div>
+                </div>
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-red-400">{importResult.failed.length}</div>
+                  <div className="text-xs text-slate-400">Не найдено</div>
+                </div>
+              </div>
+
+              {/* Успешно добавленные */}
+              {importResult.success.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-green-400 mb-2">✅ Добавленные фильмы:</h4>
+                  <div className="bg-slate-800/50 rounded-lg p-3 max-h-32 overflow-y-auto space-y-1">
+                    {importResult.success.map((m, i) => (
+                      <div key={i} className="text-xs text-slate-300 flex justify-between">
+                        <span className="truncate">{m.tmdbTitle}</span>
+                        <span className={`text-xs ml-2 ${m.status === 'WATCHED' ? 'text-green-400' : 'text-blue-400'}`}>
+                          {m.status === 'WATCHED' ? '👁' : '📋'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Пропущенные (дубликаты) */}
+              {importResult.skipped.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-blue-400 mb-2">⏭️ Уже в списке:</h4>
+                  <div className="bg-slate-800/50 rounded-lg p-3 max-h-32 overflow-y-auto space-y-1">
+                    {importResult.skipped.map((m, i) => (
+                      <div key={i} className="text-xs text-slate-300 truncate">{m.tmdbTitle}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Не найдены */}
+              {importResult.failed.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-red-400 mb-2">❌ Не удалось найти:</h4>
+                  <div className="bg-slate-800/50 rounded-lg p-3 max-h-32 overflow-y-auto space-y-1">
+                    {importResult.failed.map((m, i) => (
+                      <div key={i} className="text-xs text-slate-300 truncate">{m.title}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={() => setImportResult(null)}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-lg font-medium transition-colors"
+              >
+                Понятно
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
