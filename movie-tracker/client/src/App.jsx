@@ -8,8 +8,10 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY || '8265bd1679663a7ea12ac168da84d2e8';
 const TMDB = 'https://api.themoviedb.org/3';
 const POSTER = 'https://image.tmdb.org/t/p/w300';
+const BACKDROP = 'https://image.tmdb.org/t/p/w1280';
 
-// Иконки: картинки по ссылке (Lucide через CDN). invert делает их белыми на тёмном фоне.
+
+
 const ORANGE_FILTER = '[filter:invert(1)_sepia(1)_saturate(6)_hue-rotate(335deg)]';
 const Icon = ({ n, className = 'w-4 h-4' }) => (
   <img src={`https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/${n}.svg`} alt="" className={`${className} invert shrink-0`} />
@@ -18,7 +20,6 @@ const Icon = ({ n, className = 'w-4 h-4' }) => (
 const BTN_ORANGE = 'bg-[#f47c4f] hover:bg-[#ff8f66] text-[#1a1020] font-semibold';
 const BTN_SOFT = 'bg-white/5 hover:bg-white/10 text-[#c9cce6]';
 const BTN_RED = 'bg-red-500/15 hover:bg-red-500/30 text-red-300';
-const BTN_GREEN = 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300';
 const PANEL = 'bg-[#171a33] border border-white/5 rounded-xl';
 
 function Chip({ children, tone = 'soft' }) {
@@ -31,10 +32,10 @@ function Chip({ children, tone = 'soft' }) {
   return <span className={`px-2 py-0.5 rounded text-[11px] ${tones[tone]}`}>{children}</span>;
 }
 
-function MovieCard({ poster, title, chips, footerLeft, actions }) {
+function MovieCard({ poster, title, chips, footerLeft, actions, onClick }) {
   return (
     <div className="group relative bg-[#1c2040] border border-white/5 rounded-xl overflow-hidden transition hover:border-[#f47c4f]/40">
-      <div className="relative">
+      <div className="relative cursor-pointer" onClick={onClick}>
         {poster ? (
           <img src={poster} alt={title} loading="lazy" className="w-full aspect-[2/3] object-cover" />
         ) : (
@@ -45,9 +46,11 @@ function MovieCard({ poster, title, chips, footerLeft, actions }) {
         <div className="absolute top-1.5 left-1.5 flex flex-col items-start gap-1 [&>span]:bg-[#0f1226]/85 [&>span]:text-[10px] [&>span]:px-1.5 [&>span]:py-px">
           {chips}
         </div>
-        <div className="absolute inset-x-0 bottom-0 p-1.5 flex gap-1 bg-gradient-to-t from-black/90 to-transparent pt-8 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
-          {actions}
-        </div>
+        {actions && (
+          <div className="absolute inset-x-0 bottom-0 p-1.5 flex gap-1 bg-gradient-to-t from-black/90 to-transparent pt-8 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
+            {actions}
+          </div>
+        )}
       </div>
       <div className="px-2 py-1.5">
         <div className="text-xs font-semibold text-white truncate" title={title}>{title}</div>
@@ -68,6 +71,137 @@ const Avatar = ({ name, size = 'w-10 h-10', text = 'text-sm' }) => (
   </div>
 );
 
+// Модальное окно с деталями фильма
+function MovieDetailsModal({ movie, onClose, onAdd }) {
+  const [details, setDetails] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!movie) return;
+    setLoading(true);
+    const endpoint = movie.media_type === 'tv' ? `${TMDB}/tv/${movie.id}` : `${TMDB}/movie/${movie.id}`;
+    fetch(`${endpoint}?api_key=${TMDB_API_KEY}&language=ru-RU&append_to_response=credits`)
+      .then(res => res.json())
+      .then(data => {
+        setDetails(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Ошибка загрузки деталей:', err);
+        setLoading(false);
+      });
+  }, [movie]);
+
+  if (!movie) return null;
+
+  const title = details?.title || details?.name || movie.title || movie.name;
+  const year = (details?.release_date || details?.first_air_date || '').slice(0, 4);
+  const runtime = details?.runtime ? `${Math.floor(details.runtime / 60)}ч ${details.runtime % 60}м` : 
+                  details?.episode_run_time?.[0] ? `${details.episode_run_time[0]}м/эп` : null;
+  const rating = details?.vote_average?.toFixed(1);
+  const overview = details?.overview || 'Описание отсутствует';
+  const genres = details?.genres || [];
+  const director = details?.credits?.crew?.find(c => c.job === 'Director')?.name;
+  const cast = details?.credits?.cast?.slice(0, 5).map(c => c.name).join(', ');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
+      <div 
+        className="bg-[#171a33] border border-white/10 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {details?.backdrop_path && (
+          <div className="relative h-64 sm:h-80">
+            <img 
+              src={`${BACKDROP}${details.backdrop_path}`} 
+              alt="" 
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#171a33] via-[#171a33]/60 to-transparent" />
+            <button 
+              onClick={onClose}
+              className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+            >
+              <Icon n="x" className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+
+        <div className="p-6 sm:p-8 -mt-20 relative">
+          <div className="flex flex-col sm:flex-row gap-6">
+            {details?.poster_path && (
+              <img 
+                src={`${POSTER}${details.poster_path}`} 
+                alt={title}
+                className="w-40 sm:w-48 rounded-xl shadow-2xl border border-white/10 shrink-0"
+              />
+            )}
+
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                {year && <Chip>{year}</Chip>}
+                {runtime && <Chip tone="orange">{runtime}</Chip>}
+                {rating && (
+                  <span className="flex items-center gap-1 text-sm text-yellow-400">
+                    <Icon n="star" className="w-4 h-4" /> {rating}
+                  </span>
+                )}
+                {movie.media_type === 'tv' && <Chip tone="orange">Сериал</Chip>}
+              </div>
+
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">{title}</h2>
+
+              {genres.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {genres.map(g => (
+                    <span key={g.id} className="text-xs text-[#8a90b8] bg-white/5 px-2 py-1 rounded">
+                      {g.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <p className="text-sm text-[#c9cce6] leading-relaxed mb-4">{overview}</p>
+
+              {director && (
+                <div className="text-xs text-[#8a90b8] mb-1">
+                  <span className="text-[#6f759e]">Режиссёр:</span> {director}
+                </div>
+              )}
+              {cast && (
+                <div className="text-xs text-[#8a90b8] mb-4">
+                  <span className="text-[#6f759e]">В ролях:</span> {cast}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-4 border-t border-white/5">
+                <button
+                  onClick={() => {
+                    onAdd('WATCHED');
+                    onClose();
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300"
+                >
+                  <Icon n="check" className="w-4 h-4" /> Смотрел
+                </button>
+                <button
+                  onClick={() => {
+                    onAdd('WATCHLIST');
+                    onClose();
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors bg-[#f47c4f]/15 hover:bg-[#f47c4f]/25 text-[#f47c4f]"
+                >
+                  <Icon n="bookmark" className="w-4 h-4" /> В список
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MovieTracker() {
   const { user, token, logout, getFriends } = useAuth();
   const [activeTab, setActiveTab] = useState('movies');
@@ -80,6 +214,7 @@ function MovieTracker() {
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [importResult, setImportResult] = useState(null);
+  const [selectedMovie, setSelectedMovie] = useState(null);
 
   useEffect(() => {
     if (token && (activeTab === 'movies' || activeTab === 'search')) fetchMovies();
@@ -164,7 +299,7 @@ function MovieTracker() {
       return;
     }
     try {
-      const res = await fetch(`${TMDB}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=ru-RU`);
+      const res = await fetch(`${TMDB}/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=ru-RU`);
       const data = await res.json();
       setSearchResults(data.results || []);
     } catch (error) {
@@ -286,9 +421,9 @@ function MovieTracker() {
   const addedMovieIds = new Set(movies.map(m => m.tmdbId));
 
   const navItems = [
-    { id: 'movies', label: 'Мой журнал', icon: 'layout-dashboard' },
-    { id: 'search', label: 'Открыть', icon: 'compass' },
-    { id: 'friends', label: 'Сообщество', icon: 'users' },
+    { id: 'movies', label: 'Мой список', icon: 'layout-dashboard' },
+    { id: 'search', label: 'Искать', icon: 'compass' },
+    { id: 'friends', label: 'Друзья', icon: 'users' },
     { id: 'profile', label: 'Профиль', icon: 'settings' }
   ];
 
@@ -300,7 +435,6 @@ function MovieTracker() {
 
   return (
     <div className="min-h-screen bg-[#0f1226] bg-[radial-gradient(ellipse_at_top_left,rgba(244,124,79,0.12),transparent_50%)] text-[#c9cce6]">
-      {/* Верхняя панель */}
       <header className="sticky top-0 z-40 bg-[#131631]/95 backdrop-blur border-b border-white/5">
         <div className="flex items-center gap-4 px-4 lg:px-6 h-16">
           <div className="flex items-center gap-2 lg:w-52 shrink-0">
@@ -339,7 +473,6 @@ function MovieTracker() {
       </header>
 
       <div className="flex">
-        {/* Левая колонка: журнал и навигация */}
         <aside className="hidden lg:block w-64 shrink-0 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto border-r border-white/5 bg-[#101328] p-5">
           <h2 className="text-xl font-semibold text-white mb-4">Журнал {user?.username}</h2>
           <div className="flex items-center gap-3 mb-5">
@@ -379,7 +512,6 @@ function MovieTracker() {
           </nav>
         </aside>
 
-        {/* Центр */}
         <main className="flex-1 min-w-0 px-4 lg:px-8 py-6 pb-28 lg:pb-8">
           {activeTab === 'movies' && (
             <div className="space-y-5">
@@ -470,7 +602,7 @@ function MovieTracker() {
             <div className="space-y-5">
               <div>
                 <h2 className="text-3xl font-semibold text-white">Открыть новое</h2>
-                <p className="text-sm text-[#8a90b8]">Найди фильм и добавь его в журнал</p>
+                <p className="text-sm text-[#8a90b8]">Нажми на карточку, чтобы узнать подробности и добавить</p>
               </div>
 
               {searchResults.length > 0 ? (
@@ -501,40 +633,12 @@ function MovieTracker() {
                               <Icon n="star" className="w-3.5 h-3.5 opacity-60" /> {movie.vote_average.toFixed(1)}
                             </>
                           ) : null}
+                          onClick={() => setSelectedMovie(movie)}
                           actions={isAdded ? (
-                            <button onClick={() => deleteMovieByTmdbId(movie.id)} className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] ${BTN_RED}`}>
+                            <button onClick={(e) => { e.stopPropagation(); deleteMovieByTmdbId(movie.id); }} className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] ${BTN_RED}`}>
                               <Icon n="x" className="w-3.5 h-3.5" /> Убрать
                             </button>
-                          ) : (
-                            <div className="flex gap-1 w-full">
-                              <button
-                                onClick={() => addMovie({
-                                  tmdbId: movie.id,
-                                  title,
-                                  posterUrl: movie.poster_path ? `${POSTER}${movie.poster_path}` : null,
-                                  status: 'WATCHED',
-                                  type: movie.media_type || 'movie'
-                                })}
-                                className="flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] transition-colors bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300"
-                                title="Отметить как просмотренное"
-                              >
-                                <Icon n="check" className="w-3.5 h-3.5" /> Смотрел
-                              </button>
-                              <button
-                                onClick={() => addMovie({
-                                  tmdbId: movie.id,
-                                  title,
-                                  posterUrl: movie.poster_path ? `${POSTER}${movie.poster_path}` : null,
-                                  status: 'WATCHLIST',
-                                  type: movie.media_type || 'movie'
-                                })}
-                                className="flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] transition-colors bg-[#f47c4f]/15 hover:bg-[#f47c4f]/25 text-[#f47c4f]"
-                                title="Добавить в список желаемого"
-                              >
-                                <Icon n="bookmark" className="w-3.5 h-3.5" /> В список
-                              </button>
-                            </div>
-                          )}
+                          ) : null}
                         />
                       );
                     })}
@@ -596,7 +700,6 @@ function MovieTracker() {
           )}
         </main>
 
-        {/* Правая колонка: друзья */}
         <aside className="hidden xl:block w-72 shrink-0 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto border-l border-white/5 bg-[#101328] p-5">
           <h3 className="text-lg font-semibold text-white mb-4">Друзья</h3>
           {friends.length === 0 ? (
@@ -624,7 +727,6 @@ function MovieTracker() {
         </aside>
       </div>
 
-      {/* Мобильная навигация */}
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#131631] border-t border-white/5 flex justify-around py-2">
         {navItems.map(item => (
           <button key={item.id} onClick={() => setActiveTab(item.id)} className="flex flex-col items-center gap-1 px-3 py-1">
@@ -636,6 +738,20 @@ function MovieTracker() {
 
       {selectedUserId && (
         <ProfileModal userId={selectedUserId} token={token} onClose={() => setSelectedUserId(null)} />
+      )}
+
+      {selectedMovie && (
+        <MovieDetailsModal
+          movie={selectedMovie}
+          onClose={() => setSelectedMovie(null)}
+          onAdd={(status) => addMovie({
+            tmdbId: selectedMovie.id,
+            title: selectedMovie.title || selectedMovie.name,
+            posterUrl: selectedMovie.poster_path ? `${POSTER}${selectedMovie.poster_path}` : null,
+            status,
+            type: selectedMovie.media_type || 'movie'
+          })}
+        />
       )}
 
       {importResult && (
