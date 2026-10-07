@@ -18,7 +18,8 @@ const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
 
 // ============ ГЛАВНЫЙ КОМПОНЕНТ С ВКЛАДКАМИ ============cd 
 function MovieTracker() {
-  const { user, token, logout } = useAuth();
+  const [friends, setFriends] = useState([]);
+  const { user, token, logout, getFriends } = useAuth();
   const [activeTab, setActiveTab] = useState('movies');
   const [movies, setMovies] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -44,6 +45,23 @@ function MovieTracker() {
       loadPopularMovies();
     }
   }, [token, activeTab]);
+
+  // Загрузка списка друзей
+useEffect(() => {
+  if (token && activeTab === 'profile') {
+    loadFriends();
+  }
+}, [token, activeTab]);
+
+const loadFriends = async () => {
+  try {
+    const data = await getFriends();
+    setFriends(Array.isArray(data) ? data : []);
+  } catch (error) {
+    console.error('Ошибка загрузки друзей:', error);
+    setFriends([]);
+  }
+};
 
   const fetchMovies = async () => {
     try {
@@ -626,6 +644,7 @@ const handleDocxImport = async (event) => {
       {selectedUserId && (
         <ProfileModal
           userId={selectedUserId}
+          token={token}
           onClose={() => setSelectedUserId(null)}
         />
       )}

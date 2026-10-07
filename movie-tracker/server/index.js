@@ -44,6 +44,23 @@ app.get('/api/movies', authMiddleware, async (req, res) => {
   }
 });
 
+// Получить фильмы конкретного пользователя (для просмотра профиля)
+app.get('/api/users/:userId/movies', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const userMovies = await prisma.userMovie.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    res.json(userMovies);
+  } catch (error) {
+    console.error('Ошибка загрузки фильмов пользователя:', error);
+    res.status(500).json({ error: 'Не удалось загрузить фильмы' });
+  }
+});
+
 // Добавить фильм
 app.post('/api/movies', authMiddleware, async (req, res) => {
   try {

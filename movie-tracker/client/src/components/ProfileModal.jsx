@@ -1,160 +1,141 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-export default function ProfileModal({ userId, onClose }) {
-  const { token, user: currentUser } = useAuth();
+export default function ProfileModal({ userId, token, onClose }) {
   const [profile, setProfile] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [bio, setBio] = useState('');
+  const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (userId) {
-      fetchProfile();
-    }
-  }, [userId]);
+    if (!userId) return;
 
-  const fetchProfile = async () => {
-    try {
-      const res = await fetch(`${API_URL}/api/users/${userId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      setProfile(data);
-      setBio(data.bio || '');
-    } catch (error) {
-      console.error('Ошибка:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const fetchData = async () => {
+      setLoading(true);
+      setError('');
+      
+      // Добавляем токен в заголовки, если он есть
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
-  const sendFriendRequest = async () => {
-    try {
-      await fetch(`${API_URL}/api/users/${userId}/friend-request`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+      try {
+        // 1. Загружаем профиль пользователя
+        const userRes = await fetch(`${API_URL}/api/users/${userId}`, { headers });
+        if (!userRes.ok) throw new Error('Не удалось загрузить профиль');
+        const userData = await userRes.json();
+        setProfile(userData);
+
+        // 2. Загружаем его фильмы
+        const moviesRes = await fetch(`${API_URL}/api/users/${userId}/movies`, { headers });
+        if (moviesRes.ok) {
+          const moviesData = await moviesRes.json();
+          setMovies(Array.isArray(moviesData) ? moviesData : []);
+        } else {
+          setMovies([]);
         }
-      });
-      fetchProfile();
-    } catch (error) {
-      console.error('Ошибка:', error);
+      } catch (err) {
+        console.error('Ошибка загрузки профиля:', err);
+        setError('Не удалось загрузить данные пользователя');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [userId, token]);
+
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
     }
   };
-
-  const updateProfile = async () => {
-    try {
-      await fetch(`${API_URL}/api/users/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ bio })
-      });
-      setIsEditing(false);
-      fetchProfile();
-    } catch (error) {
-      console.error('Ошибка:', error);
-    }
-  };
-
-  if (!userId) return null;
-
-  const isOwnProfile = currentUser?.id === userId;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-900 rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto border border-slate-700">
-        <div className="p-6">
-          <div className="flex justify-between items-start mb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center text-2xl font-bold">
-                {profile?.username?.[0]?.toUpperCase() || 'U'}
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold">{profile?.username}</h2>
-                <p className="text-slate-400 text-sm">На сайте с {new Date(profile?.createdAt).toLocaleDateString('ru-RU')}</p>
-              </div>
-            </div>
-            <button onClick={onClose} className="text-slate-400 hover:text-white">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+    <div 
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={handleBackdropClick}
+    >
+      <div className="bg-slate-900 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-700 shadow-2xl">
+        <div className="sticky top-0 bg-slate-900/95 backdrop-blur-sm border-b border-slate-800 p-4 flex items-center justify-between z-10">
+          <h3 className="text-lg font-bold text-white">Профиль пользователя</h3>
+          <button 
+            onClick={onClose}
+            className="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+          >
+            ✕
+          </button>
+        </div>
 
+        <div className="p-6">
           {loading ? (
-            <div className="text-center py-8">Загрузка...</div>
-          ) : (
+            <div className="text-center py-12 text-slate-400">
+              <div className="text-4xl mb-2 animate-pulse">⏳</div>
+              Загрузка...
+            </div>
+          ) : error ? (
+            <div className="text-center py-12 text-red-400">
+              <div className="text-4xl mb-2">⚠️</div>
+              {error}
+            </div>
+          ) : profile ? (
             <>
-              {/* Биография */}
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-slate-400 mb-2">О себе</h3>
-                {isEditing ? (
-                  <div>
-                    <textarea
-                      value={bio}
-                      onChange={(e) => setBio(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-orange-500"
-                      rows="3"
-                      placeholder="Расскажи о себе..."
-                    />
-                    <div className="flex gap-2 mt-2">
-                      <button onClick={updateProfile} className="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-lg text-sm">
-                        Сохранить
-                      </button>
-                      <button onClick={() => setIsEditing(false)} className="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm">
-                        Отмена
-                      </button>
-                    </div>
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center text-3xl font-bold text-white flex-shrink-0">
+                  {profile.username?.[0]?.toUpperCase() || 'U'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl font-bold text-white truncate">{profile.username}</h2>
+                  {profile.bio && (
+                    <p className="text-slate-400 text-sm mt-1 line-clamp-2">{profile.bio}</p>
+                  )}
+                  <div className="flex gap-4 mt-2 text-xs text-slate-500">
+                    <span>🎬 Фильмов: <span className="text-slate-300 font-medium">{movies.length}</span></span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wider">
+                  Коллекция ({movies.length})
+                </h4>
+                
+                {movies.length === 0 ? (
+                  <div className="text-center py-8 bg-slate-800/50 rounded-lg border border-slate-800">
+                    <p className="text-slate-500 text-sm">У пользователя пока нет фильмов</p>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between">
-                    <p className="text-slate-300">{profile?.bio || 'Биография не заполнена'}</p>
-                    {isOwnProfile && (
-                      <button onClick={() => setIsEditing(true)} className="text-orange-400 hover:text-orange-300 text-sm">
-                        Редактировать
-                      </button>
-                    )}
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                    {movies.map((movie) => (
+                      <div key={movie.id} className="group relative bg-slate-800 rounded-lg overflow-hidden border border-slate-700 hover:border-orange-500 transition-all">
+                        {movie.posterUrl ? (
+                          <img 
+                            src={movie.posterUrl} 
+                            alt={movie.title} 
+                            className="w-full aspect-[2/3] object-cover" 
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full aspect-[2/3] bg-slate-700 flex items-center justify-center text-2xl opacity-50">
+                            🎬
+                          </div>
+                        )}
+                        
+                        <div className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full ${
+                          movie.status === 'WATCHED' ? 'bg-green-500' : 'bg-blue-500'
+                        }`}></div>
+
+                        <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
+                          <div className="text-[10px] text-white font-medium line-clamp-3 leading-tight">
+                            {movie.title}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-
-              {/* Статистика */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-slate-800 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-orange-400">{profile?._count?.movies || 0}</div>
-                  <div className="text-xs text-slate-400">Фильмов</div>
-                </div>
-                <div className="bg-slate-800 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-purple-400">0</div>
-                  <div className="text-xs text-slate-400">Друзей</div>
-                </div>
-              </div>
-
-              {/* Кнопки действий */}
-              {!isOwnProfile && (
-                <div className="space-y-2">
-                  {profile?.friendshipStatus === 'none' && (
-                    <button onClick={sendFriendRequest} className="w-full bg-orange-500 hover:bg-orange-600 py-3 rounded-lg font-medium">
-                      Добавить в друзья
-                    </button>
-                  )}
-                  {profile?.friendshipStatus === 'pending' && (
-                    <div className="text-center text-slate-400 py-3">Заявка отправлена</div>
-                  )}
-                  {profile?.friendshipStatus === 'accepted' && (
-                    <div className="text-center text-green-400 py-3">✓ Вы друзья</div>
-                  )}
-                </div>
-              )}
             </>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
