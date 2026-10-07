@@ -1,10 +1,42 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
+const Icon = ({ n, className = 'w-4 h-4' }) => (
+  <img src={`https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/${n}.svg`} alt="" className={`${className} invert shrink-0`} />
+);
+
+const Avatar = ({ name }) => (
+  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] flex items-center justify-center font-bold text-sm text-white shrink-0">
+    {name?.[0]?.toUpperCase() || 'U'}
+  </div>
+);
+
+function Row({ name, sub, onClick, children }) {
+  return (
+    <div onClick={onClick} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg cursor-pointer transition-colors">
+      <Avatar name={name} />
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-sm text-white truncate">{name}</div>
+        {sub && <div className="text-xs text-[#8a90b8]">{sub}</div>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+const IconBtn = ({ icon, tone, onClick, title }) => (
+  <button
+    onClick={onClick}
+    title={title}
+    className={`p-2 rounded-md shrink-0 transition-colors ${tone}`}
+  >
+    <Icon n={icon} className="w-4 h-4" />
+  </button>
+);
+
 export default function FriendsPanel({ onUserClick }) {
-  // Добавили sendFriendRequest в деструктуризацию
   const { searchUsers, getFriends, getFriendRequests, handleFriendRequest, sendFriendRequest } = useAuth();
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [friends, setFriends] = useState([]);
@@ -54,144 +86,91 @@ export default function FriendsPanel({ onUserClick }) {
     loadRequests();
   };
 
-  // НОВАЯ функция для отправки заявки (использует POST)
+  // Отправка заявки (POST)
   const handleAddFriend = async (userId, e) => {
     e.stopPropagation(); // Чтобы не открывался профиль при клике на кнопку
     const result = await sendFriendRequest(userId);
     if (result.success) {
-      alert('✅ ' + (result.message || 'Заявка отправлена!'));
+      alert(result.message || 'Заявка отправлена!');
       setSearchQuery('');
       setSearchResults([]);
     } else {
-      alert('❌ ' + (result.error || 'Ошибка при отправке'));
+      alert(result.error || 'Ошибка при отправке');
     }
   };
 
-  return (
-    <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700/50">
-      <h3 className="text-lg font-bold mb-4">Друзья</h3>
+  const tabs = [
+    { id: 'friends', label: `Друзья (${friends.length})` },
+    { id: 'requests', label: 'Заявки', badge: requests.length }
+  ];
 
-      <div className="flex gap-2 mb-4">
-        <button
-          onClick={() => setActiveTab('friends')}
-          className={`flex-1 py-2 rounded-lg text-sm font-medium ${
-            activeTab === 'friends' ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-400'
-          }`}
-        >
-          Друзья ({friends.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('requests')}
-          className={`flex-1 py-2 rounded-lg text-sm font-medium relative ${
-            activeTab === 'requests' ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-400'
-          }`}
-        >
-          Заявки
-          {requests.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-              {requests.length}
-            </span>
-          )}
-        </button>
+  return (
+    <div className="bg-[#171a33] border border-white/5 rounded-xl p-6">
+      <div className="flex gap-6 border-b border-white/5 mb-4">
+        {tabs.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`pb-3 -mb-px text-sm border-b-2 flex items-center gap-2 transition-colors ${
+              activeTab === t.id ? 'text-[#f47c4f] border-[#f47c4f]' : 'text-[#8a90b8] border-transparent hover:text-white'
+            }`}
+          >
+            {t.label}
+            {t.badge > 0 && (
+              <span className="bg-[#f47c4f] text-[#1a1020] text-[11px] font-bold min-w-5 h-5 px-1 rounded-full flex items-center justify-center">
+                {t.badge}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
       {activeTab === 'friends' && (
-        <div>
-          {friends.length === 0 ? (
-            <p className="text-slate-400 text-sm text-center py-4">Пока нет друзей</p>
-          ) : (
-            <div className="space-y-2">
-              {friends.map(friend => (
-                <div 
-                  key={friend.id} 
-                  onClick={() => onUserClick(friend.id)}
-                  className="flex items-center gap-3 p-2 hover:bg-slate-700/50 rounded-lg cursor-pointer transition-colors"
-                >
-                  <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
-                    {friend.username?.[0]?.toUpperCase() || 'U'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm truncate">{friend.username}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        friends.length === 0 ? (
+          <p className="text-[#8a90b8] text-sm text-center py-6">Пока нет друзей. Найди их через поиск ниже.</p>
+        ) : (
+          <div className="space-y-1">
+            {friends.map(friend => (
+              <Row key={friend.id} name={friend.username} onClick={() => onUserClick(friend.id)} />
+            ))}
+          </div>
+        )
       )}
 
       {activeTab === 'requests' && (
-        <div>
-          {requests.length === 0 ? (
-            <p className="text-slate-400 text-sm text-center py-4">Нет новых заявок</p>
-          ) : (
-            <div className="space-y-2">
-              {requests.map(request => (
-                <div 
-                  key={request.id} 
-                  onClick={() => onUserClick(request.id)}
-                  className="flex items-center gap-3 p-2 hover:bg-slate-700/50 rounded-lg cursor-pointer transition-colors"
-                >
-                  <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
-                    {request.username?.[0]?.toUpperCase() || 'U'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm truncate">{request.username}</div>
-                  </div>
-                  <button 
-                    onClick={(e) => acceptRequest(request.id, e)} 
-                    className="bg-green-500 hover:bg-green-600 px-3 py-1.5 rounded text-xs flex-shrink-0"
-                  >
-                    ✓
-                  </button>
-                  <button 
-                    onClick={(e) => rejectRequest(request.id, e)} 
-                    className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded text-xs flex-shrink-0"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        requests.length === 0 ? (
+          <p className="text-[#8a90b8] text-sm text-center py-6">Нет новых заявок</p>
+        ) : (
+          <div className="space-y-1">
+            {requests.map(request => (
+              <Row key={request.id} name={request.username} onClick={() => onUserClick(request.id)}>
+                <IconBtn icon="check" title="Принять" tone="bg-emerald-500/20 hover:bg-emerald-500/40" onClick={(e) => acceptRequest(request.id, e)} />
+                <IconBtn icon="x" title="Отклонить" tone="bg-red-500/20 hover:bg-red-500/40" onClick={(e) => rejectRequest(request.id, e)} />
+              </Row>
+            ))}
+          </div>
+        )
       )}
 
-      <div className="mt-6 pt-6 border-t border-slate-700">
-        <h4 className="text-sm font-semibold text-slate-400 mb-2">Найти друзей</h4>
+      <div className="mt-6 pt-6 border-t border-white/5">
+        <h4 className="text-sm font-semibold text-white mb-3">Найти друзей</h4>
         <form onSubmit={handleSearch} className="relative">
+          <Icon n="search" className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Поиск по имени..."
-            className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-orange-500"
+            placeholder="Поиск по имени"
+            className="w-full bg-[#1c2040] border border-white/5 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#f47c4f]/60"
           />
         </form>
 
         {searchResults.length > 0 && (
-          <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
+          <div className="mt-3 space-y-1 max-h-56 overflow-y-auto">
             {searchResults.map(user => (
-              <div 
-                key={user.id} 
-                onClick={() => onUserClick(user.id)}
-                className="flex items-center gap-3 p-2 hover:bg-slate-700/50 rounded-lg cursor-pointer transition-colors"
-              >
-                <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
-                  {user.username?.[0]?.toUpperCase() || 'U'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm truncate">{user.username}</div>
-                  <div className="text-xs text-slate-400">{user._count?.movies || 0} фильмов</div>
-                </div>
-                {/* ИСПРАВЛЕННАЯ КНОПКА: теперь вызывает handleAddFriend */}
-                <button 
-                  onClick={(e) => handleAddFriend(user.id, e)}
-                  className="bg-orange-500 hover:bg-orange-600 px-3 py-1.5 rounded text-xs flex-shrink-0"
-                >
-                  +
-                </button>
-              </div>
+              <Row key={user.id} name={user.username} sub={`${user._count?.movies || 0} фильмов`} onClick={() => onUserClick(user.id)}>
+                <IconBtn icon="user-plus" title="Добавить в друзья" tone="bg-[#f47c4f]/20 hover:bg-[#f47c4f]/40" onClick={(e) => handleAddFriend(user.id, e)} />
+              </Row>
             ))}
           </div>
         )}

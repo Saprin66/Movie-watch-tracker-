@@ -1,6 +1,48 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
+const ORANGE_FILTER = '[filter:invert(1)_sepia(1)_saturate(6)_hue-rotate(335deg)]';
+const Icon = ({ n, className = 'w-4 h-4' }) => (
+  <img src={`https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/${n}.svg`} alt="" className={`${className} invert shrink-0`} />
+);
+
+const BTN = 'w-full bg-[#f47c4f] hover:bg-[#ff8f66] disabled:opacity-50 disabled:cursor-not-allowed text-[#1a1020] font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2';
+const INPUT = 'w-full bg-[#1c2040] border border-white/5 rounded-lg px-4 py-3 text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#f47c4f]/60 transition-colors';
+
+function Shell({ children }) {
+  return (
+    <div className="min-h-screen bg-[#0f1226] bg-[radial-gradient(ellipse_at_top_left,rgba(244,124,79,0.15),transparent_55%)] flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-[#171a33] border border-white/5 rounded-2xl p-8 shadow-2xl shadow-black/50">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const Field = ({ label, icon, ...props }) => (
+  <label className="block">
+    <span className="block text-xs text-[#8a90b8] mb-1.5">{label}</span>
+    <div className="relative">
+      <Icon n={icon} className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] opacity-50" />
+      <input {...props} className={`${INPUT} pl-11`} />
+    </div>
+  </label>
+);
+
+const Notice = ({ error, children }) => (
+  <div className={`flex items-center gap-2 text-sm p-3 rounded-lg border ${error ? 'bg-red-500/10 border-red-500/30 text-red-300' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'}`}>
+    <Icon n={error ? 'circle-alert' : 'circle-check'} className="w-4 h-4" />
+    {children}
+  </div>
+);
+
+const Logo = () => (
+  <div className="flex items-center justify-center gap-2 mb-1">
+    <Icon n="clapperboard" className={`w-8 h-8 ${ORANGE_FILTER}`} />
+    <span className="text-2xl font-bold text-white">Movie<span className="text-[#f47c4f]">Grade</span></span>
+  </div>
+);
+
 export default function AuthScreen() {
   const [step, setStep] = useState('auth'); // 'auth' или 'verify'
   const [isLogin, setIsLogin] = useState(true);
@@ -11,7 +53,7 @@ export default function AuthScreen() {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const { login, register, verifyEmail, resendCode, user } = useAuth();
 
   const handleAuthSubmit = async (e) => {
@@ -19,13 +61,13 @@ export default function AuthScreen() {
     setError('');
     setSuccessMsg('');
     setIsLoading(true);
-    
-    const result = isLogin 
+
+    const result = isLogin
       ? await login(username, password)
       : await register(username, email, password);
-      
+
     setIsLoading(false);
-    
+
     if (!result.success) {
       setError(result.error);
       // Если при входе сервер сказал "нужно подтверждение", переходим на шаг ввода кода
@@ -47,7 +89,7 @@ export default function AuthScreen() {
     setIsLoading(true);
     const result = await verifyEmail(code);
     setIsLoading(false);
-    
+
     if (result.success) {
       setSuccessMsg('Email подтвержден! Добро пожаловать.');
       setTimeout(() => {
@@ -66,7 +108,7 @@ export default function AuthScreen() {
     setIsLoading(true);
     const result = await resendCode();
     setIsLoading(false);
-    
+
     if (result.success) {
       setSuccessMsg('Новый код отправлен на email!');
     } else {
@@ -74,225 +116,149 @@ export default function AuthScreen() {
     }
   };
 
+  const switchMode = (login) => {
+    setIsLogin(login);
+    setError('');
+    setSuccessMsg('');
+  };
+
   // ========== ЭКРАН ПОДТВЕРЖДЕНИЯ КОДА ==========
   if (step === 'verify') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 flex items-center justify-center p-4">
-        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-orange-500/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-        <div className="relative w-full max-w-md bg-slate-900/60 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50 shadow-2xl shadow-black/50">
-          <div className="text-center mb-8">
-            <div className="text-5xl mb-3">📧</div>
-            <h1 className="text-2xl font-extrabold text-white mb-2">Подтверждение Email</h1>
-            <p className="text-slate-400 text-sm">Мы отправили 6-значный код на твой email</p>
-            
-            {/* Показываем email, куда отправлен код */}
-            <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
-              <p className="text-xs text-blue-300 mb-1">📧 Код отправлен на:</p>
-              <p className="text-sm font-semibold text-white">{user?.email || email}</p>
-            </div>
+      <Shell>
+        <div className="text-center mb-6">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#f47c4f]/15 flex items-center justify-center">
+            <Icon n="mail" className={`w-7 h-7 ${ORANGE_FILTER}`} />
           </div>
-
-          <form onSubmit={handleVerifySubmit} className="space-y-5">
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Код подтверждения</label>
-              <input
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                required
-                maxLength={6}
-                className="w-full bg-slate-950/50 border border-slate-700 rounded-xl px-4 py-3 text-white text-center text-2xl tracking-widest font-mono placeholder:text-white/30 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
-                placeholder="000000"
-              />
-            </div>
-
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-sm p-3 rounded-xl text-center">
-                {error}
-              </div>
-            )}
-            {successMsg && (
-              <div className="bg-green-500/10 border border-green-500/30 text-green-300 text-sm p-3 rounded-xl text-center">
-                {successMsg}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoading || code.length !== 6}
-              className="w-full bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-orange-500/25"
-            >
-              {isLoading ? 'Проверка...' : 'Подтвердить'}
-            </button>
-            
-            <button 
-              type="button" 
-              onClick={handleResendCode}
-              disabled={isLoading}
-              className="w-full text-orange-400 hover:text-orange-300 disabled:opacity-50 text-sm py-2 transition-colors flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Отправить код повторно
-            </button>
-
-            <button 
-              type="button" 
-              onClick={() => {
-                setStep('auth');
-                setCode('');
-                setError('');
-                setSuccessMsg('');
-              }} 
-              className="w-full text-slate-400 hover:text-white text-sm py-2 transition-colors"
-            >
-              ← Вернуться ко входу
-            </button>
-          </form>
+          <h1 className="text-2xl font-semibold text-white mb-1">Подтверждение email</h1>
+          <p className="text-sm text-[#8a90b8]">Мы отправили 6-значный код на адрес</p>
+          <p className="text-sm font-semibold text-white mt-1">{user?.email || email}</p>
         </div>
-      </div>
+
+        <form onSubmit={handleVerifySubmit} className="space-y-4">
+          <label className="block">
+            <span className="block text-xs text-[#8a90b8] mb-1.5">Код подтверждения</span>
+            <input
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              required
+              maxLength={6}
+              className={`${INPUT} text-center text-2xl tracking-[0.5em] font-mono`}
+              placeholder="000000"
+            />
+          </label>
+
+          {error && <Notice error>{error}</Notice>}
+          {successMsg && <Notice>{successMsg}</Notice>}
+
+          <button type="submit" disabled={isLoading || code.length !== 6} className={BTN}>
+            {isLoading ? 'Проверка...' : 'Подтвердить'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleResendCode}
+            disabled={isLoading}
+            className="w-full text-[#f47c4f] hover:text-[#ff8f66] disabled:opacity-50 text-sm py-2 flex items-center justify-center gap-2"
+          >
+            <Icon n="refresh-cw" className={`w-4 h-4 ${ORANGE_FILTER}`} />
+            Отправить код повторно
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setStep('auth');
+              setCode('');
+              setError('');
+              setSuccessMsg('');
+            }}
+            className="w-full text-[#8a90b8] hover:text-white text-sm py-2 flex items-center justify-center gap-2"
+          >
+            <Icon n="arrow-left" className="w-4 h-4 opacity-70" />
+            Вернуться ко входу
+          </button>
+        </form>
+      </Shell>
     );
   }
 
   // ========== ОБЫЧНЫЙ ЭКРАН ВХОДА / РЕГИСТРАЦИИ ==========
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 flex items-center justify-center p-4">
-      <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-orange-500/10 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-      <div className="relative w-full max-w-md bg-slate-900/60 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50 shadow-2xl shadow-black/50">
-        <div className="text-center mb-8">
-          <div className="text-5xl mb-3 drop-shadow-lg">🎬</div>
-          <h1 className="text-3xl font-extrabold bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent">
-            Movie Grade
-          </h1>
-          <p className="text-slate-300 mt-2 text-sm">Твой личный дневник киномана</p>
-        </div>
-
-        {/* Переключатель Вход / Регистрация */}
-        <div className="flex bg-slate-950/50 rounded-xl p-1.5 mb-8 border border-slate-800">
-          <button
-            onClick={() => { setIsLogin(true); setError(''); setSuccessMsg(''); }}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-              isLogin 
-                ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/25' 
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Вход
-          </button>
-          <button
-            onClick={() => { setIsLogin(false); setError(''); setSuccessMsg(''); }}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${
-              !isLogin 
-                ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/25' 
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Регистрация
-          </button>
-        </div>
-
-        <form onSubmit={handleAuthSubmit} className="space-y-5">
-          {/* Поле Имя пользователя */}
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Имя пользователя</label>
-            <div className="relative">
-              <svg className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                autoComplete="username"
-                className="w-full bg-slate-950/50 border border-slate-700 rounded-xl px-4 py-3 pl-11 text-white placeholder:text-white/60 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
-                placeholder="Введите имя пользователя"
-              />
-            </div>
-          </div>
-
-          {/* Поле Email (только для регистрации) */}
-          {!isLogin && (
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Email</label>
-              <div className="relative">
-                <svg className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                  className="w-full bg-slate-950/50 border border-slate-700 rounded-xl px-4 py-3 pl-11 text-white placeholder:text-white/60 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
-                  placeholder="Введите email"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Поле Пароль */}
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Пароль</label>
-            <div className="relative">
-              <svg className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete={isLogin ? "current-password" : "new-password"}
-                className="w-full bg-slate-950/50 border border-slate-700 rounded-xl px-4 py-3 pl-11 text-white placeholder:text-white/60 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
-                placeholder="Введите пароль"
-              />
-            </div>
-          </div>
-
-          {/* Сообщение об ошибке */}
-          {error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-sm p-3 rounded-xl flex items-center gap-2">
-              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {error}
-            </div>
-          )}
-
-          {/* Сообщение об успехе */}
-          {successMsg && (
-            <div className="bg-green-500/10 border border-green-500/30 text-green-300 text-sm p-3 rounded-xl text-center">
-              {successMsg}
-            </div>
-          )}
-
-          {/* Кнопка отправки */}
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 mt-6"
-          >
-            {isLoading ? (
-              <>
-                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Загрузка...
-              </>
-            ) : (
-              isLogin ? 'Войти в аккаунт' : 'Создать аккаунт'
-            )}
-          </button>
-        </form>
+    <Shell>
+      <div className="text-center mb-7">
+        <Logo />
+        <p className="text-sm text-[#8a90b8]">Твой личный дневник киномана</p>
       </div>
-    </div>
+
+      <div className="flex gap-6 border-b border-white/5 mb-6">
+        {[
+          { v: true, l: 'Вход' },
+          { v: false, l: 'Регистрация' }
+        ].map(t => (
+          <button
+            key={t.l}
+            onClick={() => switchMode(t.v)}
+            className={`pb-3 -mb-px text-sm border-b-2 transition-colors ${
+              isLogin === t.v ? 'text-[#f47c4f] border-[#f47c4f]' : 'text-[#8a90b8] border-transparent hover:text-white'
+            }`}
+          >
+            {t.l}
+          </button>
+        ))}
+      </div>
+
+      <form onSubmit={handleAuthSubmit} className="space-y-4">
+        <Field
+          label="Имя пользователя"
+          icon="user"
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+          autoComplete="username"
+          placeholder="Введите имя пользователя"
+        />
+
+        {!isLogin && (
+          <Field
+            label="Email"
+            icon="mail"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+            placeholder="Введите email"
+          />
+        )}
+
+        <Field
+          label="Пароль"
+          icon="lock"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          autoComplete={isLogin ? 'current-password' : 'new-password'}
+          placeholder="Введите пароль"
+        />
+
+        {error && <Notice error>{error}</Notice>}
+        {successMsg && <Notice>{successMsg}</Notice>}
+
+        <button type="submit" disabled={isLoading} className={`${BTN} mt-2`}>
+          {isLoading ? (
+            <>
+              <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/loader-circle.svg" alt="" className="w-5 h-5 animate-spin [filter:brightness(0.1)]" />
+              Загрузка...
+            </>
+          ) : (
+            isLogin ? 'Войти в аккаунт' : 'Создать аккаунт'
+          )}
+        </button>
+      </form>
+    </Shell>
   );
 }

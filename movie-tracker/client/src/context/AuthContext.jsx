@@ -12,12 +12,33 @@ export const AuthProvider = ({ children }) => {
       fetch(`${API_URL}/api/auth/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      .then(res => res.json())
-      .then(data => {
-        if (data.id) setUser(data);
-        else logout();
+      .then(async (res) => {
+        // Если токен протух (401) — выходим
+        if (res.status === 401) {
+          logout();
+          return;
+        }
+        
+        // Если другая ошибка сервера (500, 503) — НЕ выходим
+        if (!res.ok) {
+          console.warn('Ошибка сервера, но не выходим из аккаунта');
+          return;
+        }
+        
+        const data = await res.json();
+        if (data.id) {
+          setUser(data);
+        }
       })
-      .catch(() => logout());
+      .catch((error) => {
+        // Если ошибка сети (нет интернета) — НЕ выходим!
+        if (error.message === 'Failed to fetch' || !navigator.onLine) {
+          console.warn('Нет подключения к сети. Оставляем пользователя в системе.');
+          return;
+        }
+        // Для других ошибок — выходим
+        logout();
+      });
     }
   }, [token]);
 
@@ -106,6 +127,8 @@ export const AuthProvider = ({ children }) => {
   }
 };
 
+
+
 const getFriends = async () => {
   try {
     const res = await fetch(`${API_URL}/api/users/friends/list`, {
@@ -181,4 +204,6 @@ const handleFriendRequest = async (userId, action) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export function useAuth() {
+  return useContext(AuthContext);
+}

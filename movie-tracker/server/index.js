@@ -44,6 +44,42 @@ app.get('/api/movies', authMiddleware, async (req, res) => {
   }
 });
 
+// Получить список друзей текущего пользователя
+app.get('/api/users/friends/list', authMiddleware, async (req, res) => {
+  try {
+    // Находим все записи Friend, где текущий пользователь - это userId ИЛИ friendId
+    const friendships = await prisma.friend.findMany({
+      where: {
+        OR: [
+          { userId: req.userId, status: 'accepted' },
+          { friendId: req.userId, status: 'accepted' }
+        ]
+      },
+      include: {
+        user: true,
+        friend: true
+      }
+    });
+
+    // Формируем список друзей (исключая текущего пользователя)
+    const friends = friendships.map(f => {
+      const friendUser = f.userId === req.userId ? f.friend : f.user;
+      return {
+        id: friendUser.id,
+        username: friendUser.username,
+        email: friendUser.email,
+        avatar: friendUser.avatar,
+        bio: friendUser.bio
+      };
+    });
+
+    res.json(friends);
+  } catch (error) {
+    console.error('Ошибка загрузки списка друзей:', error);
+    res.status(500).json({ error: 'Не удалось загрузить список друзей' });
+  }
+});
+
 // Получить фильмы конкретного пользователя (для просмотра профиля)
 app.get('/api/users/:userId/movies', async (req, res) => {
   try {
