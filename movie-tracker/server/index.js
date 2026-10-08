@@ -27,6 +27,44 @@ app.get('/api/ping', authMiddleware, async (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });
 });
 
+// === ПОИСК ПОЛЬЗОВАТЕЛЕЙ ===
+app.get('/api/users/search', authMiddleware, async (req, res) => {
+  try {
+    const { query } = req.query;
+    
+    if (!query || query.trim() === '') {
+      return res.status(400).json({ error: 'Поисковый запрос не может быть пустым' });
+    }
+
+    // Ищем пользователей, чьё имя содержит запрос (регистронезависимо для PostgreSQL)
+    const users = await prisma.user.findMany({
+      where: {
+        username: {
+          contains: query,
+          mode: 'insensitive' 
+        }
+      },
+      select: {
+        id: true,
+        username: true,
+        avatar: true,
+        _count: {
+          select: { movies: true }
+        }
+      },
+      take: 15 // Ограничиваем выдачу 15 результатами
+    });
+
+    res.json(users);
+  } catch (error) {
+    console.error('Ошибка поиска пользователей:', error);
+    res.status(500).json({ error: 'Не удалось выполнить поиск' });
+  }
+});
+
+// Роуты пользователей (ОБЯЗАТЕЛЬНО ПОСЛЕ всех app.get('/api/users/...'))
+app.use('/api/users', userRoutes);
+
 app.use('/api/auth', authRoutes);
 
 // === ВСЕ МАРШРУТЫ /api/users/* ДОЛЖНЫ БЫТЬ ВЫШЕ app.use('/api/users', userRoutes) ===
