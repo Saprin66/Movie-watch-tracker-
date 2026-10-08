@@ -255,20 +255,36 @@ export default function FriendsPanel({ onUserClick }) {
       )}
 
       {/* Поиск пользователей */}
+            {/* Поиск пользователей */}
       <div className="mt-6 pt-6 border-t border-white/5">
         <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
           <Icon n="search" className="w-4 h-4 opacity-50" />
           Найти друзей
         </h4>
-        <form onSubmit={handleSearch} className="relative">
-          <Icon n="search" className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Поиск по имени пользователя"
-            className="w-full bg-[#1c2040] border border-white/5 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#f47c4f]/60 transition-colors"
-          />
+        
+        {/* Используем form для корректной работы кнопки "Поиск" на мобильных */}
+        <form onSubmit={handleSearch} className="flex gap-2">
+          <div className="relative flex-1">
+            <Icon n="search" className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50 w-4 h-4" />
+            <input
+              type="search" /* Ключевое изменение для мобильных клавиатур! */
+              inputMode="search"
+              autoComplete="off"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Имя пользователя"
+              className="w-full bg-[#1c2040] border border-white/5 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#f47c4f]/60 focus:ring-1 focus:ring-[#f47c4f]/30 transition-all"
+            />
+          </div>
+          
+          {/* Видимая кнопка для тапа пальцем */}
+          <button
+            type="submit"
+            className="bg-[#f47c4f] hover:bg-[#f47c4f]/90 active:scale-95 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 shrink-0 shadow-lg shadow-[#f47c4f]/20"
+          >
+            <Icon n="search" className="w-4 h-4 sm:hidden" /> {/* Иконка только на мобильных */}
+            <span className="hidden sm:inline">Найти</span> {/* Текст на планшетах/ПК */}
+          </button>
         </form>
 
         {searchResults.length > 0 && (
@@ -290,13 +306,14 @@ export default function FriendsPanel({ onUserClick }) {
                   className="px-3 py-1.5 bg-[#f47c4f]/20 hover:bg-[#f47c4f]/40 text-[#f47c4f] rounded-md text-xs font-medium transition-colors flex items-center gap-1.5"
                 >
                   <Icon n="user-plus" className="w-3.5 h-3.5" />
-                  Добавить
+                  <span className="hidden sm:inline">Добавить</span>
                 </button>
               </div>
             ))}
           </div>
         )}
       </div>
+      
     </div>
   );
 }

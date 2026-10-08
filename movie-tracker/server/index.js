@@ -128,15 +128,13 @@ app.get('/api/friends/list', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Не удалось загрузить список друзей' });
   }
 });
-
-// ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
-// ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ (без поля type)
 app.get('/api/users/:userId', authMiddleware, async (req, res) => {
   try {
-    const { userId } = req.params;
+    const targetUserId = req.params.userId; // <-- ID того, чей профиль смотрим
 
+    // 1. Получаем базовые данные пользователя
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: targetUserId },
       select: {
         id: true, username: true, email: true, avatar: true, bio: true, lastSeen: true, createdAt: true
       }
@@ -146,19 +144,27 @@ app.get('/api/users/:userId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
 
+    // 2. Считаем статистику ИМЕННО для targetUserId (а не req.userId!)
     const [moviesCount, watchedCount, friendsCount, recentMovies] = await Promise.all([
-      prisma.userMovie.count({ where: { userId } }),
-      prisma.userMovie.count({ where: { userId, status: 'WATCHED' } }),
+      // Всего фильмов в журнале
+      prisma.userMovie.count({ where: { userId: targetUserId } }),
+      
+      // Просмотренных фильмов
+      prisma.userMovie.count({ where: { userId: targetUserId, status: 'WATCHED' } }),
+      
+      // Друзей (где этот пользователь является userId ИЛИ friendId)
       prisma.friend.count({
         where: {
           OR: [
-            { userId, status: 'accepted' },
-            { friendId: userId, status: 'accepted' }
+            { userId: targetUserId, status: 'accepted' },
+            { friendId: targetUserId, status: 'accepted' }
           ]
         }
       }),
+      
+      // Последние 6 фильмов
       prisma.userMovie.findMany({
-        where: { userId },
+        where: { userId: targetUserId },
         orderBy: { updatedAt: 'desc' },
         take: 6,
         select: {
@@ -172,6 +178,7 @@ app.get('/api/users/:userId', authMiddleware, async (req, res) => {
       })
     ]);
 
+    // 3. Отправляем плоский, понятный фронтенду объект
     res.json({
       id: user.id,
       username: user.username,
@@ -179,16 +186,80 @@ app.get('/api/users/:userId', authMiddleware, async (req, res) => {
       bio: user.bio,
       lastSeen: user.lastSeen,
       createdAt: user.createdAt,
-      moviesCount,
-      watchedCount,
-      friendsCount,
-      recentMovies
+      moviesCount,       // <-- Явные поля
+      watchedCount,      // <-- Явные поля
+      friendsCount,      // <-- Явные поля
+      recentMovies       // <-- Явный массив
     });
   } catch (error) {
-    console.error('Ошибка получения профиля:', error);
+    console.error('❌ Ошибка получения профиля:', error);
     res.status(500).json({ error: 'Не удалось загрузить профиль' });
   }
 });
+
+// ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
+// ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ (без поля type)
+// app.get('/api/users/:userId', authMiddleware, async (req, res) => {
+//   try {
+//     const { userId } = req.params;
+
+//     const user = await prisma.user.findUnique({
+//       where: { id: userId },
+//       select: {
+//         id: true, username: true, email: true, avatar: true, bio: true, lastSeen: true, createdAt: true
+//       }
+//     });
+
+//     if (!user) {
+//       return res.status(404).json({ error: 'Пользователь не найден' });
+//     }
+
+//     const [moviesCount, watchedCount, friendsCount, recentMovies] = await Promise.all([
+//       prisma.userMovie.count({ where: { userId } }),
+//       prisma.userMovie.count({ where: { userId, status: 'WATCHED' } }),
+//       prisma.friend.count({
+//         where: {
+//           OR: [
+//             { userId, status: 'accepted' },
+//             { friendId: userId, status: 'accepted' }
+//           ]
+//         }
+//       }),
+//       prisma.userMovie.findMany({
+//         where: { userId },
+//         orderBy: { updatedAt: 'desc' },
+//         take: 6,
+//         select: {
+//           id: true,
+//           tmdbId: true,
+//           title: true,
+//           posterUrl: true,
+//           status: true,
+//           updatedAt: true
+//         }
+//       })
+//     ]);
+
+//     res.json({
+//       id: user.id,
+//       username: user.username,
+//       avatar: user.avatar,
+//       bio: user.bio,
+//       lastSeen: user.lastSeen,
+//       createdAt: user.createdAt,
+//       moviesCount,
+//       watchedCount,
+//       friendsCount,
+//       recentMovies
+//     });
+//   } catch (error) {
+//     console.error('Ошибка получения профиля:', error);
+//     res.status(500).json({ error: 'Не удалось загрузить профиль' });
+//   }
+// });
+
+// ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ (ИСПРАВЛЕННЫЙ: считает статистику ИМЕННО для userId из URL)
+
 
 // Роуты пользователей (должен быть ПОСЛЕ всех специфичных маршрутов)
 app.use('/api/users', userRoutes);

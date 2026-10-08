@@ -52,28 +52,7 @@ router.get('/search', authMiddleware, async (req, res) => {
 });
 
 // 2. СПИСОК ДРУЗЕЙ
-router.get('/friends/list', authMiddleware, async (req, res) => {
-  try {
-    const friendships = await prisma.friend.findMany({
-      where: {
-        OR: [
-          { userId: req.userId, status: 'accepted' },
-          { friendId: req.userId, status: 'accepted' }
-        ]
-      },
-      include: {
-        user: { select: { id: true, username: true, avatar: true } },
-        friend: { select: { id: true, username: true, avatar: true } }
-      }
-    });
 
-    const friends = friendships.map(f => f.userId === req.userId ? f.friend : f.user);
-    res.json(friends);
-  } catch (error) {
-    console.error('Ошибка:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
 
 // 3. ВХОДЯЩИЕ ЗАЯВКИ
 router.get('/friends/requests', authMiddleware, async (req, res) => {
@@ -107,38 +86,38 @@ router.put('/profile', authMiddleware, async (req, res) => {
 });
 
 // 5. ПОЛУЧИТЬ ПРОФИЛЬ КОНКРЕТНОГО ПОЛЬЗОВАТЕЛЯ (/:userId должен быть в конце или после конкретных маршрутов)
-router.get('/:userId', authMiddleware, async (req, res) => {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.params.userId },
-      select: {
-        id: true,
-        username: true,
-        bio: true,
-        avatar: true,
-        createdAt: true,
-        _count: { select: { movies: true } }
-      }
-    });
+// router.get('/:userId', authMiddleware, async (req, res) => {
+//   try {
+//     const user = await prisma.user.findUnique({
+//       where: { id: req.params.userId },
+//       select: {
+//         id: true,
+//         username: true,
+//         bio: true,
+//         avatar: true,
+//         createdAt: true,
+//         _count: { select: { movies: true } }
+//       }
+//     });
 
-    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+//     if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
 
-    // Проверяем статус дружбы
-    const friendship = await prisma.friend.findFirst({
-      where: {
-        OR: [
-          { userId: req.userId, friendId: user.id },
-          { userId: user.id, friendId: req.userId }
-        ]
-      }
-    });
+//     // Проверяем статус дружбы
+//     const friendship = await prisma.friend.findFirst({
+//       where: {
+//         OR: [
+//           { userId: req.userId, friendId: user.id },
+//           { userId: user.id, friendId: req.userId }
+//         ]
+//       }
+//     });
 
-    res.json({ ...user, friendshipStatus: friendship?.status || 'none' });
-  } catch (error) {
-    console.error('Ошибка получения профиля:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
+//     res.json({ ...user, friendshipStatus: friendship?.status || 'none' });
+//   } catch (error) {
+//     console.error('Ошибка получения профиля:', error);
+//     res.status(500).json({ error: 'Ошибка сервера' });
+//   }
+// });
 
 // 6. ОТПРАВИТЬ ЗАЯВКУ В ДРУЗЬЯ
 router.post('/:userId/friend-request', authMiddleware, async (req, res) => {

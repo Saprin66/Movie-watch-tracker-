@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const { Resend } = require('resend');
+const { authMiddleware} = require('../middleware/auth');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -84,37 +85,91 @@ router.post('/register', async (req, res) => {
 });
 
 // 2. ВХОД
+// router.post('/login', async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
+//     const user = await prisma.user.findUnique({ where: { username } });
+
+//     if (!user) return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
+
+//     const validPassword = await bcrypt.compare(password, user.password);
+//     if (!validPassword) return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
+
+//     if (!user.isVerified) {
+//       return res.status(403).json({ 
+//         error: 'Пожалуйста, подтвердите ваш email',
+//         needsVerification: true 
+//       });
+//     }
+
+//     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+
+//     res.json({ 
+//       token, 
+//       user: { 
+//         id: user.id, 
+//         username: user.username, 
+//         email: user.email,
+//         isVerified: user.isVerified 
+//       } 
+//     });
+//   } catch (error) {
+//     console.error('Ошибка входа:', error);
+//     res.status(500).json({ error: 'Ошибка при входе' });
+//   }
+// });
+
+// Вход по email
 router.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
-    const user = await prisma.user.findUnique({ where: { username } });
+    const { email, password } = req.body;
 
-    if (!user) return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
-
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
-
-    if (!user.isVerified) {
-      return res.status(403).json({ 
-        error: 'Пожалуйста, подтвердите ваш email',
-        needsVerification: true 
-      });
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Введите email и пароль' });
     }
 
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    const user = await prisma.user.findUnique({
+      where: { email }
+    });
 
-    res.json({ 
-      token, 
-      user: { 
-        id: user.id, 
-        username: user.username, 
+    if (!user) {
+      return res.status(401).json({ error: 'Неверный email или пароль' });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Неверный email или пароль' });
+    }
+
+    if (!user.isVerified) {
+      return res.status(403).json({ error: 'Подтвердите email перед входом' });
+    }
+
+    // Обновляем lastSeen при входе
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastSeen: new Date() }
+    });
+
+    const token = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
         email: user.email,
-        isVerified: user.isVerified 
-      } 
+        avatar: user.avatar,
+        bio: user.bio
+      }
     });
   } catch (error) {
     console.error('Ошибка входа:', error);
-    res.status(500).json({ error: 'Ошибка при входе' });
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
@@ -227,6 +282,55 @@ router.post('/resend-code', async (req, res) => {
   } catch (error) {
     console.error('Ошибка повторной отправки:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+
+// Обновление профиля (смена ника)
+router.put('/me', authMiddleware, async (req, res) => {
+  try {
+    const { username } = req.body;
+
+    if (!username || username.trim().length < 3) {
+      return res.status(400).json({ error: 'Ник должен содержать минимум 3 символа' });
+    }
+
+    if (username.trim().length > 20) {
+      return res.status(400).json({ error: 'Ник не может быть длиннее 20 символов' });
+    }
+
+    // Проверяем, не занят ли ник
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        username: username.trim(),
+        id: { not: req.userId }
+      }
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ error: 'Этот ник уже занят' });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.userId },
+      data: { username: username.trim() },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        avatar: true,
+        bio: true
+      }
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'Ник успешно изменён',
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error('Ошибка обновления ника:', error);
+    res.status(500).json({ error: 'Не удалось изменить ник' });
   }
 });
 
