@@ -203,6 +203,7 @@ function MovieDetailsModal({ movie, onClose, onAdd }) {
 }
 
 function MovieTracker() {
+  const [friendsLastWatched, setFriendsLastWatched] = useState({});
   const { user, token, logout, getFriends } = useAuth();
   const [activeTab, setActiveTab] = useState('movies');
   const [movies, setMovies] = useState([]);
@@ -215,6 +216,7 @@ function MovieTracker() {
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [importResult, setImportResult] = useState(null);
   const [selectedMovie, setSelectedMovie] = useState(null);
+  const [lastWatchedData, setLastWatchedData] = useState({});
 
   useEffect(() => {
     if (token && (activeTab === 'movies' || activeTab === 'search')) fetchMovies();
@@ -240,15 +242,41 @@ function MovieTracker() {
     }
   };
 
+
+
+
   const loadFriends = async () => {
     try {
       const data = await getFriends();
-      setFriends(Array.isArray(data) ? data : []);
+      const friendsList = Array.isArray(data) ? data : [];
+      setFriends(friendsList);
+
+      // Загружаем последний фильм для каждого друга параллельно
+      const lwData = {};
+      const promises = friendsList.map(async (friend) => {
+        try {
+          const res = await fetch(`${API_URL}/api/users/${friend.id}/last-watched`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const movie = await res.json();
+            if (movie) lwData[friend.id] = movie;
+          }
+        } catch (err) {
+          console.error(`Ошибка загрузки фильма для ${friend.username}:`, err);
+        }
+      });
+      
+      await Promise.all(promises);
+      setLastWatchedData(lwData);
     } catch (error) {
       console.error('Ошибка загрузки друзей:', error);
       setFriends([]);
     }
   };
+
+
+  
 
   const loadPopularMovies = async () => {
     try {
@@ -482,19 +510,21 @@ function MovieTracker() {
               <div className="text-xs text-[#8a90b8] truncate">{user?.email}</div>
             </div>
           </div>
+                  
+              
 
-          <div className="grid grid-cols-3 divide-x divide-white/5 bg-[#171a33] rounded-xl py-3 mb-6 text-center">
-            {[
-              { v: watchedCount, l: 'Просмотрено' },
-              { v: friends.length, l: 'Друзей' },
-              { v: watchlistCount, l: 'В списке' }
-            ].map(s => (
-              <div key={s.l}>
-                <div className="text-lg font-semibold text-white">{s.v}</div>
-                <div className="text-[10px] text-[#8a90b8]">{s.l}</div>
-              </div>
-            ))}
-          </div>
+                    <div className="grid grid-cols-3 divide-x divide-white/5 bg-[#171a33] rounded-xl py-3 mb-6 text-center">
+              {[
+                { v: movies.length, l: 'Всего' },
+                { v: watchedCount, l: 'Просмотрено' },
+                { v: watchlistCount, l: 'Посмотреть' }
+              ].map(s => (
+                <div key={s.l}>
+                  <div className="text-lg font-semibold text-white">{s.v}</div>
+                  <div className="text-[10px] text-[#8a90b8]">{s.l}</div>
+                </div>
+              ))}
+            </div>
 
           <nav className="space-y-1">
             {navItems.map(item => (
@@ -700,31 +730,98 @@ function MovieTracker() {
           )}
         </main>
 
-        <aside className="hidden xl:block w-72 shrink-0 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto border-l border-white/5 bg-[#101328] p-5">
-          <h3 className="text-lg font-semibold text-white mb-4">Друзья</h3>
-          {friends.length === 0 ? (
-            <p className="text-sm text-[#8a90b8]">Пока никого. Найди друзей во вкладке «Сообщество».</p>
-          ) : (
-            <div className="space-y-3">
-              {friends.slice(0, 8).map((f, i) => {
-                const name = f.username || f.name || 'Друг';
-                return (
-                  <button key={f.id ?? i} onClick={() => f.id && setSelectedUserId(f.id)} className="w-full flex items-center gap-3 text-left hover:bg-white/5 rounded-lg p-1.5 -m-1.5">
-                    <Avatar name={name} />
-                    <span className="text-sm text-white truncate">{name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+   <aside className="hidden xl:block w-72 shrink-0 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto border-l border-white/5 bg-[#101328] p-5">
+  <h3 className="text-lg font-semibold text-white mb-4">Друзья</h3>
+  
+  {friends.length === 0 ? (
+    <p className="text-sm text-[#8a90b8] text-center py-4">
+      Пока никого. Найди друзей во вкладке «Сообщество».
+    </p>
+  ) : (
+    <div className="space-y-3">
+      {friends.map((f) => {
+        // Расчет времени онлайн
+        const lastSeenDate = f.lastSeen ? new Date(f.lastSeen) : null;
+        const minutesAgo = lastSeenDate ? Math.floor((new Date() - lastSeenDate) / 1000 / 60) : null;
+        const isOnline = minutesAgo !== null && minutesAgo < 5;
 
-          <div className="mt-8 pt-5 border-t border-white/5">
-            <h3 className="text-lg font-semibold text-white mb-3">Найти друзей</h3>
-            <button onClick={() => setActiveTab('friends')} className="w-full flex items-center gap-2 bg-[#1c2040] rounded-lg px-3 py-2.5 text-sm text-[#6f759e] hover:text-white text-left">
-              <Icon n="search" className="opacity-50" /> Поиск и добавление
-            </button>
-          </div>
-        </aside>
+        const formatLastSeen = () => {
+          if (!lastSeenDate) return 'Не в сети';
+          if (minutesAgo < 1) return 'Только что';
+          if (minutesAgo < 60) return `${minutesAgo} мин назад`;
+          const hours = Math.floor(minutesAgo / 60);
+          if (hours < 24) return `${hours} ч назад`;
+          const days = Math.floor(hours / 24);
+          return `${days} дн назад`;
+        };
+
+        // Получаем данные о последнем фильме (если они есть в стейте lastWatchedData)
+        const lastMovie = lastWatchedData[f.id];
+
+        return (
+          <button 
+            key={f.id} 
+            onClick={() => f.id && setSelectedUserId(f.id)} 
+            className="w-full flex items-start gap-3 text-left hover:bg-white/5 rounded-lg p-2 -m-2 transition-colors group"
+          >
+            {/* Аватар с индикатором онлайна */}
+            <div className="relative shrink-0 mt-1">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] flex items-center justify-center font-bold text-sm text-white shadow-lg">
+                {f.username?.[0]?.toUpperCase() || 'U'}
+              </div>
+              <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#101328] transition-colors ${
+                isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-gray-500'
+              }`}></div>
+            </div>
+
+            {/* Информация о друге */}
+            <div className="flex-1 min-w-0 pt-0.5">
+              <div className="text-sm font-semibold text-white truncate group-hover:text-[#f47c4f] transition-colors">
+                {f.username}
+              </div>
+              <div className={`text-[11px] font-medium ${isOnline ? 'text-emerald-400' : 'text-[#6f759e]'}`}>
+                {isOnline ? 'Онлайн' : formatLastSeen()}
+              </div>
+              
+              {/* Последний просмотренный фильм */}
+              {lastMovie && (
+                <div className="mt-1.5 flex items-center gap-2 bg-[#1c2040] rounded-md p-1.5 border border-white/5">
+                  {lastMovie.posterUrl ? (
+                    <img 
+                      src={lastMovie.posterUrl} 
+                      alt="" 
+                      className="w-6 h-9 object-cover rounded-sm shrink-0" 
+                    />
+                  ) : (
+                    <div className="w-6 h-9 bg-[#262b55] rounded-sm shrink-0 flex items-center justify-center">
+                      <Icon n="film" className="w-3 h-3 opacity-50" />
+                    </div>
+                  )}
+                  <div className="text-[10px] text-[#8a90b8] truncate leading-tight">
+                    Смотрел: <span className="text-[#c9cce6]">{lastMovie.title}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  )}
+
+  {/* Кнопка поиска друзей */}
+  <div className="mt-8 pt-5 border-t border-white/5">
+    <button 
+      onClick={() => setActiveTab('friends')} 
+      className="w-full flex items-center gap-2 bg-[#1c2040] hover:bg-[#262b55] rounded-lg px-3 py-2.5 text-sm text-[#6f759e] hover:text-white text-left transition-colors"
+    >
+      <Icon n="search" className="w-4 h-4 opacity-50" /> 
+      Поиск и добавление
+    </button>
+  </div>
+</aside>
+
+
       </div>
 
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#131631] border-t border-white/5 flex justify-around py-2">

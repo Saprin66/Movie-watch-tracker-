@@ -16,6 +16,7 @@ model User {
   verificationCode String?     // <-- ДОБАВЛЕНО
   codeExpiresAt    DateTime?   // <-- ДОБАВЛЕНО
   bio              String?
+  lastSeen     DateTime    @default(now()) 
   avatar           String?
   movies           UserMovie[]
   friends          Friend[]    @relation("userFriends")

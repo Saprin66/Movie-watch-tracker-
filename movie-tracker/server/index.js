@@ -5,13 +5,12 @@ require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
-const authMiddleware = require('./middleware/auth');
+const { authMiddleware } = require('./middleware/auth');
 
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -19,18 +18,144 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Тестовый эндпоинт
 app.get('/', (req, res) => {
   res.send('Welcome to Movie Grade API');
 });
 
-// Роуты авторизации
+// Ping для обновления lastSeen
+app.get('/api/ping', authMiddleware, async (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date() });
+});
+
 app.use('/api/auth', authRoutes);
 
-// Роуты пользователей (друзья, профили)
+// === ВСЕ МАРШРУТЫ /api/users/* ДОЛЖНЫ БЫТЬ ВЫШЕ app.use('/api/users', userRoutes) ===
+
+// Последний просмотренный фильм
+app.get('/api/users/:userId/last-watched', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const lastWatched = await prisma.userMovie.findFirst({
+      where: { userId, status: 'WATCHED' },
+      orderBy: { updatedAt: 'desc' },
+      select: { id: true, title: true, posterUrl: true, updatedAt: true }
+    });
+    res.json(lastWatched);
+  } catch (error) {
+    console.error('Ошибка получения последнего фильма:', error);
+    res.status(500).json({ error: 'Не удалось получить данные' });
+  }
+});
+
+// СПИСОК ДРУЗЕЙ — используем УНИКАЛЬНЫЙ путь /api/friends/list
+app.get('/api/friends/list', authMiddleware, async (req, res) => {
+  try {
+    const friendships = await prisma.friend.findMany({
+      where: {
+        OR: [
+          { userId: req.userId, status: 'accepted' },
+          { friendId: req.userId, status: 'accepted' }
+        ]
+      },
+      include: {
+        user: {
+          select: {
+            id: true, username: true, email: true, avatar: true, bio: true, lastSeen: true
+          }
+        },
+        friend: {
+          select: {
+            id: true, username: true, email: true, avatar: true, bio: true, lastSeen: true
+          }
+        }
+      }
+    });
+
+    const friends = friendships.map(f => {
+      const friendUser = f.userId === req.userId ? f.friend : f.user;
+      return {
+        id: friendUser.id,
+        username: friendUser.username,
+        email: friendUser.email,
+        avatar: friendUser.avatar,
+        bio: friendUser.bio,
+        lastSeen: friendUser.lastSeen
+      };
+    });
+
+   
+    res.json(friends);
+  } catch (error) {
+    console.error('Ошибка загрузки списка друзей:', error);
+    res.status(500).json({ error: 'Не удалось загрузить список друзей' });
+  }
+});
+
+// ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
+// ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ (без поля type)
+app.get('/api/users/:userId', authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true, username: true, email: true, avatar: true, bio: true, lastSeen: true, createdAt: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    const [moviesCount, watchedCount, friendsCount, recentMovies] = await Promise.all([
+      prisma.userMovie.count({ where: { userId } }),
+      prisma.userMovie.count({ where: { userId, status: 'WATCHED' } }),
+      prisma.friend.count({
+        where: {
+          OR: [
+            { userId, status: 'accepted' },
+            { friendId: userId, status: 'accepted' }
+          ]
+        }
+      }),
+      prisma.userMovie.findMany({
+        where: { userId },
+        orderBy: { updatedAt: 'desc' },
+        take: 6,
+        select: {
+          id: true,
+          tmdbId: true,
+          title: true,
+          posterUrl: true,
+          status: true,
+          updatedAt: true
+        }
+      })
+    ]);
+
+    res.json({
+      id: user.id,
+      username: user.username,
+      avatar: user.avatar,
+      bio: user.bio,
+      lastSeen: user.lastSeen,
+      createdAt: user.createdAt,
+      moviesCount,
+      watchedCount,
+      friendsCount,
+      recentMovies
+    });
+  } catch (error) {
+    console.error('Ошибка получения профиля:', error);
+    res.status(500).json({ error: 'Не удалось загрузить профиль' });
+  }
+});
+
+// Роуты пользователей (должен быть ПОСЛЕ всех специфичных маршрутов)
 app.use('/api/users', userRoutes);
 
-// Получить фильмы текущего пользователя
+// Фильмы
 app.get('/api/movies', authMiddleware, async (req, res) => {
   try {
     const movies = await prisma.userMovie.findMany({
@@ -44,74 +169,17 @@ app.get('/api/movies', authMiddleware, async (req, res) => {
   }
 });
 
-// Получить список друзей текущего пользователя
-app.get('/api/users/friends/list', authMiddleware, async (req, res) => {
-  try {
-    // Находим все записи Friend, где текущий пользователь - это userId ИЛИ friendId
-    const friendships = await prisma.friend.findMany({
-      where: {
-        OR: [
-          { userId: req.userId, status: 'accepted' },
-          { friendId: req.userId, status: 'accepted' }
-        ]
-      },
-      include: {
-        user: true,
-        friend: true
-      }
-    });
-
-    // Формируем список друзей (исключая текущего пользователя)
-    const friends = friendships.map(f => {
-      const friendUser = f.userId === req.userId ? f.friend : f.user;
-      return {
-        id: friendUser.id,
-        username: friendUser.username,
-        email: friendUser.email,
-        avatar: friendUser.avatar,
-        bio: friendUser.bio
-      };
-    });
-
-    res.json(friends);
-  } catch (error) {
-    console.error('Ошибка загрузки списка друзей:', error);
-    res.status(500).json({ error: 'Не удалось загрузить список друзей' });
-  }
-});
-
-// Получить фильмы конкретного пользователя (для просмотра профиля)
-app.get('/api/users/:userId/movies', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    
-    const userMovies = await prisma.userMovie.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' }
-    });
-    
-    res.json(userMovies);
-  } catch (error) {
-    console.error('Ошибка загрузки фильмов пользователя:', error);
-    res.status(500).json({ error: 'Не удалось загрузить фильмы' });
-  }
-});
-
-// Добавить фильм
 app.post('/api/movies', authMiddleware, async (req, res) => {
   try {
-    const { tmdbId, title, posterUrl, status } = req.body;
-
+    const { tmdbId, title, posterUrl, status, type } = req.body;
     const newMovie = await prisma.userMovie.create({
       data: {
-        tmdbId,
-        title,
-        posterUrl,
+        tmdbId, title, posterUrl,
         status: status || 'WATCHLIST',
+        
         userId: req.userId
       }
     });
-
     res.status(201).json(newMovie);
   } catch (error) {
     console.error('Ошибка добавления фильма:', error);
@@ -119,23 +187,12 @@ app.post('/api/movies', authMiddleware, async (req, res) => {
   }
 });
 
-// Удалить фильм
 app.delete('/api/movies/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    
-    const movie = await prisma.userMovie.findFirst({
-      where: { id, userId: req.userId }
-    });
-
-    if (!movie) {
-      return res.status(404).json({ error: 'Фильм не найден' });
-    }
-
-    await prisma.userMovie.delete({
-      where: { id }
-    });
-    
+    const movie = await prisma.userMovie.findFirst({ where: { id, userId: req.userId } });
+    if (!movie) return res.status(404).json({ error: 'Фильм не найден' });
+    await prisma.userMovie.delete({ where: { id } });
     res.json({ message: 'Фильм удален' });
   } catch (error) {
     console.error('Ошибка удаления фильма:', error);
@@ -143,29 +200,16 @@ app.delete('/api/movies/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Изменить статус фильма
 app.put('/api/movies/:id/status', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-    
     if (!['WATCHED', 'WATCHLIST'].includes(status)) {
       return res.status(400).json({ error: 'Неверный статус' });
     }
-
-    const movie = await prisma.userMovie.findFirst({
-      where: { id, userId: req.userId }
-    });
-
-    if (!movie) {
-      return res.status(404).json({ error: 'Фильм не найден' });
-    }
-    
-    const updatedMovie = await prisma.userMovie.update({
-      where: { id },
-      data: { status }
-    });
-    
+    const movie = await prisma.userMovie.findFirst({ where: { id, userId: req.userId } });
+    if (!movie) return res.status(404).json({ error: 'Фильм не найден' });
+    const updatedMovie = await prisma.userMovie.update({ where: { id }, data: { status } });
     res.json(updatedMovie);
   } catch (error) {
     console.error('Ошибка обновления статуса:', error);

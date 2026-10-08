@@ -131,13 +131,19 @@ export const AuthProvider = ({ children }) => {
 
 const getFriends = async () => {
   try {
-    const res = await fetch(`${API_URL}/api/users/friends/list`, {
+    const res = await fetch(`${API_URL}/api/friends/list`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
+    
+    if (!res.ok) {
+      console.error('Ошибка загрузки друзей:', res.status);
+      return [];
+    }
+    
     const data = await res.json();
-    return data;
+    return Array.isArray(data) ? data : [];
   } catch (error) {
-    console.error('Ошибка:', error);
+    console.error('Ошибка getFriends:', error);
     return [];
   }
 };
