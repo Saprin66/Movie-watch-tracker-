@@ -1,9 +1,19 @@
 meta:
-  environment: docker
+  environment: nodejs
   toolchain:
-    name: docker
+    name: npm
+    version: "20"
 build:
-  dockerfile: Dockerfile
+  skip: false
+  additionalCommands: null
+  artifacts:
+    "*": /
 run:
   persistenceMount: /data
-  containerPort: 3001
+  scriptName: null
+  scriptArguments: null
+  nodeArguments: null
+  command: npm run start
+  containerPort: 80
+  singleton: true
+  zeroDowntime: false
