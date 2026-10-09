@@ -1,6 +1,9 @@
 {
   "name": "movie-tracker",
   "version": "1.0.0",
-  "description": "Movie tracking application",
-  "private": true
+  "private": true,
+  "scripts": {
+    "start": "cd server && npm install && npx prisma generate && npx prisma db push && node index.js",
+    "build": "cd client && npm install && npm run build"
+  }
 }
