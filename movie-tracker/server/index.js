@@ -23,6 +23,10 @@ app.use(cors({
 //   allowedHeaders: ['Content-Type', 'Authorization']
 // }));
 app.use(express.json());
+const path = require('path');
+
+// Раздача статики фронтенда
+app.use(express.static(path.join(__dirname, 'client/dist')));
 
 app.get('/', (req, res) => {
   res.send('Welcome to Movie Grade API');
@@ -334,4 +338,8 @@ app.put('/api/movies/:id/status', authMiddleware, async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Movie Grade API running on port ${PORT}`);
+});
+// Все остальные запросы → index.html (для SPA-маршрутизации)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client/dist/index.html'));
 });
