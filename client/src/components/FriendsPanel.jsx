@@ -197,6 +197,7 @@ export default function FriendsPanel({ onUserClick }) {
             )}
             <div className="text-xs text-[#8a90b8]">
               Смотрел: <span className="text-[#c9cce6]">{lastMovie.title}</span>
+              {lastMovie.rating && <span className="text-[#f47c4f]"> · {lastMovie.rating}/10</span>}
             </div>
           </div>
         )}

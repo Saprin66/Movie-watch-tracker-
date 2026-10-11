@@ -3,102 +3,20 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import AuthScreen from "./components/AuthScreen";
 import FriendsPanel from "./components/FriendsPanel";
 import ProfileModal from "./components/ProfileModal";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
-const TMDB_API_KEY =
-  import.meta.env.VITE_TMDB_API_KEY || "8265bd1679663a7ea12ac168da84d2e8";
-const TMDB = "https://api.themoviedb.org/3";
-const POSTER = "https://image.tmdb.org/t/p/w300";
-const BACKDROP = "https://image.tmdb.org/t/p/w1280";
-
-const ORANGE_FILTER =
-  "[filter:invert(1)_sepia(1)_saturate(6)_hue-rotate(335deg)]";
-const Icon = ({ n, className = "w-4 h-4" }) => (
-  <img
-    src={`https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/${n}.svg`}
-    alt=""
-    className={`${className} invert shrink-0`}
-  />
-);
-
-const BTN_ORANGE =
-  "bg-[#f47c4f] hover:bg-[#ff8f66] text-[#1a1020] font-semibold";
-const BTN_SOFT = "bg-white/5 hover:bg-white/10 text-[#c9cce6]";
-const BTN_RED = "bg-red-500/15 hover:bg-red-500/30 text-red-300";
-const PANEL = "bg-[#171a33] border border-white/5 rounded-xl";
-
-function Chip({ children, tone = "soft" }) {
-  const tones = {
-    soft: "bg-white/5 text-[#9aa0c8]",
-    orange: "bg-[#f47c4f]/15 text-[#f47c4f]",
-    green: "bg-emerald-500/15 text-emerald-300",
-    blue: "bg-sky-500/15 text-sky-300",
-  };
-  return (
-    <span className={`px-2 py-0.5 rounded text-[11px] ${tones[tone]}`}>
-      {children}
-    </span>
-  );
-}
-
-function MovieCard({ poster, title, chips, footerLeft, actions, onClick }) {
-  return (
-    <div className="group relative bg-[#1c2040] border border-white/5 rounded-xl overflow-hidden transition hover:border-[#f47c4f]/40">
-      <div className="relative cursor-pointer" onClick={onClick}>
-        {poster ? (
-          <img
-            src={poster}
-            alt={title}
-            loading="lazy"
-            className="w-full aspect-[2/3] object-cover"
-          />
-        ) : (
-          <div className="w-full aspect-[2/3] bg-[#262b55] flex items-center justify-center">
-            <Icon n="film" className="w-8 h-8 opacity-30" />
-          </div>
-        )}
-        <div className="absolute top-1.5 left-1.5 flex flex-col items-start gap-1 [&>span]:bg-[#0f1226]/85 [&>span]:text-[10px] [&>span]:px-1.5 [&>span]:py-px">
-          {chips}
-        </div>
-        {actions && (
-          <div className="absolute inset-x-0 bottom-0 p-1.5 flex gap-1 bg-gradient-to-t from-black/90 to-transparent pt-8 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
-            {actions}
-          </div>
-        )}
-      </div>
-      <div className="px-2 py-1.5">
-        <div
-          className="text-xs font-semibold text-white truncate"
-          title={title}
-        >
-          {title}
-        </div>
-        {footerLeft && (
-          <div className="flex items-center gap-1 text-[11px] text-[#8a90b8] truncate">
-            {footerLeft}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-const Grid = ({ children }) => (
-  <div className="grid grid-cols-3 sm:grid-cols-4 2xl:grid-cols-5 gap-3">
-    {children}
-  </div>
-);
-const Empty = ({ text }) => (
-  <div className={`${PANEL} text-center py-16 text-[#8a90b8]`}>{text}</div>
-);
-
-const Avatar = ({ name, size = "w-10 h-10", text = "text-sm" }) => (
-  <div
-    className={`${size} ${text} rounded-full bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] flex items-center justify-center font-bold text-white shrink-0`}
-  >
-    {name?.[0]?.toUpperCase() || "U"}
-  </div>
-);
+import ReviewModal from "./components/ReviewModal";
+import FriendsFeed from "./components/FriendsFeed";
+import WhatToWatch from "./components/WhatToWatch";
+import { SORT_OPTIONS, sortMovies } from "./utils/sortMovies";
+import Icon from "./components/Icon";
+import { Chip, MovieCard, Grid, Empty, Avatar } from "./components/ui";
+import {
+  ORANGE_FILTER,
+  BTN_ORANGE,
+  BTN_SOFT,
+  BTN_RED,
+  PANEL,
+} from "./components/styles";
+import { API_URL, TMDB_API_KEY, TMDB, POSTER, BACKDROP } from "./config";
 
 // Модальное окно с деталями фильма
 function MovieDetailsModal({ movie, onClose, onAdd }) {
@@ -275,9 +193,32 @@ function MovieTracker() {
   const [importResult, setImportResult] = useState(null);
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [lastWatchedData, setLastWatchedData] = useState({});
+  const [reviewMovieId, setReviewMovieId] = useState(null);
+  const [sortMode, setSortMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem("movieSort");
+      return SORT_OPTIONS.some((o) => o.id === saved) ? saved : "added";
+    } catch {
+      return "added";
+    }
+  });
+
+  const changeSort = (mode) => {
+    setSortMode(mode);
+    try {
+      localStorage.setItem("movieSort", mode);
+    } catch {
+      /* без хранилища просто не запоминаем */
+    }
+  };
 
   useEffect(() => {
-    if (token && (activeTab === "movies" || activeTab === "search"))
+    if (
+      token &&
+      (activeTab === "movies" ||
+        activeTab === "search" ||
+        activeTab === "discover")
+    )
       fetchMovies();
   }, [token, activeTab]);
 
@@ -377,8 +318,10 @@ function MovieTracker() {
     }
   };
 
-  const deleteMovieByTmdbId = async (tmdbId) => {
-    const movieToDelete = movies.find((m) => m.tmdbId === tmdbId);
+  const deleteMovieByTmdbId = async (tmdbId, mediaType) => {
+    const movieToDelete = movies.find(
+      (m) => m.tmdbId === tmdbId && m.mediaType === mediaType,
+    );
     if (movieToDelete) await deleteMovie(movieToDelete.id);
   };
 
@@ -392,6 +335,25 @@ function MovieTracker() {
       await fetchMovies();
     } catch (error) {
       console.error("Ошибка обновления статуса:", error);
+    }
+  };
+
+  const saveReview = async (id, { rating, comment }) => {
+    try {
+      const res = await fetch(`${API_URL}/api/movies/${id}/review`, {
+        method: "PUT",
+        headers: authHeaders,
+        body: JSON.stringify({ rating, comment }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return { ok: false, error: data.error || "Не удалось сохранить отзыв" };
+      }
+      await fetchMovies();
+      return { ok: true };
+    } catch (error) {
+      console.error("Ошибка сохранения отзыва:", error);
+      return { ok: false, error: "Ошибка соединения с сервером" };
     }
   };
 
@@ -425,12 +387,23 @@ function MovieTracker() {
     const skipped = [];
 
     try {
-      const text = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = (e) => reject(e);
-        reader.readAsText(file, "UTF-8");
-      });
+      let text;
+      if (file.name.toLowerCase().endsWith(".docx")) {
+        const mammoth = await import("mammoth");
+        const extractRawText =
+          mammoth.extractRawText || mammoth.default.extractRawText;
+        const result = await extractRawText({
+          arrayBuffer: await file.arrayBuffer(),
+        });
+        text = result.value;
+      } else {
+        text = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = (e) => reject(e);
+          reader.readAsText(file, "UTF-8");
+        });
+      }
 
       const cleanText = text
         .replace(/^\uFEFF/, "")
@@ -454,7 +427,7 @@ function MovieTracker() {
           const rating = parseFloat(ratingMatch[1].replace(",", "."));
           const title = line.replace(ratingMatch[0], "").trim();
           if (title.length > 0 && rating >= 1 && rating <= 10)
-            parsedMovies.push({ title, status: "WATCHED" });
+            parsedMovies.push({ title, status: "WATCHED", rating });
           else if (title.length > 0)
             parsedMovies.push({ title, status: "WATCHLIST" });
         } else {
@@ -473,7 +446,7 @@ function MovieTracker() {
       setImportProgress({ current: 0, total: parsedMovies.length });
 
       for (let i = 0; i < parsedMovies.length; i++) {
-        const { title, status } = parsedMovies[i];
+        const { title, status, rating } = parsedMovies[i];
 
         try {
           const searchRes = await fetch(
@@ -486,7 +459,7 @@ function MovieTracker() {
 
           if (item) {
             const alreadyAdded = movies.some(
-              (m) => m.tmdbId === item.id && m.type === item.media_type,
+              (m) => m.tmdbId === item.id && m.mediaType === item.media_type,
             );
             const itemTitle = item.title || item.name;
             if (alreadyAdded) {
@@ -502,14 +475,15 @@ function MovieTracker() {
                     ? `${POSTER}${item.poster_path}`
                     : null,
                   status,
-                  type: item.media_type,
+                  rating,
+                  mediaType: item.media_type,
                 }),
               });
               success.push({
                 title,
                 tmdbTitle: itemTitle,
                 status,
-                type: item.media_type,
+                mediaType: item.media_type,
               });
               setMovies((prev) => [
                 ...prev,
@@ -517,7 +491,7 @@ function MovieTracker() {
                   tmdbId: item.id,
                   title: itemTitle,
                   status,
-                  type: item.media_type,
+                  mediaType: item.media_type,
                 },
               ]);
             }
@@ -544,20 +518,34 @@ function MovieTracker() {
     }
   };
 
-  const filteredMovies = movies.filter((m) => {
-    if (movieFilter === "watchlist") return m.status === "WATCHLIST";
-    if (movieFilter === "watched") return m.status === "WATCHED";
-    return true;
-  });
+  const reviewMovie = movies.find((m) => m.id === reviewMovieId) || null;
+
+  const filteredMovies = sortMovies(
+    movies.filter((m) => {
+      if (movieFilter === "watchlist") return m.status === "WATCHLIST";
+      if (movieFilter === "watched") return m.status === "WATCHED";
+      return true;
+    }),
+    sortMode,
+  );
 
   const watchlistCount = movies.filter((m) => m.status === "WATCHLIST").length;
   const watchedCount = movies.filter((m) => m.status === "WATCHED").length;
-  const addedMovieIds = new Set(movies.map((m) => m.tmdbId));
+  const addedMovieIds = new Set(
+    movies.map((m) => `${m.mediaType === "tv" ? "tv" : "movie"}-${m.tmdbId}`),
+  );
 
   //БОКОВАЯ ПАНЕЛЬ С ВКЛАДКАМИ
 
   const navItems = [
     { id: "movies", label: "Мой список", icon: "layout-dashboard" },
+    {
+      id: "discover",
+      label: "Что смотреть",
+      short: "Смотреть",
+      icon: "sparkles",
+    },
+    { id: "feed", label: "Лента друзей", short: "Лента", icon: "activity" },
     { id: "search", label: "Искать", icon: "compass" },
     { id: "friends", label: "Друзья", icon: "users" },
     { id: "profile", label: "Настройки", icon: "settings" },
@@ -744,7 +732,8 @@ function MovieTracker() {
                 </div>
               )}
 
-              <div className="flex gap-6 border-b border-white/5">
+              <div className="flex flex-wrap items-end justify-between gap-x-6 border-b border-white/5">
+                <div className="flex gap-6">
                 {tabs.map((t) => (
                   <button
                     key={t.id}
@@ -758,6 +747,21 @@ function MovieTracker() {
                     {t.label}
                   </button>
                 ))}
+                </div>
+                <label className="flex items-center gap-2 pb-2 text-xs text-[#8a90b8]">
+                  Сортировка
+                  <select
+                    value={sortMode}
+                    onChange={(e) => changeSort(e.target.value)}
+                    className="bg-[#1c2040] border border-white/5 rounded-lg px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-[#f47c4f]/60"
+                  >
+                    {SORT_OPTIONS.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
 
               {filteredMovies.length === 0 ? (
@@ -769,6 +773,7 @@ function MovieTracker() {
                       key={movie.id}
                       poster={movie.posterUrl}
                       title={movie.title}
+                      onClick={() => setReviewMovieId(movie.id)}
                       chips={
                         <>
                           <Chip
@@ -778,8 +783,17 @@ function MovieTracker() {
                               ? "Просмотрено"
                               : "Буду смотреть"}
                           </Chip>
-                          {movie.type === "tv" && (
+                          {movie.mediaType === "tv" && (
                             <Chip tone="orange">Сериал</Chip>
+                          )}
+                          {movie.rating && (
+                            <Chip tone="orange">
+                              <Icon
+                                n="star"
+                                className={`w-3 h-3 inline -mt-0.5 mr-0.5 ${ORANGE_FILTER}`}
+                              />
+                              {movie.rating}
+                            </Chip>
                           )}
                         </>
                       }
@@ -790,7 +804,11 @@ function MovieTracker() {
                             className="w-3.5 h-3.5 opacity-60"
                           />
                           {movie.createdAt
-                            ? new Date(movie.createdAt).toLocaleDateString(
+                            ? new Date(
+                                movie.status === "WATCHED" && movie.watchedAt
+                                  ? movie.watchedAt
+                                  : movie.createdAt,
+                              ).toLocaleDateString(
                                 "ru-RU",
                                 {
                                   day: "numeric",
@@ -798,7 +816,7 @@ function MovieTracker() {
                                   year: "numeric",
                                 },
                               )
-                            : movie.type === "tv"
+                            : movie.mediaType === "tv"
                               ? "Сериал"
                               : "Фильм"}
                         </>
@@ -806,14 +824,15 @@ function MovieTracker() {
                       actions={
                         <>
                           <button
-                            onClick={() =>
+                            onClick={(e) => {
+                              e.stopPropagation();
                               updateMovieStatus(
                                 movie.id,
                                 movie.status === "WATCHLIST"
                                   ? "WATCHED"
                                   : "WATCHLIST",
-                              )
-                            }
+                              );
+                            }}
                             title={
                               movie.status === "WATCHLIST"
                                 ? "Отметить просмотренным"
@@ -834,7 +853,10 @@ function MovieTracker() {
                               : "В список"}
                           </button>
                           <button
-                            onClick={() => deleteMovie(movie.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteMovie(movie.id);
+                            }}
                             title="Удалить"
                             className={`px-1.5 rounded-md ${BTN_RED}`}
                           >
@@ -870,7 +892,10 @@ function MovieTracker() {
                   )}
                   <Grid>
                     {searchResults.map((movie) => {
-                      const isAdded = addedMovieIds.has(movie.id);
+                      const mediaType = movie.media_type === "tv" ? "tv" : "movie";
+                      const isAdded = addedMovieIds.has(
+                        `${mediaType}-${movie.id}`,
+                      );
                       const title = movie.title || movie.name;
                       const year = (
                         movie.release_date ||
@@ -909,7 +934,7 @@ function MovieTracker() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  deleteMovieByTmdbId(movie.id);
+                                  deleteMovieByTmdbId(movie.id, mediaType);
                                 }}
                                 className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] ${BTN_RED}`}
                               >
@@ -932,6 +957,22 @@ function MovieTracker() {
                 />
               )}
             </div>
+          )}
+
+          {activeTab === "discover" && (
+            <WhatToWatch
+              movies={movies}
+              onOpenMovie={setSelectedMovie}
+              onMarkWatched={(id) => updateMovieStatus(id, "WATCHED")}
+            />
+          )}
+
+          {activeTab === "feed" && (
+            <FriendsFeed
+              token={token}
+              onUserClick={setSelectedUserId}
+              onOpenFriends={() => setActiveTab("friends")}
+            />
           )}
 
           {activeTab === "friends" && (
@@ -1089,11 +1130,25 @@ function MovieTracker() {
                               <Icon n="film" className="w-3 h-3 opacity-50" />
                             </div>
                           )}
-                          <div className="text-[10px] text-[#8a90b8] truncate leading-tight">
-                            Смотрел:{" "}
-                            <span className="text-[#c9cce6]">
+                          <div className="min-w-0 flex-1 leading-tight">
+                            <div className="text-[10px] text-[#6f759e]">
+                              Смотрел
+                            </div>
+                            <div
+                              className="text-[11px] text-[#c9cce6] truncate"
+                              title={lastMovie.title}
+                            >
                               {lastMovie.title}
-                            </span>
+                            </div>
+                            {lastMovie.rating && (
+                              <div className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-[#f47c4f]">
+                                <Icon
+                                  n="star"
+                                  className={`w-3 h-3 ${ORANGE_FILTER}`}
+                                />
+                                {lastMovie.rating}/10
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -1122,16 +1177,16 @@ function MovieTracker() {
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className="flex flex-col items-center gap-1 px-3 py-1"
+            className="flex-1 min-w-0 flex flex-col items-center gap-1 px-1 py-1"
           >
             <Icon
               n={item.icon}
               className={`w-5 h-5 ${activeTab === item.id ? ORANGE_FILTER : "opacity-60"}`}
             />
             <span
-              className={`text-[10px] ${activeTab === item.id ? "text-[#f47c4f]" : "text-[#8a90b8]"}`}
+              className={`max-w-full truncate text-[10px] ${activeTab === item.id ? "text-[#f47c4f]" : "text-[#8a90b8]"}`}
             >
-              {item.label}
+              {item.short ?? item.label}
             </span>
           </button>
         ))}
@@ -1157,9 +1212,28 @@ function MovieTracker() {
                 ? `${POSTER}${selectedMovie.poster_path}`
                 : null,
               status,
-              type: selectedMovie.media_type || "movie",
+              mediaType: selectedMovie.media_type === "tv" ? "tv" : "movie",
             })
           }
+        />
+      )}
+
+      {reviewMovie && (
+        <ReviewModal
+          key={reviewMovie.id}
+          movie={reviewMovie}
+          onClose={() => setReviewMovieId(null)}
+          onSave={(review) => saveReview(reviewMovie.id, review)}
+          onToggleStatus={() =>
+            updateMovieStatus(
+              reviewMovie.id,
+              reviewMovie.status === "WATCHED" ? "WATCHLIST" : "WATCHED",
+            )
+          }
+          onDelete={async () => {
+            await deleteMovie(reviewMovie.id);
+            setReviewMovieId(null);
+          }}
         />
       )}
 

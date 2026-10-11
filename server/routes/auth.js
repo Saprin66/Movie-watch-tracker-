@@ -1,25 +1,67 @@
 const express = require('express');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const { Resend } = require('resend');
-const { authMiddleware} = require('../middleware/auth');
+const { JWT_SECRET } = require('../config');
+const { authMiddleware } = require('../middleware/auth');
+const { rateLimit } = require('../middleware/rateLimit');
 
 const router = express.Router();
 const prisma = new PrismaClient();
 const resend = new Resend(process.env.RESEND_API_KEY);
-const JWT_SECRET = process.env.JWT_SECRET || 'movie-grade-secret-key-2024';
 
-// ⚠️ ВАЖНО: Замени 'твой-домен.ru' на твой реальный домен, который ты подключил!
-const FROM_EMAIL = 'Movie Grade <hello@sapringrade.ru>'; 
+const FROM_EMAIL = 'Movie Grade <hello@sapringrade.ru>';
 
-// Генерация случайного 6-значного кода
-const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString();
+const MAX_CODE_ATTEMPTS = 5;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Ограничения по IP
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: 'Слишком много попыток входа. Попробуйте через 15 минут.'
+});
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: 'Слишком много регистраций с этого адреса. Попробуйте позже.'
+});
+const codeLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 15,
+  message: 'Слишком много попыток. Подождите 10 минут.'
+});
+
+// Криптостойкий 6-значный код
+const generateCode = () => crypto.randomInt(100000, 1000000).toString();
+
+// Экранирование пользовательских данных перед вставкой в HTML письма
+const escapeHtml = (value) =>
+  String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
 // 1. РЕГИСТРАЦИЯ
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { password } = req.body;
+    const username = typeof req.body.username === 'string' ? req.body.username.trim() : '';
+    const email = typeof req.body.email === 'string' ? req.body.email.trim() : '';
+
+    if (username.length < 3 || username.length > 20) {
+      return res.status(400).json({ error: 'Ник должен содержать от 3 до 20 символов' });
+    }
+    if (email.length > 254 || !EMAIL_RE.test(email)) {
+      return res.status(400).json({ error: 'Введите корректный email' });
+    }
+    if (typeof password !== 'string' || password.length < 8 || password.length > 72) {
+      return res.status(400).json({ error: 'Пароль должен содержать от 8 до 72 символов' });
+    }
 
     const existingUser = await prisma.user.findFirst({
       where: { OR: [{ username }, { email }] }
@@ -52,7 +94,7 @@ router.post('/register', async (req, res) => {
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h1 style="color: #f97316;">🎬 Movie Grade</h1>
-            <p>Привет, <strong>${username}</strong>!</p>
+            <p>Привет, <strong>${escapeHtml(username)}</strong>!</p>
             <p>Твой код подтверждения:</p>
             <div style="background: #f97316; color: white; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; border-radius: 8px; margin: 20px 0;">
               ${verificationCode}
@@ -85,7 +127,7 @@ router.post('/register', async (req, res) => {
 });
 
 // 2. ВХОД
-// router.post('/login', async (req, res) => {
+// router.post('/login', loginLimiter, async (req, res) => {
 //   try {
 //     const { email, password } = req.body;
 //     const user = await prisma.user.findUnique({ where: { username } });
@@ -120,7 +162,7 @@ router.post('/register', async (req, res) => {
 // });
 
 // Вход по email
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -153,7 +195,7 @@ router.post('/login', async (req, res) => {
 
     const token = jwt.sign(
       { userId: user.id },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '7d' }
     );
 
@@ -207,7 +249,7 @@ router.get('/me', async (req, res) => {
 });
 
 // 4. ПОДТВЕРЖДЕНИЕ EMAIL
-router.post('/verify-email', async (req, res) => {
+router.post('/verify-email', codeLimiter, async (req, res) => {
   try {
     const { code } = req.body;
     const authHeader = req.headers.authorization;
@@ -220,17 +262,31 @@ router.post('/verify-email', async (req, res) => {
     if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
     if (user.isVerified) return res.json({ message: 'Email уже подтвержден' });
 
-    if (user.codeExpiresAt && new Date() > user.codeExpiresAt) {
+    if (!user.verificationCode || (user.codeExpiresAt && new Date() > user.codeExpiresAt)) {
       return res.status(400).json({ error: 'Код истек. Запросите новый.' });
     }
 
-    if (user.verificationCode !== code) {
+    if (user.codeAttempts >= MAX_CODE_ATTEMPTS) {
+      return res.status(429).json({ error: 'Слишком много неверных попыток. Запросите новый код.' });
+    }
+
+    const submitted = typeof code === 'string' ? code.trim() : '';
+    const expected = Buffer.from(user.verificationCode);
+    const received = Buffer.from(submitted);
+    const isCodeValid =
+      expected.length === received.length && crypto.timingSafeEqual(expected, received);
+
+    if (!isCodeValid) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { codeAttempts: { increment: 1 } }
+      });
       return res.status(400).json({ error: 'Неверный код подтверждения' });
     }
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { isVerified: true, verificationCode: null, codeExpiresAt: null }
+      data: { isVerified: true, verificationCode: null, codeExpiresAt: null, codeAttempts: 0 }
     });
 
     res.json({ message: 'Email успешно подтвержден!' });
@@ -241,7 +297,7 @@ router.post('/verify-email', async (req, res) => {
 });
 
 // 5. ПОВТОРНАЯ ОТПРАВКА КОДА
-router.post('/resend-code', async (req, res) => {
+router.post('/resend-code', codeLimiter, async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Нет токена' });
@@ -258,7 +314,7 @@ router.post('/resend-code', async (req, res) => {
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { verificationCode: newCode, codeExpiresAt }
+      data: { verificationCode: newCode, codeExpiresAt, codeAttempts: 0 }
     });
 
     await resend.emails.send({
@@ -268,7 +324,7 @@ router.post('/resend-code', async (req, res) => {
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #f97316;">🎬 Movie Grade</h1>
-          <p>Привет, <strong>${user.username}</strong>!</p>
+          <p>Привет, <strong>${escapeHtml(user.username)}</strong>!</p>
           <p>Твой новый код подтверждения:</p>
           <div style="background: #f97316; color: white; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; border-radius: 8px; margin: 20px 0;">
             ${newCode}

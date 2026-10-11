@@ -1,27 +1,9 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
-const jwt = require('jsonwebtoken');
+const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'movie-grade-secret-key-2024';
-
-// Middleware для проверки токена
-const authMiddleware = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Нет токена' });
-  }
-  
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.userId = decoded.userId;
-    next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Недействительный токен' });
-  }
-};
 
 // 1. ПОИСК ПОЛЬЗОВАТЕЛЕЙ (должен быть ДО /:userId)
 router.get('/search', authMiddleware, async (req, res) => {
@@ -74,9 +56,27 @@ router.get('/friends/requests', authMiddleware, async (req, res) => {
 router.put('/profile', authMiddleware, async (req, res) => {
   try {
     const { bio, avatar } = req.body;
+    const data = {};
+
+    if (bio !== undefined) {
+      if (bio !== null && (typeof bio !== 'string' || bio.length > 300)) {
+        return res.status(400).json({ error: 'Описание не должно быть длиннее 300 символов' });
+      }
+      data.bio = bio;
+    }
+
+    if (avatar !== undefined) {
+      if (avatar !== null && (typeof avatar !== 'string' || avatar.length > 500_000)) {
+        return res.status(400).json({ error: 'Аватар слишком большой' });
+      }
+      data.avatar = avatar;
+    }
+
     const user = await prisma.user.update({
       where: { id: req.userId },
-      data: { bio, avatar }
+      data,
+      // Только безопасные поля: без хэша пароля и кода подтверждения
+      select: { id: true, username: true, email: true, avatar: true, bio: true }
     });
     res.json({ message: 'Профиль обновлен', user });
   } catch (error) {

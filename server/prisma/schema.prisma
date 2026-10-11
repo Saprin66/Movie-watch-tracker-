@@ -13,8 +13,9 @@ model User {
   email            String      @unique
   password         String
   isVerified       Boolean     @default(false)
-  verificationCode String?     // <-- ДОБАВЛЕНО
-  codeExpiresAt    DateTime?   // <-- ДОБАВЛЕНО
+  verificationCode String?
+  codeExpiresAt    DateTime?
+  codeAttempts     Int         @default(0)
   bio              String?
   lastSeen     DateTime    @default(now()) 
   avatar           String?
@@ -44,9 +45,11 @@ model UserMovie {
   tmdbId    Int
   title     String
   posterUrl String?
+  mediaType String   @default("movie") // movie | tv
   status    String   @default("WATCHLIST")
-  rating    Int?
+  rating    Int?       // 1-10
   comment   String?
+  watchedAt DateTime?  // когда отмечен просмотренным
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())

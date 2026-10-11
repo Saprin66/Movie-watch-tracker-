@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext"; // <-- Важно: импортируем useAuth
+import RecentMovies from "./RecentMovies";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -210,44 +211,10 @@ export default function ProfileModal({ userId, token, onClose }) {
             </div>
 
             {profile.recentMovies && profile.recentMovies.length > 0 ? (
-              <div>
-                <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                  <Icon n="clock" className="w-4 h-4 opacity-50" />
-                  Последние активности
-                </h3>
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                  {profile.recentMovies.map((movie, idx) => (
-                    <div
-                      key={movie.id || idx}
-                      className="group relative bg-[#1c2040] border border-white/5 rounded-lg overflow-hidden hover:border-[#f47c4f]/40 transition-colors"
-                    >
-                      {movie.posterUrl ? (
-                        <img
-                          src={movie.posterUrl}
-                          alt={movie.title || "Фильм"}
-                          className="w-full aspect-[2/3] object-cover"
-                        />
-                      ) : (
-                        <div className="w-full aspect-[2/3] bg-[#262b55] flex items-center justify-center">
-                          <Icon n="film" className="w-6 h-6 opacity-30" />
-                        </div>
-                      )}
-                      <div className="absolute top-1 right-1">
-                        {movie.status === "WATCHED" ? (
-                          <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                        ) : (
-                          <div className="w-2 h-2 rounded-full bg-sky-500"></div>
-                        )}
-                      </div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-1.5">
-                        <div className="text-[10px] text-white line-clamp-2 leading-tight">
-                          {movie.title || "Без названия"}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <RecentMovies
+                movies={profile.recentMovies}
+                reviewsHidden={Boolean(profile.reviewsHidden)}
+              />
             ) : (
               <div className="text-center py-8 text-[#8a90b8] text-sm border-t border-white/5 pt-6">
                 У пользователя пока нет фильмов в журнале
