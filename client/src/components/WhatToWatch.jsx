@@ -50,6 +50,20 @@ const saveSetting = (key, value) => {
 
 const typeOf = (movie) => (movie.mediaType === "tv" ? "tv" : "movie");
 
+// Записи, добавленные до появления поля mediaType, считаются фильмами, даже если
+// это сериал. Поэтому при 404 пробуем второй тип.
+async function fetchTmdb(type, id, suffix, params = "") {
+  const other = type === "tv" ? "movie" : "tv";
+  for (const t of [type, other]) {
+    const res = await fetch(
+      `${TMDB}/${t}/${id}${suffix}?api_key=${TMDB_API_KEY}${params}`,
+    );
+    if (res.ok) return { data: await res.json(), type: t };
+    if (res.status !== 404) break;
+  }
+  return null;
+}
+
 function Providers({ region, onRegionChange, providers, loading }) {
   const regionLabel = REGIONS.find((r) => r.code === region)?.label || region;
   const groups = providers
@@ -282,12 +296,9 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
     if (!pickedTmdbId || !TMDB_API_KEY) return;
     let cancelled = false;
     setDetails(null);
-    fetch(
-      `${TMDB}/${pickedType}/${pickedTmdbId}?api_key=${TMDB_API_KEY}&language=ru-RU`,
-    )
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled) setDetails(data);
+    fetchTmdb(pickedType, pickedTmdbId, "", "&language=ru-RU")
+      .then((found) => {
+        if (!cancelled) setDetails(found ? found.data : null);
       })
       .catch((error) => console.error("Ошибка загрузки описания:", error));
     return () => {
@@ -300,13 +311,10 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
     let cancelled = false;
     setProvidersLoading(true);
     setProviders(null);
-    fetch(
-      `${TMDB}/${pickedType}/${pickedTmdbId}/watch/providers?api_key=${TMDB_API_KEY}`,
-    )
-      .then((res) => res.json())
-      .then((data) => {
+    fetchTmdb(pickedType, pickedTmdbId, "/watch/providers")
+      .then((found) => {
         if (cancelled) return;
-        setProviders(data.results?.[region] || null);
+        setProviders(found?.data.results?.[region] || null);
         setProvidersLoading(false);
       })
       .catch((error) => {
@@ -334,11 +342,11 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
     setRecs((prev) => ({ ...prev, status: "loading", seeds }));
     Promise.all(
       seeds.map((seed) =>
-        fetch(
-          `${TMDB}/${typeOf(seed)}/${seed.tmdbId}/recommendations?api_key=${TMDB_API_KEY}&language=ru-RU`,
-        )
-          .then((res) => (res.ok ? res.json() : { results: [] }))
-          .then((data) => ({ seed, results: data.results || [] }))
+        fetchTmdb(typeOf(seed), seed.tmdbId, "/recommendations", "&language=ru-RU")
+          .then((found) => ({
+            seed: found ? { ...seed, mediaType: found.type } : seed,
+            results: found?.data.results || [],
+          }))
           .catch(() => ({ seed, results: [] })),
       ),
     ).then((lists) => {

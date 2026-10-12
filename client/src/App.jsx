@@ -904,7 +904,7 @@ function MovieTracker() {
                       ).slice(0, 4);
                       return (
                         <MovieCard
-                          key={movie.id}
+                          key={`${movie.media_type || "movie"}-${movie.id}`}
                           poster={
                             movie.poster_path
                               ? `${POSTER}${movie.poster_path}`
