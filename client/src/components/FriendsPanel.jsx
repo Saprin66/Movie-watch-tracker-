@@ -23,7 +23,7 @@ const Chip = ({ children, tone = 'soft' }) => {
   return <span className={`px-2 py-0.5 rounded text-[11px] ${tones[tone]}`}>{children}</span>;
 };
 
-export default function FriendsPanel({ onUserClick }) {
+export default function FriendsPanel({ onUserClick, onRequestsChange }) {
   const { searchUsers, getFriends, getFriendRequests, handleFriendRequest, sendFriendRequest, token } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -74,9 +74,12 @@ export default function FriendsPanel({ onUserClick }) {
   const loadRequests = async () => {
     try {
       const data = await getFriendRequests();
-      setRequests(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      setRequests(list);
+      onRequestsChange?.(list.length);
     } catch (e) {
       setRequests([]);
+      onRequestsChange?.(0);
     }
   };
 

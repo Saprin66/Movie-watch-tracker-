@@ -51,7 +51,7 @@ function Poster({ movie, className }) {
 function MovieEntry({ item, onUserClick }) {
   return (
     <li className={`${PANEL} p-4 flex gap-4`}>
-      <Poster movie={item.movie} className="w-16 sm:w-20 aspect-[2/3]" />
+      <Poster movie={item.movie} className="w-16 sm:w-20 aspect-[2/3] self-start" />
 
       <div className="flex-1 min-w-0">
         <EntryHeader item={item} onUserClick={onUserClick} />

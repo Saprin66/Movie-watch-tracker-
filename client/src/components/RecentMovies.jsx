@@ -41,10 +41,10 @@ export default function RecentMovies({ movies, reviewsHidden = false }) {
                   src={movie.posterUrl}
                   alt={movie.title || "Фильм"}
                   loading="lazy"
-                  className="w-16 sm:w-20 aspect-[2/3] object-cover rounded-lg shrink-0"
+                  className="w-16 sm:w-20 aspect-[2/3] self-start object-cover rounded-lg shrink-0"
                 />
               ) : (
-                <div className="w-16 sm:w-20 aspect-[2/3] bg-[#262b55] rounded-lg shrink-0 flex items-center justify-center">
+                <div className="w-16 sm:w-20 aspect-[2/3] self-start bg-[#262b55] rounded-lg shrink-0 flex items-center justify-center">
                   <Icon n="film" className="w-6 h-6 opacity-30" />
                 </div>
               )}

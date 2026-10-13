@@ -33,6 +33,14 @@ const codeLimiter = rateLimit({
   max: 15,
   message: 'Слишком много попыток. Подождите 10 минут.'
 });
+const forgotLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: 'Слишком много запросов на сброс пароля. Попробуйте через 15 минут.'
+});
+
+const RESET_TTL_MS = 15 * 60 * 1000;
+const RESET_COOLDOWN_MS = 60 * 1000;
 
 // Криптостойкий 6-значный код
 const generateCode = () => crypto.randomInt(100000, 1000000).toString();
@@ -45,6 +53,14 @@ const escapeHtml = (value) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+
+// В базе хранится не сам код сброса, а его HMAC: утечка таблицы не даёт взломать аккаунт
+const hashResetCode = (code) =>
+  crypto.createHmac('sha256', JWT_SECRET).update(code).digest('hex');
+
+// Email ищем без учёта регистра: на телефоне первая буква часто становится заглавной
+const findUserByEmail = (email) =>
+  prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } });
 
 // 1. РЕГИСТРАЦИЯ
 router.post('/register', registerLimiter, async (req, res) => {
@@ -216,18 +232,10 @@ router.post('/login', loginLimiter, async (req, res) => {
 });
 
 // 3. ПОЛУЧИТЬ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
-router.get('/me', async (req, res) => {
+router.get('/me', authMiddleware, async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Нет токена' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
+      where: { id: req.userId },
       select: {
         id: true,
         username: true,
@@ -341,6 +349,137 @@ router.post('/resend-code', codeLimiter, async (req, res) => {
   }
 });
 
+
+// 6. СБРОС ПАРОЛЯ: запрос кода
+// Ответ всегда одинаковый, чтобы нельзя было узнать, зарегистрирован ли email
+router.post('/forgot-password', forgotLimiter, async (req, res) => {
+  try {
+    const email = typeof req.body.email === 'string' ? req.body.email.trim() : '';
+    if (email.length > 254 || !EMAIL_RE.test(email)) {
+      return res.status(400).json({ error: 'Введите корректный email' });
+    }
+
+    const user = await findUserByEmail(email);
+    const tooSoon =
+      user?.resetRequestedAt &&
+      Date.now() - user.resetRequestedAt.getTime() < RESET_COOLDOWN_MS;
+
+    if (user && !tooSoon) {
+      const code = generateCode();
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          resetCodeHash: hashResetCode(code),
+          resetExpiresAt: new Date(Date.now() + RESET_TTL_MS),
+          resetAttempts: 0,
+          resetRequestedAt: new Date()
+        }
+      });
+
+      try {
+        await resend.emails.send({
+          from: FROM_EMAIL,
+          to: user.email,
+          subject: 'Сброс пароля - Movie Grade',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h1 style="color: #f97316;">Movie Grade</h1>
+              <p>Привет, <strong>${escapeHtml(user.username)}</strong>!</p>
+              <p>Код для сброса пароля:</p>
+              <div style="background: #f97316; color: white; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; border-radius: 8px; margin: 20px 0;">
+                ${code}
+              </div>
+              <p>Код действителен 15 минут.</p>
+              <p style="color: #666;">Если вы не запрашивали сброс, просто проигнорируйте письмо: пароль останется прежним.</p>
+            </div>
+          `
+        });
+      } catch (emailError) {
+        console.error('Ошибка отправки письма для сброса пароля:', emailError);
+      }
+    }
+
+    res.json({
+      message: 'Если аккаунт с таким email существует, мы отправили на него код для сброса пароля'
+    });
+  } catch (error) {
+    console.error('Ошибка запроса сброса пароля:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// 7. СБРОС ПАРОЛЯ: проверка кода и установка нового пароля
+router.post('/reset-password', codeLimiter, async (req, res) => {
+  try {
+    const email = typeof req.body.email === 'string' ? req.body.email.trim() : '';
+    const code = typeof req.body.code === 'string' ? req.body.code.trim() : '';
+    const { password } = req.body;
+
+    if (email.length > 254 || !EMAIL_RE.test(email)) {
+      return res.status(400).json({ error: 'Введите корректный email' });
+    }
+    if (!/^\d{6}$/.test(code)) {
+      return res.status(400).json({ error: 'Введите 6-значный код из письма' });
+    }
+    if (typeof password !== 'string' || password.length < 8 || password.length > 72) {
+      return res.status(400).json({ error: 'Пароль должен содержать от 8 до 72 символов' });
+    }
+
+    const invalid = () => res.status(400).json({ error: 'Неверный или просроченный код' });
+
+    const user = await findUserByEmail(email);
+    if (
+      !user ||
+      !user.resetCodeHash ||
+      !user.resetExpiresAt ||
+      Date.now() > user.resetExpiresAt.getTime()
+    ) {
+      return invalid();
+    }
+
+    if (user.resetAttempts >= MAX_CODE_ATTEMPTS) {
+      return res
+        .status(429)
+        .json({ error: 'Слишком много неверных попыток. Запросите новый код.' });
+    }
+
+    const expected = Buffer.from(user.resetCodeHash, 'hex');
+    const received = Buffer.from(hashResetCode(code), 'hex');
+    const isCodeValid =
+      expected.length === received.length && crypto.timingSafeEqual(expected, received);
+
+    if (!isCodeValid) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { resetAttempts: { increment: 1 } }
+      });
+      return invalid();
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        // Код пришёл на почту, значит владение email подтверждено
+        isVerified: true,
+        verificationCode: null,
+        codeExpiresAt: null,
+        codeAttempts: 0,
+        resetCodeHash: null,
+        resetExpiresAt: null,
+        resetAttempts: 0,
+        resetRequestedAt: null,
+        passwordChangedAt: new Date()
+      }
+    });
+
+    res.json({ message: 'Пароль изменён. Теперь можно войти.' });
+  } catch (error) {
+    console.error('Ошибка сброса пароля:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
 
 // Обновление профиля (смена ника)
 router.put('/me', authMiddleware, async (req, res) => {

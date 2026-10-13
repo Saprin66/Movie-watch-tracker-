@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Icon from "./Icon";
+import { useScrollLock } from "../hooks/useScrollLock";
 
 const MAX_COMMENT = 1000;
 const SCALE = Array.from({ length: 10 }, (_, i) => i + 1);
@@ -11,6 +12,8 @@ export default function ReviewModal({
   onToggleStatus,
   onDelete,
 }) {
+  useScrollLock();
+
   const [rating, setRating] = useState(movie.rating ?? null);
   const [comment, setComment] = useState(movie.comment ?? "");
   const [saving, setSaving] = useState(false);
@@ -45,14 +48,14 @@ export default function ReviewModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/80 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={`Отзыв: ${movie.title}`}
-        className="bg-[#171a33] border border-white/10 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-[#171a33] border border-white/10 rounded-t-2xl sm:rounded-2xl max-w-2xl w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto scroll-contain pb-[env(safe-area-inset-bottom)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex gap-5 p-5 sm:p-6">

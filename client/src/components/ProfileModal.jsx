@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext"; // <-- Важно: импортируем useAuth
 import RecentMovies from "./RecentMovies";
+import { useScrollLock } from "../hooks/useScrollLock";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -28,6 +29,7 @@ const StatCard = ({ value, label, color }) => (
 );
 
 export default function ProfileModal({ userId, token, onClose }) {
+  useScrollLock();
   const { updateProfile, user } = useAuth(); // <-- Получаем updateProfile и текущего пользователя
 
   const [profile, setProfile] = useState(null);
@@ -108,11 +110,11 @@ export default function ProfileModal({ userId, token, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/80 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="bg-[#171a33] border border-white/10 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-[#171a33] border border-white/10 rounded-t-2xl sm:rounded-2xl max-w-2xl w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto scroll-contain pb-[env(safe-area-inset-bottom)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative h-32 bg-gradient-to-br from-[#f47c4f]/20 to-[#8a4fff]/20 rounded-t-2xl">

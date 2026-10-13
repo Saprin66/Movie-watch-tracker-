@@ -1,12 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import AuthScreen from "./components/AuthScreen";
 import FriendsPanel from "./components/FriendsPanel";
 import ProfileModal from "./components/ProfileModal";
 import ReviewModal from "./components/ReviewModal";
+import MovieDetailsModal from "./components/MovieDetailsModal";
 import FriendsFeed from "./components/FriendsFeed";
 import WhatToWatch from "./components/WhatToWatch";
 import { SORT_OPTIONS, sortMovies } from "./utils/sortMovies";
+import MovieFilters from "./components/MovieFilters";
+import {
+  DEFAULT_FILTERS,
+  collectFacets,
+  filterMovies,
+  isFiltering,
+} from "./utils/filterMovies";
+import { metaFromTmdb } from "./utils/genres";
+import { useMetaBackfill } from "./hooks/useMetaBackfill";
 import Icon from "./components/Icon";
 import { Chip, MovieCard, Grid, Empty, Avatar } from "./components/ui";
 import {
@@ -16,169 +26,13 @@ import {
   BTN_RED,
   PANEL,
 } from "./components/styles";
-import { API_URL, TMDB_API_KEY, TMDB, POSTER, BACKDROP } from "./config";
-
-// Модальное окно с деталями фильма
-function MovieDetailsModal({ movie, onClose, onAdd }) {
-  const [details, setDetails] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!movie) return;
-    setLoading(true);
-    const endpoint =
-      movie.media_type === "tv"
-        ? `${TMDB}/tv/${movie.id}`
-        : `${TMDB}/movie/${movie.id}`;
-    fetch(
-      `${endpoint}?api_key=${TMDB_API_KEY}&language=ru-RU&append_to_response=credits`,
-    )
-      .then((res) => res.json())
-      .then((data) => {
-        setDetails(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Ошибка загрузки деталей:", err);
-        setLoading(false);
-      });
-  }, [movie]);
-
-  if (!movie) return null;
-
-  const title = details?.title || details?.name || movie.title || movie.name;
-  const year = (details?.release_date || details?.first_air_date || "").slice(
-    0,
-    4,
-  );
-  const runtime = details?.runtime
-    ? `${Math.floor(details.runtime / 60)}ч ${details.runtime % 60}м`
-    : details?.episode_run_time?.[0]
-      ? `${details.episode_run_time[0]}м/эп`
-      : null;
-  const rating = details?.vote_average?.toFixed(1);
-  const overview = details?.overview || "Описание отсутствует";
-  const genres = details?.genres || [];
-  const director = details?.credits?.crew?.find(
-    (c) => c.job === "Director",
-  )?.name;
-  const cast = details?.credits?.cast
-    ?.slice(0, 5)
-    .map((c) => c.name)
-    .join(", ");
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="bg-[#171a33] border border-white/10 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {details?.backdrop_path && (
-          <div className="relative h-64 sm:h-80">
-            <img
-              src={`${BACKDROP}${details.backdrop_path}`}
-              alt=""
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#171a33] via-[#171a33]/60 to-transparent" />
-            <button
-              onClick={onClose}
-              className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
-            >
-              <Icon n="x" className="w-5 h-5" />
-            </button>
-          </div>
-        )}
-
-        <div className="p-6 sm:p-8 -mt-20 relative">
-          <div className="flex flex-col sm:flex-row gap-6">
-            {details?.poster_path && (
-              <img
-                src={`${POSTER}${details.poster_path}`}
-                alt={title}
-                className="w-40 sm:w-48 rounded-xl shadow-2xl border border-white/10 shrink-0"
-              />
-            )}
-
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                {year && <Chip>{year}</Chip>}
-                {runtime && <Chip tone="orange">{runtime}</Chip>}
-                {rating && (
-                  <span className="flex items-center gap-1 text-sm text-yellow-400">
-                    <Icon n="star" className="w-4 h-4" /> {rating}
-                  </span>
-                )}
-                {movie.media_type === "tv" && <Chip tone="orange">Сериал</Chip>}
-              </div>
-
-              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
-                {title}
-              </h2>
-
-              {genres.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {genres.map((g) => (
-                    <span
-                      key={g.id}
-                      className="text-xs text-[#8a90b8] bg-white/5 px-2 py-1 rounded"
-                    >
-                      {g.name}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <p className="text-sm text-[#c9cce6] leading-relaxed mb-4">
-                {overview}
-              </p>
-
-              {director && (
-                <div className="text-xs text-[#8a90b8] mb-1">
-                  <span className="text-[#6f759e]">Режиссёр:</span> {director}
-                </div>
-              )}
-              {cast && (
-                <div className="text-xs text-[#8a90b8] mb-4">
-                  <span className="text-[#6f759e]">В ролях:</span> {cast}
-                </div>
-              )}
-
-              <div className="flex gap-2 pt-4 border-t border-white/5">
-                <button
-                  onClick={() => {
-                    onAdd("WATCHED");
-                    onClose();
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300"
-                >
-                  <Icon n="check" className="w-4 h-4" /> Смотрел
-                </button>
-                <button
-                  onClick={() => {
-                    onAdd("WATCHLIST");
-                    onClose();
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors bg-[#f47c4f]/15 hover:bg-[#f47c4f]/25 text-[#f47c4f]"
-                >
-                  <Icon n="bookmark" className="w-4 h-4" /> В список
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+import { API_URL, TMDB_API_KEY, TMDB, POSTER } from "./config";
 
 function MovieTracker() {
   const [friendsLastWatched, setFriendsLastWatched] = useState({});
-  const { user, token, logout, getFriends } = useAuth();
+  const { user, token, logout, getFriends, getFriendRequests } = useAuth();
   const [activeTab, setActiveTab] = useState("movies");
+  const [requestsCount, setRequestsCount] = useState(0);
   const [movies, setMovies] = useState([]);
   const [friends, setFriends] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -212,6 +66,20 @@ function MovieTracker() {
     }
   };
 
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const facets = useMemo(() => collectFacets(movies), [movies]);
+  const metaPending = movies.filter((m) => m.id && !m.metaCheckedAt).length;
+
+  // Старым записям дозаполняем год и жанры, чтобы работали фильтры
+  useMetaBackfill({
+    movies,
+    token,
+    onUpdated: (updated) =>
+      setMovies((prev) =>
+        prev.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)),
+      ),
+  });
+
   useEffect(() => {
     if (
       token &&
@@ -229,6 +97,27 @@ function MovieTracker() {
 
   useEffect(() => {
     if (token) loadFriends();
+  }, [token]);
+
+  // Бейдж входящих заявок: при входе, раз в минуту и при возврате в приложение
+  useEffect(() => {
+    if (!token) return undefined;
+    let cancelled = false;
+
+    const refresh = async () => {
+      if (document.visibilityState === "hidden") return;
+      const data = await getFriendRequests();
+      if (!cancelled) setRequestsCount(Array.isArray(data) ? data.length : 0);
+    };
+
+    refresh();
+    const timer = setInterval(refresh, 60 * 1000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, [token]);
 
   const authHeaders = {
@@ -357,7 +246,14 @@ function MovieTracker() {
     }
   };
 
+  // Номер последнего запроса: запоздавший ответ на старый запрос не перезапишет свежий
+  const searchSeq = useRef(0);
+  const searchTimer = useRef(null);
+
   const searchMovies = async (query) => {
+    clearTimeout(searchTimer.current);
+    const seq = ++searchSeq.current;
+
     if (!query.trim()) {
       setSearchResults([]);
       loadPopularMovies();
@@ -368,11 +264,22 @@ function MovieTracker() {
         `${TMDB}/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=ru-RU`,
       );
       const data = await res.json();
-      setSearchResults(data.results || []);
+      if (seq !== searchSeq.current) return;
+      setSearchResults(
+        (data.results || []).filter((r) => r.media_type !== "person"),
+      );
     } catch (error) {
       console.error("Ошибка поиска:", error);
     }
   };
+
+  // Поиск при вводе: запрос уходит, когда человек на мгновение остановился
+  const searchMoviesDebounced = (query) => {
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => searchMovies(query), 350);
+  };
+
+  useEffect(() => () => clearTimeout(searchTimer.current), []);
 
   const handleDocxImport = async (event) => {
     const file = event.target.files[0];
@@ -477,6 +384,7 @@ function MovieTracker() {
                   status,
                   rating,
                   mediaType: item.media_type,
+                  ...metaFromTmdb(item),
                 }),
               });
               success.push({
@@ -520,14 +428,12 @@ function MovieTracker() {
 
   const reviewMovie = movies.find((m) => m.id === reviewMovieId) || null;
 
-  const filteredMovies = sortMovies(
-    movies.filter((m) => {
-      if (movieFilter === "watchlist") return m.status === "WATCHLIST";
-      if (movieFilter === "watched") return m.status === "WATCHED";
-      return true;
-    }),
-    sortMode,
-  );
+  const byStatus = movies.filter((m) => {
+    if (movieFilter === "watchlist") return m.status === "WATCHLIST";
+    if (movieFilter === "watched") return m.status === "WATCHED";
+    return true;
+  });
+  const filteredMovies = sortMovies(filterMovies(byStatus, filters), sortMode);
 
   const watchlistCount = movies.filter((m) => m.status === "WATCHLIST").length;
   const watchedCount = movies.filter((m) => m.status === "WATCHED").length;
@@ -547,7 +453,12 @@ function MovieTracker() {
     },
     { id: "feed", label: "Лента друзей", short: "Лента", icon: "activity" },
     { id: "search", label: "Искать", icon: "compass" },
-    { id: "friends", label: "Друзья", icon: "users" },
+    {
+      id: "friends",
+      label: "Друзья",
+      icon: "users",
+      badge: requestsCount,
+    },
     { id: "profile", label: "Настройки", icon: "settings" },
   ];
 
@@ -558,9 +469,9 @@ function MovieTracker() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0f1226] bg-[radial-gradient(ellipse_at_top_left,rgba(244,124,79,0.12),transparent_50%)] text-[#c9cce6]">
-      <header className="sticky top-0 z-40 bg-[#131631]/95 backdrop-blur border-b border-white/5">
-        <div className="flex items-center gap-4 px-4 lg:px-6 h-16">
+    <div className="min-h-app bg-[#0f1226] bg-[radial-gradient(ellipse_at_top_left,rgba(244,124,79,0.12),transparent_50%)] text-[#c9cce6]">
+      <header className="sticky top-0 z-40 bg-[#131631]/95 backdrop-blur border-b border-white/5 safe-top safe-x">
+        <div className="flex items-center gap-2 sm:gap-4 px-3 sm:px-4 lg:px-6 h-16">
           <div className="flex items-center gap-2 lg:w-52 shrink-0">
             <Icon n="clapperboard" className={`w-7 h-7 ${ORANGE_FILTER}`} />
             <span className="hidden sm:block text-lg font-bold text-white">
@@ -574,7 +485,7 @@ function MovieTracker() {
               if (activeTab !== "search") setActiveTab("search");
               searchMovies(searchQuery); // Явно запускаем поиск по текущему значению
             }}
-            className="relative flex-1 max-w-xl flex gap-2"
+            className="relative flex-1 min-w-0 max-w-xl flex gap-2"
           >
             <div className="relative flex-1">
               <Icon
@@ -590,9 +501,9 @@ function MovieTracker() {
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
                   if (activeTab !== "search") setActiveTab("search");
-                  searchMovies(e.target.value); // Оставляем мгновенный поиск при вводе
+                  searchMoviesDebounced(e.target.value);
                 }}
-                className="w-full bg-[#1c2040] border border-white/5 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#f47c4f]/60 focus:ring-1 focus:ring-[#f47c4f]/30 transition-all"
+                className="w-full min-w-0 bg-[#1c2040] border border-white/5 rounded-lg pl-10 pr-3 py-2.5 text-base sm:text-sm text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#f47c4f]/60 focus:ring-1 focus:ring-[#f47c4f]/30 transition-all"
               />
             </div>
 
@@ -608,9 +519,10 @@ function MovieTracker() {
             </button>
           </form>
 
-          <div className="flex-1" />
+          {/* Распорка только на широких экранах: на телефоне всё место отдано поиску */}
+          <div className="hidden sm:block flex-1" />
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <Avatar name={user?.username} />
             <div className="hidden sm:block leading-tight">
               <div className="text-sm font-semibold text-white">
@@ -678,12 +590,20 @@ function MovieTracker() {
                   className={`w-[18px] h-[18px] ${activeTab === item.id ? ORANGE_FILTER : "opacity-70"}`}
                 />
                 {item.label}
+                {item.badge > 0 && (
+                  <span
+                    className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-[#f47c4f] text-[#1a1020] text-[11px] font-bold flex items-center justify-center"
+                    aria-label={`Новых заявок: ${item.badge}`}
+                  >
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                )}
               </button>
             ))}
           </nav>
         </aside>
 
-        <main className="flex-1 min-w-0 px-4 lg:px-8 py-6 pb-28 lg:pb-8">
+        <main className="flex-1 min-w-0 px-4 lg:px-8 py-6 pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-8">
           {activeTab === "movies" && (
             <div className="space-y-5">
               <div className="flex items-center justify-between flex-wrap gap-3">
@@ -764,8 +684,32 @@ function MovieTracker() {
                 </label>
               </div>
 
+              <MovieFilters
+                filters={filters}
+                onChange={setFilters}
+                facets={facets}
+                shownCount={filteredMovies.length}
+                totalCount={byStatus.length}
+                metaPending={metaPending}
+              />
+
               {filteredMovies.length === 0 ? (
-                <Empty text="Здесь пока пусто. Нажми «Новая запись» и добавь первый фильм." />
+                isFiltering(filters) && byStatus.length > 0 ? (
+                  <div className={`${PANEL} text-center py-14 px-6`}>
+                    <p className="text-[#c9cce6] mb-4">
+                      По этим условиям ничего не нашлось.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setFilters({ ...DEFAULT_FILTERS })}
+                      className={`px-5 py-2.5 rounded-lg text-sm ${BTN_SOFT}`}
+                    >
+                      Сбросить фильтры
+                    </button>
+                  </div>
+                ) : (
+                  <Empty text="Здесь пока пусто. Нажми «Новая запись» и добавь первый фильм." />
+                )
               ) : (
                 <Grid>
                   {filteredMovies.map((movie) => (
@@ -980,7 +924,10 @@ function MovieTracker() {
               <h2 className="text-3xl font-semibold text-white mb-6">
                 Сообщество
               </h2>
-              <FriendsPanel onUserClick={setSelectedUserId} />
+              <FriendsPanel
+                onUserClick={setSelectedUserId}
+                onRequestsChange={setRequestsCount}
+              />
             </div>
           )}
 
@@ -1172,17 +1119,27 @@ function MovieTracker() {
         </aside>
       </div>
 
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#131631] border-t border-white/5 flex justify-around py-2">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#131631] border-t border-white/5 flex justify-around pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] safe-x">
         {navItems.map((item) => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
             className="flex-1 min-w-0 flex flex-col items-center gap-1 px-1 py-1"
           >
-            <Icon
-              n={item.icon}
-              className={`w-5 h-5 ${activeTab === item.id ? ORANGE_FILTER : "opacity-60"}`}
-            />
+            <span className="relative">
+              <Icon
+                n={item.icon}
+                className={`w-5 h-5 ${activeTab === item.id ? ORANGE_FILTER : "opacity-60"}`}
+              />
+              {item.badge > 0 && (
+                <span
+                  className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-[#f47c4f] text-[#1a1020] text-[10px] font-bold leading-none flex items-center justify-center"
+                  aria-label={`Новых заявок: ${item.badge}`}
+                >
+                  {item.badge > 9 ? "9+" : item.badge}
+                </span>
+              )}
+            </span>
             <span
               className={`max-w-full truncate text-[10px] ${activeTab === item.id ? "text-[#f47c4f]" : "text-[#8a90b8]"}`}
             >
@@ -1202,9 +1159,16 @@ function MovieTracker() {
 
       {selectedMovie && (
         <MovieDetailsModal
+          key={`${selectedMovie.media_type || "movie"}-${selectedMovie.id}`}
           movie={selectedMovie}
+          existing={movies.find(
+            (m) =>
+              m.tmdbId === selectedMovie.id &&
+              m.mediaType === (selectedMovie.media_type === "tv" ? "tv" : "movie"),
+          )}
           onClose={() => setSelectedMovie(null)}
-          onAdd={(status) =>
+          onOpenReview={setReviewMovieId}
+          onAdd={(status, details) =>
             addMovie({
               tmdbId: selectedMovie.id,
               title: selectedMovie.title || selectedMovie.name,
@@ -1213,6 +1177,7 @@ function MovieTracker() {
                 : null,
               status,
               mediaType: selectedMovie.media_type === "tv" ? "tv" : "movie",
+              ...metaFromTmdb(details || selectedMovie),
             })
           }
         />

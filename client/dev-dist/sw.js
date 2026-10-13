@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-8d0d8005'], (function (workbox) { 'use strict';
+define(['./workbox-bbbdf4d3'], (function (workbox) { 'use strict';
 
   self.skipWaiting();
   workbox.clientsClaim();
@@ -81,33 +81,50 @@ define(['./workbox-8d0d8005'], (function (workbox) { 'use strict';
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
     "url": "index.html",
-    "revision": "0.d1v51cqno64"
+    "revision": "0.7hbo2nnhskg"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
     allowlist: [/^\/$/]
   }));
-  workbox.registerRoute(/^https:\/\/movie-watch-tracker\.onrender\.com\/.*/i, new workbox.NetworkFirst({
+  workbox.registerRoute(({
+    url
+  }) => url.pathname.startsWith("/api/"), new workbox.NetworkFirst({
     "cacheName": "api-cache",
+    "networkTimeoutSeconds": 8,
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 50,
       maxAgeSeconds: 86400
     }), new workbox.CacheableResponsePlugin({
-      statuses: [0, 200]
+      statuses: [200]
     })]
   }), 'GET');
-  workbox.registerRoute(/^https:\/\/api\.themoviedb\.org\/.*/i, new workbox.CacheFirst({
+  workbox.registerRoute(/^https:\/\/api\.themoviedb\.org\/.*/i, new workbox.NetworkFirst({
     "cacheName": "tmdb-cache",
+    "networkTimeoutSeconds": 6,
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 100,
-      maxAgeSeconds: 2592000
+      maxAgeSeconds: 604800
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [200]
     })]
   }), 'GET');
   workbox.registerRoute(/^https:\/\/image\.tmdb\.org\/.*/i, new workbox.CacheFirst({
     "cacheName": "tmdb-images",
     plugins: [new workbox.ExpirationPlugin({
-      maxEntries: 200,
+      maxEntries: 300,
       maxAgeSeconds: 2592000
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
+    })]
+  }), 'GET');
+  workbox.registerRoute(/^https:\/\/cdn\.jsdelivr\.net\/.*/i, new workbox.StaleWhileRevalidate({
+    "cacheName": "icons-cache",
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 150,
+      maxAgeSeconds: 2592000
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
     })]
   }), 'GET');
 

@@ -176,6 +176,38 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Сброс пароля: шаг 1, отправка кода на email
+  const forgotPassword = async (email) => {
+    try {
+      const res = await fetch(`${API_URL}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (res.ok) return { success: true, message: data.message };
+      return { success: false, error: data.error || "Не удалось отправить код" };
+    } catch (error) {
+      return { success: false, error: "Ошибка соединения с сервером" };
+    }
+  };
+
+  // Сброс пароля: шаг 2, код из письма и новый пароль
+  const resetPassword = async (email, code, password) => {
+    try {
+      const res = await fetch(`${API_URL}/api/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code, password }),
+      });
+      const data = await res.json();
+      if (res.ok) return { success: true, message: data.message };
+      return { success: false, error: data.error || "Не удалось сменить пароль" };
+    } catch (error) {
+      return { success: false, error: "Ошибка соединения с сервером" };
+    }
+  };
+
   const searchUsers = async (query) => {
     try {
       const res = await fetch(
@@ -258,6 +290,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    // Закэшированные ответы API принадлежат прежнему пользователю: убираем их
+    if (typeof caches !== "undefined") {
+      caches.delete("api-cache").catch(() => {});
+    }
     localStorage.removeItem("token");
     setToken(null);
     setUser(null);
@@ -273,6 +309,8 @@ export const AuthProvider = ({ children }) => {
         verifyEmail,
         updateProfile,
         resendCode,
+        forgotPassword,
+        resetPassword,
         logout,
         searchUsers,
         getFriends,

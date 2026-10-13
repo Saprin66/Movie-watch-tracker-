@@ -20,10 +20,18 @@ const authMiddleware = async (req, res, next) => {
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, lastSeen: true }
+      select: { id: true, lastSeen: true, passwordChangedAt: true }
     });
     if (!user) {
       return res.status(401).json({ error: 'Пользователь не найден' });
+    }
+
+    // Токены, выданные до смены пароля, больше не действуют
+    if (
+      user.passwordChangedAt &&
+      decoded.iat < Math.floor(user.passwordChangedAt.getTime() / 1000)
+    ) {
+      return res.status(401).json({ error: 'Пароль был изменён. Войдите заново.' });
     }
 
     if (!user.lastSeen || Date.now() - user.lastSeen.getTime() > LAST_SEEN_THROTTLE_MS) {

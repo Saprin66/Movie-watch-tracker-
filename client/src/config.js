@@ -7,4 +7,6 @@ if (!TMDB_API_KEY) {
 }
 export const TMDB = "https://api.themoviedb.org/3";
 export const POSTER = "https://image.tmdb.org/t/p/w300";
+export const POSTER_LARGE = "https://image.tmdb.org/t/p/w500";
+export const PROFILE = "https://image.tmdb.org/t/p/w185";
 export const BACKDROP = "https://image.tmdb.org/t/p/w1280";

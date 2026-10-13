@@ -58,7 +58,10 @@ const Logo = () => (
 );
 
 export default function AuthScreen() {
-  const [step, setStep] = useState("auth"); // 'auth' или 'verify'
+  // 'auth' | 'verify' | 'forgot' (ввод email) | 'reset' (код и новый пароль)
+  const [step, setStep] = useState("auth");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -68,7 +71,15 @@ export default function AuthScreen() {
   const [successMsg, setSuccessMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login, register, verifyEmail, resendCode, user } = useAuth();
+  const {
+    login,
+    register,
+    verifyEmail,
+    resendCode,
+    forgotPassword,
+    resetPassword,
+    user,
+  } = useAuth();
 
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
@@ -136,6 +147,187 @@ export default function AuthScreen() {
     setSuccessMsg("");
   };
 
+  const backToLogin = () => {
+    setStep("auth");
+    setIsLogin(true);
+    setResetCode("");
+    setNewPassword("");
+    setError("");
+    setSuccessMsg("");
+  };
+
+  const openForgot = () => {
+    setStep("forgot");
+    setError("");
+    setSuccessMsg("");
+  };
+
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccessMsg("");
+    setIsLoading(true);
+    const result = await forgotPassword(email.trim());
+    setIsLoading(false);
+
+    if (result.success) {
+      setStep("reset");
+      setSuccessMsg(result.message);
+    } else {
+      setError(result.error);
+    }
+  };
+
+  const handleResetSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    if (newPassword.length < 8) {
+      setError("Пароль должен содержать не менее 8 символов");
+      return;
+    }
+    setIsLoading(true);
+    const result = await resetPassword(email.trim(), resetCode, newPassword);
+    setIsLoading(false);
+
+    if (result.success) {
+      setStep("auth");
+      setIsLogin(true);
+      setPassword("");
+      setResetCode("");
+      setNewPassword("");
+      setSuccessMsg("Пароль изменён. Войдите с новым паролем.");
+    } else {
+      setError(result.error);
+    }
+  };
+
+  // ========== ЗАБЫЛИ ПАРОЛЬ: ВВОД EMAIL ==========
+  if (step === "forgot") {
+    return (
+      <Shell>
+        <div className="text-center mb-6">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#f47c4f]/15 flex items-center justify-center">
+            <Icon n="key-round" className={`w-7 h-7 ${ORANGE_FILTER}`} />
+          </div>
+          <h1 className="text-2xl font-semibold text-white mb-1">
+            Сброс пароля
+          </h1>
+          <p className="text-sm text-[#8a90b8]">
+            Укажите email аккаунта, и мы отправим на него код
+          </p>
+        </div>
+
+        <form onSubmit={handleForgotSubmit} className="space-y-4">
+          <Field
+            label="Email"
+            icon="mail"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+            placeholder="your@email.com"
+          />
+
+          {error && <Notice error>{error}</Notice>}
+
+          <button type="submit" disabled={isLoading || !email} className={BTN}>
+            {isLoading ? "Отправка..." : "Отправить код"}
+          </button>
+
+          <button
+            type="button"
+            onClick={backToLogin}
+            className="w-full text-[#8a90b8] hover:text-white text-sm py-2 flex items-center justify-center gap-2"
+          >
+            <Icon n="arrow-left" className="w-4 h-4 opacity-70" />
+            Вернуться ко входу
+          </button>
+        </form>
+      </Shell>
+    );
+  }
+
+  // ========== ЗАБЫЛИ ПАРОЛЬ: КОД И НОВЫЙ ПАРОЛЬ ==========
+  if (step === "reset") {
+    return (
+      <Shell>
+        <div className="text-center mb-6">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#f47c4f]/15 flex items-center justify-center">
+            <Icon n="shield-check" className={`w-7 h-7 ${ORANGE_FILTER}`} />
+          </div>
+          <h1 className="text-2xl font-semibold text-white mb-1">
+            Новый пароль
+          </h1>
+          <p className="text-sm text-[#8a90b8]">
+            Введите код из письма и придумайте новый пароль
+          </p>
+        </div>
+
+        <form onSubmit={handleResetSubmit} className="space-y-4">
+          <label className="block">
+            <span className="block text-xs text-[#8a90b8] mb-1.5">
+              Код из письма
+            </span>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={resetCode}
+              onChange={(e) =>
+                setResetCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+              }
+              required
+              className={`${INPUT} text-center text-2xl tracking-[0.5em] font-mono`}
+              placeholder="000000"
+            />
+          </label>
+
+          <Field
+            label="Новый пароль"
+            icon="lock"
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            required
+            minLength={8}
+            maxLength={72}
+            autoComplete="new-password"
+            placeholder="Не менее 8 символов"
+          />
+
+          {error && <Notice error>{error}</Notice>}
+          {successMsg && !error && <Notice>{successMsg}</Notice>}
+
+          <button
+            type="submit"
+            disabled={isLoading || resetCode.length !== 6 || !newPassword}
+            className={BTN}
+          >
+            {isLoading ? "Сохранение..." : "Сменить пароль"}
+          </button>
+
+          <button
+            type="button"
+            onClick={openForgot}
+            className="w-full text-[#f47c4f] hover:text-[#ff8f66] text-sm py-2"
+          >
+            Отправить код ещё раз
+          </button>
+
+          <button
+            type="button"
+            onClick={backToLogin}
+            className="w-full text-[#8a90b8] hover:text-white text-sm py-2 flex items-center justify-center gap-2"
+          >
+            <Icon n="arrow-left" className="w-4 h-4 opacity-70" />
+            Вернуться ко входу
+          </button>
+        </form>
+      </Shell>
+    );
+  }
+
   // ========== ЭКРАН ПОДТВЕРЖДЕНИЯ КОДА ==========
   if (step === "verify") {
     return (
@@ -167,7 +359,6 @@ export default function AuthScreen() {
                 setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
               }
               required
-              maxLength={6}
               className={`${INPUT} text-center text-2xl tracking-[0.5em] font-mono`}
               placeholder="000000"
             />
@@ -277,6 +468,18 @@ export default function AuthScreen() {
           autoComplete={isLogin ? "current-password" : "new-password"}
           placeholder="Введите пароль"
         />
+
+        {isLogin && (
+          <div className="text-right -mt-1">
+            <button
+              type="button"
+              onClick={openForgot}
+              className="text-xs text-[#8a90b8] hover:text-[#f47c4f] transition-colors"
+            >
+              Забыли пароль?
+            </button>
+          </div>
+        )}
 
         {error && <Notice error>{error}</Notice>}
         {successMsg && <Notice>{successMsg}</Notice>}

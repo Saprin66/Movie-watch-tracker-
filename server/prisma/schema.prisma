@@ -16,6 +16,11 @@ model User {
   verificationCode String?
   codeExpiresAt    DateTime?
   codeAttempts     Int         @default(0)
+  resetCodeHash     String?     // HMAC кода сброса пароля (сам код не хранится)
+  resetExpiresAt    DateTime?
+  resetAttempts     Int         @default(0)
+  resetRequestedAt  DateTime?
+  passwordChangedAt DateTime?   // старые токены после смены пароля недействительны
   bio              String?
   lastSeen     DateTime    @default(now()) 
   avatar           String?
@@ -50,6 +55,9 @@ model UserMovie {
   rating    Int?       // 1-10
   comment   String?
   watchedAt DateTime?  // когда отмечен просмотренным
+  releaseYear   Int?       // год выхода (для фильтров)
+  genres        String[]  @default([]) // названия жанров (для фильтров)
+  metaCheckedAt DateTime?  // когда год и жанры были заполнены
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())

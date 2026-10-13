@@ -7,16 +7,18 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico'],
+      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       devOptions: {
-        enabled: true  // <-- ВОТ ЭТО ВКЛЮЧАЕТ PWA В DEV-РЕЖИМЕ
+        enabled: true  // PWA работает и в dev-режиме
       },
       manifest: {
+        id: '/',
         name: 'Movie Grade',
         short_name: 'MovieGrade',
         description: 'Твой личный кинодневник',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
+        lang: 'ru',
+        theme_color: '#131631',
+        background_color: '#0f1226',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
@@ -25,60 +27,87 @@ export default defineConfig({
           {
             src: 'pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
             src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
+          },
+          {
+            // отдельная иконка с полями: Android обрезает «maskable» по маске
+            src: 'pwa-maskable-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       },
-            workbox: {
+      workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Запросы к нашему API: сначала сеть, при её отсутствии последний ответ из кэша
         runtimeCaching: [
           {
-            // Кэшируем запросы к твоему бэкенду
-            urlPattern: /^https:\/\/movie-watch-tracker\.onrender\.com\/.*/i,
-            handler: 'NetworkFirst', // Сначала пытаемся получить из сети, если нет - из кэша
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+            handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
+              networkTimeoutSeconds: 8,
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 // 24 часа
+                maxAgeSeconds: 60 * 60 * 24
               },
               cacheableResponse: {
-                statuses: [0, 200] // 0 - это ответ из кэша при офлайне
+                statuses: [200]
               }
             }
           },
           {
-            // Кэшируем TMDB (постеры и поиск)
+            // Ответы TMDB (поиск, популярное, рекомендации) быстро устаревают:
+            // берём из сети, кэш нужен только когда сети нет
             urlPattern: /^https:\/\/api\.themoviedb\.org\/.*/i,
-            handler: 'CacheFirst',
+            handler: 'NetworkFirst',
             options: {
               cacheName: 'tmdb-cache',
+              networkTimeoutSeconds: 6,
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 30
+                maxAgeSeconds: 60 * 60 * 24 * 7
+              },
+              cacheableResponse: {
+                statuses: [200]
               }
             }
           },
           {
-            // Кэшируем картинки постеров
+            // Постеры
             urlPattern: /^https:\/\/image\.tmdb\.org\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'tmdb-images',
               expiration: {
-                maxEntries: 200,
+                maxEntries: 300,
                 maxAgeSeconds: 60 * 60 * 24 * 30
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            // Иконки интерфейса (lucide с jsDelivr), чтобы не пропадали без сети
+            urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/.*/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'icons-cache',
+              expiration: {
+                maxEntries: 150,
+                maxAgeSeconds: 60 * 60 * 24 * 30
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
               }
             }
           }

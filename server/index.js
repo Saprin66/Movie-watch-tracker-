@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const { authMiddleware } = require('./middleware/auth');
 const { buildFeed } = require('./feed');
+const { parseMeta } = require('./movieMeta');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -342,6 +343,10 @@ app.post('/api/movies', authMiddleware, async (req, res) => {
       return res.status(409).json({ error: 'Уже есть в журнале' });
     }
 
+    // Год и жанры для фильтров (необязательны)
+    const meta = parseMeta(req.body);
+    const hasMeta = Boolean(meta.releaseYear) || (meta.genres && meta.genres.length > 0);
+
     const newMovie = await prisma.userMovie.create({
       data: {
         tmdbId,
@@ -351,6 +356,9 @@ app.post('/api/movies', authMiddleware, async (req, res) => {
         status: status || 'WATCHLIST',
         watchedAt: status === 'WATCHED' ? new Date() : null,
         rating,
+        releaseYear: meta.releaseYear ?? null,
+        genres: meta.genres ?? [],
+        metaCheckedAt: hasMeta ? new Date() : null,
         userId: req.userId
       }
     });
@@ -391,6 +399,34 @@ app.put('/api/movies/:id/status', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Ошибка обновления статуса:', error);
     res.status(500).json({ error: 'Не удалось обновить статус' });
+  }
+});
+
+// Год, жанры (и исправление типа) для записи. Клиент дозаполняет их у старых записей.
+// updatedAt сохраняем как был: иначе фоновое дозаполнение подняло бы старые записи в ленту друзей.
+app.put('/api/movies/:id/meta', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const movie = await prisma.userMovie.findFirst({ where: { id, userId: req.userId } });
+    if (!movie) return res.status(404).json({ error: 'Фильм не найден' });
+
+    const meta = parseMeta(req.body);
+    const data = { ...meta, metaCheckedAt: new Date(), updatedAt: movie.updatedAt };
+
+    // Старые записи сохранялись как «фильм», даже если это сериал
+    const nextType = req.body.mediaType;
+    if ((nextType === 'tv' || nextType === 'movie') && nextType !== movie.mediaType) {
+      const clash = await prisma.userMovie.findFirst({
+        where: { userId: req.userId, tmdbId: movie.tmdbId, mediaType: nextType }
+      });
+      if (!clash) data.mediaType = nextType;
+    }
+
+    const updated = await prisma.userMovie.update({ where: { id }, data });
+    res.json(updated);
+  } catch (error) {
+    console.error('Ошибка обновления данных фильма:', error);
+    res.status(500).json({ error: 'Не удалось обновить данные фильма' });
   }
 });
 

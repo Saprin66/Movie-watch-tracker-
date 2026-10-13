@@ -1,3 +1,65 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ---- Правки для телефонов (особенно iPhone) ---- */
+
+html,
+body {
+  background-color: #0f1226;
+  /* страница не «уезжает» вбок, если какой-то блок шире экрана */
+  overflow-x: clip;
+  /* без резиновой «растяжки» страницы, из-за которой интерфейс дёргается */
+  overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Быстрые нажатия без задержки и без увеличения по двойному тапу */
+button,
+a,
+input,
+select,
+textarea,
+label,
+summary {
+  touch-action: manipulation;
+}
+
+/* iOS Safari приближает страницу при фокусе в поле со шрифтом меньше 16px.
+   Из-за этого страница «съезжает» после нажатия на поиск. */
+@media (max-width: 1023px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Нижняя панель не прячется под полосой «домой» на iPhone */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+.safe-x {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Полная высота без «прыжков» от адресной строки Safari */
+.min-h-app {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Прокрутка внутри окна не должна тянуть за собой страницу под ним */
+.scroll-contain {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
