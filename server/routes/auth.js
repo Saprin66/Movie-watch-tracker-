@@ -14,6 +14,9 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM_EMAIL = 'Movie Grade <hello@sapringrade.ru>';
 
+// Редакция политики конфиденциальности, которую принимает пользователь (см. client/src/legal.js)
+const POLICY_VERSION = '2026-10-14';
+
 const MAX_CODE_ATTEMPTS = 5;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -78,6 +81,9 @@ router.post('/register', registerLimiter, async (req, res) => {
     if (typeof password !== 'string' || password.length < 8 || password.length > 72) {
       return res.status(400).json({ error: 'Пароль должен содержать от 8 до 72 символов' });
     }
+    if (req.body.acceptedPolicy !== true) {
+      return res.status(400).json({ error: 'Необходимо принять политику конфиденциальности' });
+    }
 
     const existingUser = await prisma.user.findFirst({
       where: { OR: [{ username }, { email }] }
@@ -97,7 +103,9 @@ router.post('/register', registerLimiter, async (req, res) => {
         email, 
         password: hashedPassword, 
         verificationCode,
-        codeExpiresAt 
+        codeExpiresAt,
+        policyAcceptedAt: new Date(),
+        policyVersion: POLICY_VERSION
       }
     });
 

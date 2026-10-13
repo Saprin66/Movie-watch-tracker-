@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import AuthScreen from "./components/AuthScreen";
+import Footer from "./components/Footer";
+import PrivacyPolicy from "./components/PrivacyPolicy";
+import { useHashRoute } from "./hooks/useHashRoute";
+import { POLICY_HASH } from "./legal";
 import FriendsPanel from "./components/FriendsPanel";
 import ProfileModal from "./components/ProfileModal";
 import ReviewModal from "./components/ReviewModal";
@@ -1000,6 +1004,7 @@ function MovieTracker() {
               </button>
             </div>
           )}
+          <Footer className="mt-12" />
         </main>
 
         <aside className="hidden xl:block w-72 shrink-0 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto border-l border-white/5 bg-[#101328] p-5">
@@ -1275,6 +1280,9 @@ function MovieTracker() {
 
 function App() {
   const { token, user } = useAuth();
+  const hash = useHashRoute();
+  // Политика открывается и без входа, и по прямой ссылке
+  if (hash === POLICY_HASH) return <PrivacyPolicy />;
   if (token && user && !user.isVerified) return <AuthScreen />;
   return token ? <MovieTracker /> : <AuthScreen />;
 }

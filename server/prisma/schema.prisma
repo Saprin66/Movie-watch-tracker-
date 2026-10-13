@@ -16,6 +16,8 @@ model User {
   verificationCode String?
   codeExpiresAt    DateTime?
   codeAttempts     Int         @default(0)
+  policyAcceptedAt  DateTime?   // когда принята политика конфиденциальности
+  policyVersion     String?     // редакция политики, которую приняли
   resetCodeHash     String?     // HMAC кода сброса пароля (сам код не хранится)
   resetExpiresAt    DateTime?
   resetAttempts     Int         @default(0)

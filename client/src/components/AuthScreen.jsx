@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import Footer from "./Footer";
+import { POLICY_HASH } from "../legal";
 
 const ORANGE_FILTER =
   "[filter:invert(1)_sepia(1)_saturate(6)_hue-rotate(335deg)]";
@@ -18,10 +20,11 @@ const INPUT =
 
 function Shell({ children }) {
   return (
-    <div className="min-h-screen bg-[#0f1226] bg-[radial-gradient(ellipse_at_top_left,rgba(244,124,79,0.15),transparent_55%)] flex items-center justify-center p-4">
+    <div className="min-h-app bg-[#0f1226] bg-[radial-gradient(ellipse_at_top_left,rgba(244,124,79,0.15),transparent_55%)] flex flex-col items-center justify-center gap-6 p-4">
       <div className="w-full max-w-md bg-[#171a33] border border-white/5 rounded-2xl p-8 shadow-2xl shadow-black/50">
         {children}
       </div>
+      <Footer className="w-full max-w-md" />
     </div>
   );
 }
@@ -63,6 +66,7 @@ export default function AuthScreen() {
   const [resetCode, setResetCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
+  const [acceptedPolicy, setAcceptedPolicy] = useState(false);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -85,11 +89,19 @@ export default function AuthScreen() {
     e.preventDefault();
     setError("");
     setSuccessMsg("");
+
+    if (!isLogin && !acceptedPolicy) {
+      setError(
+        "Чтобы создать аккаунт, примите политику конфиденциальности",
+      );
+      return;
+    }
+
     setIsLoading(true);
 
     const result = isLogin
       ? await login(email, password)
-      : await register(username, email, password);
+      : await register(username, email, password, acceptedPolicy);
 
     setIsLoading(false);
 
@@ -481,10 +493,37 @@ export default function AuthScreen() {
           </div>
         )}
 
+        {!isLogin && (
+          <label className="flex items-start gap-3 text-xs leading-relaxed text-[#8a90b8] cursor-pointer">
+            <input
+              type="checkbox"
+              checked={acceptedPolicy}
+              onChange={(e) => setAcceptedPolicy(e.target.checked)}
+              className="mt-0.5 w-5 h-5 shrink-0 accent-[#f47c4f] cursor-pointer"
+            />
+            <span>
+              Я прочитал(а){" "}
+              <a
+                href={POLICY_HASH}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#f47c4f] hover:underline"
+              >
+                политику конфиденциальности
+              </a>{" "}
+              и даю согласие на обработку моих персональных данных
+            </span>
+          </label>
+        )}
+
         {error && <Notice error>{error}</Notice>}
         {successMsg && <Notice>{successMsg}</Notice>}
 
-        <button type="submit" disabled={isLoading} className={`${BTN} mt-2`}>
+        <button
+          type="submit"
+          disabled={isLoading || (!isLogin && !acceptedPolicy)}
+          className={`${BTN} mt-2`}
+        >
           {isLoading ? (
             <>
               <img
