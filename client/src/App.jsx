@@ -41,6 +41,19 @@ function MovieTracker() {
   const [friends, setFriends] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+  const [catalogType, setCatalogType] = useState("movie");
+  const [catalogGenres, setCatalogGenres] = useState([]);
+  const [selectedGenres, setSelectedGenres] = useState([]);
+  const [yearFrom, setYearFrom] = useState("");
+  const [yearTo, setYearTo] = useState("");
+  const [minRating, setMinRating] = useState("0");
+  const [sortBy, setSortBy] = useState("popularity.desc");
+  const [catalogPage, setCatalogPage] = useState(1);
+  const [catalogTotalPages, setCatalogTotalPages] = useState(1);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [searchMode, setSearchMode] = useState("text");
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [movieFilter, setMovieFilter] = useState("all");
   const [importing, setImporting] = useState(false);
@@ -98,6 +111,24 @@ function MovieTracker() {
     if (token && activeTab === "search" && !searchQuery.trim())
       loadPopularMovies();
   }, [token, activeTab]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadGenres = async () => {
+      try {
+        const res = await fetch(
+          `${TMDB}/genre/${catalogType}/list?api_key=${TMDB_API_KEY}&language=ru-RU`,
+        );
+        if (!res.ok) throw new Error("Не удалось загрузить жанры TMDB");
+        const data = await res.json();
+        if (!cancelled) setCatalogGenres(data.genres || []);
+      } catch (error) {
+        if (!cancelled) setCatalogError(error.message || "Не удалось загрузить жанры");
+      }
+    };
+    loadGenres();
+    return () => { cancelled = true; };
+  }, [catalogType]);
 
   useEffect(() => {
     if (token) loadFriends();
@@ -256,6 +287,8 @@ function MovieTracker() {
 
   const searchMovies = async (query) => {
     clearTimeout(searchTimer.current);
+    setSearchMode("text");
+    setCatalogError("");
     const seq = ++searchSeq.current;
 
     if (!query.trim()) {
@@ -275,6 +308,45 @@ function MovieTracker() {
     } catch (error) {
       console.error("Ошибка поиска:", error);
     }
+  };
+
+  const discoverMovies = async (page = 1) => {
+    setCatalogLoading(true);
+    setCatalogError("");
+    setSearchMode("filters");
+    setCatalogPage(page);
+    const params = new URLSearchParams({
+      api_key: TMDB_API_KEY || "",
+      language: "ru-RU",
+      page: String(page),
+      sort_by: sortBy,
+      "vote_count.gte": "10",
+    });
+    if (selectedGenres.length) params.set("with_genres", selectedGenres.join(","));
+    if (minRating !== "0") params.set("vote_average.gte", minRating);
+    if (yearFrom) params.set(catalogType === "tv" ? "first_air_date.gte" : "primary_release_date.gte", `${yearFrom}-01-01`);
+    if (yearTo) params.set(catalogType === "tv" ? "first_air_date.lte" : "primary_release_date.lte", `${yearTo}-12-31`);
+    try {
+      const res = await fetch(`${TMDB}/discover/${catalogType}?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.status_message || "Не удалось выполнить подборку");
+      setSearchResults((data.results || []).map((item) => ({ ...item, media_type: catalogType })));
+      setCatalogTotalPages(Math.min(data.total_pages || 1, 500));
+    } catch (error) {
+      setCatalogError(error.message || "Ошибка при поиске по фильтрам");
+      setSearchResults([]);
+    } finally {
+      setCatalogLoading(false);
+    }
+  };
+
+  const resetCatalogFilters = () => {
+    setSelectedGenres([]);
+    setYearFrom("");
+    setYearTo("");
+    setMinRating("0");
+    setSortBy("popularity.desc");
+    setCatalogPage(1);
   };
 
   // Поиск при вводе: запрос уходит, когда человек на мгновение остановился
@@ -822,13 +894,62 @@ function MovieTracker() {
           {activeTab === "search" && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-3xl font-semibold text-white">
-                  Открыть новое
-                </h2>
-                <p className="text-sm text-[#8a90b8]">
-                  Нажми на карточку, чтобы узнать подробности и добавить
-                </p>
+                <h2 className="text-3xl font-semibold text-white">Открыть новое</h2>
+                <p className="text-sm text-[#8a90b8]">Ищи по названию или подбери фильмы и сериалы по параметрам TMDB</p>
               </div>
+
+              <section className="rounded-2xl border border-white/10 bg-[#171b37]/90 p-4 sm:p-5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">Подбор по фильтрам</h3>
+                    <p className="text-xs text-[#8a90b8]">Фильтры применяются к каталогу TMDB, а не только к загруженным карточкам</p>
+                  </div>
+                  <button type="button" onClick={() => setFiltersOpen((v) => !v)} className="rounded-lg border border-white/10 px-3 py-2 text-sm text-white hover:border-[#f47c4f]/60">
+                    {filtersOpen ? "Свернуть" : "Показать фильтры"}
+                  </button>
+                </div>
+                {filtersOpen && <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <label className="text-xs text-[#a5aacb] space-y-1.5">Тип контента
+                      <select value={catalogType} onChange={(e) => { setCatalogType(e.target.value); setSelectedGenres([]); }} className="w-full rounded-lg bg-[#0f1226] border border-white/10 p-2.5 text-sm text-white">
+                        <option value="movie">Фильмы</option><option value="tv">Сериалы</option>
+                      </select>
+                    </label>
+                    <label className="text-xs text-[#a5aacb] space-y-1.5">Год от
+                      <input type="number" min="1900" max="2026" placeholder="Например, 2000" value={yearFrom} onChange={(e) => setYearFrom(e.target.value)} className="w-full rounded-lg bg-[#0f1226] border border-white/10 p-2.5 text-sm text-white" />
+                    </label>
+                    <label className="text-xs text-[#a5aacb] space-y-1.5">Год до
+                      <input type="number" min="1900" max="2026" placeholder="Например, 2026" value={yearTo} onChange={(e) => setYearTo(e.target.value)} className="w-full rounded-lg bg-[#0f1226] border border-white/10 p-2.5 text-sm text-white" />
+                    </label>
+                    <label className="text-xs text-[#a5aacb] space-y-1.5">Минимальный рейтинг
+                      <select value={minRating} onChange={(e) => setMinRating(e.target.value)} className="w-full rounded-lg bg-[#0f1226] border border-white/10 p-2.5 text-sm text-white">
+                        <option value="0">Любой рейтинг</option><option value="5">От 5.0</option><option value="6">От 6.0</option><option value="7">От 7.0</option><option value="7.5">От 7.5</option><option value="8">От 8.0</option><option value="8.5">От 8.5</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label className="block text-xs text-[#a5aacb] space-y-2">Жанры <span className="text-[#73799f]">(можно выбрать несколько)</span>
+                    <div className="flex flex-wrap gap-2">
+                      {catalogGenres.map((genre) => {
+                        const active = selectedGenres.includes(genre.id);
+                        return <button type="button" key={genre.id} onClick={() => setSelectedGenres((prev) => active ? prev.filter((id) => id !== genre.id) : [...prev, genre.id])} className={`rounded-full border px-3 py-1.5 text-sm transition ${active ? "border-[#f47c4f] bg-[#f47c4f]/15 text-[#ff9b75]" : "border-white/10 bg-[#0f1226] text-[#a5aacb] hover:border-white/30"}`}>{genre.name}</button>;
+                      })}
+                    </div>
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+                    <label className="text-xs text-[#a5aacb] space-y-1.5 flex-1">Сортировка
+                      <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="w-full rounded-lg bg-[#0f1226] border border-white/10 p-2.5 text-sm text-white">
+                        <option value="popularity.desc">Сначала популярные</option><option value="vote_average.desc">По рейтингу</option><option value={catalogType === "tv" ? "first_air_date.desc" : "primary_release_date.desc"}>Сначала новые</option><option value="vote_count.desc">По количеству оценок</option>
+                      </select>
+                    </label>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => { resetCatalogFilters(); }} className="rounded-lg border border-white/10 px-4 py-2.5 text-sm text-[#a5aacb] hover:text-white">Сбросить</button>
+                      <button type="button" disabled={catalogLoading} onClick={() => discoverMovies(1)} className="rounded-lg bg-[#f47c4f] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#ff9065] disabled:opacity-50">{catalogLoading ? "Ищем…" : "Подобрать"}</button>
+                    </div>
+                  </div>
+                </>}
+              </section>
+              {catalogError && <p role="alert" className="rounded-lg border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{catalogError}</p>}
+              {catalogLoading && <p className="py-4 text-center text-sm text-[#a5aacb]">Загружаем результаты из TMDB…</p>}
 
               {searchResults.length > 0 ? (
                 <>
@@ -898,11 +1019,22 @@ function MovieTracker() {
               ) : (
                 <Empty
                   text={
-                    searchQuery
-                      ? "Ничего не найдено"
-                      : "Введите название для поиска"
+                    catalogLoading
+                      ? "Загружаем результаты…"
+                      : searchMode === "filters"
+                        ? "По этим фильтрам ничего не найдено. Попробуй изменить жанры или диапазон лет."
+                        : searchQuery
+                          ? "Ничего не найдено"
+                          : "Введите название для поиска или используйте фильтры выше"
                   }
                 />
+              )}
+              {searchMode === "filters" && searchResults.length > 0 && (
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  <button type="button" disabled={catalogPage <= 1 || catalogLoading} onClick={() => discoverMovies(catalogPage - 1)} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white disabled:opacity-40">← Назад</button>
+                  <span className="text-sm text-[#8a90b8]">Страница {catalogPage} из {catalogTotalPages}</span>
+                  <button type="button" disabled={catalogPage >= catalogTotalPages || catalogLoading} onClick={() => discoverMovies(catalogPage + 1)} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white disabled:opacity-40">Вперёд →</button>
+                </div>
               )}
             </div>
           )}
