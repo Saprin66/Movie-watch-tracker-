@@ -402,6 +402,22 @@ app.put('/api/movies/:id/status', authMiddleware, async (req, res) => {
   }
 });
 
+// Получение метаданных записи. Удобно для диагностики и повторной загрузки
+// клиента: этот URL может открываться как GET, а обновление выполняется через PUT.
+app.get('/api/movies/:id/meta', authMiddleware, async (req, res) => {
+  try {
+    const movie = await prisma.userMovie.findFirst({
+      where: { id: req.params.id, userId: req.userId },
+      select: { id: true, releaseYear: true, genres: true, metaCheckedAt: true, mediaType: true, tmdbId: true },
+    });
+    if (!movie) return res.status(404).json({ error: 'Запись фильма не найдена в журнале текущего пользователя' });
+    res.json(movie);
+  } catch (error) {
+    console.error('Ошибка получения данных фильма:', error);
+    res.status(500).json({ error: 'Не удалось получить данные фильма' });
+  }
+});
+
 // Год, жанры (и исправление типа) для записи. Клиент дозаполняет их у старых записей.
 // updatedAt сохраняем как был: иначе фоновое дозаполнение подняло бы старые записи в ленту друзей.
 app.put('/api/movies/:id/meta', authMiddleware, async (req, res) => {
