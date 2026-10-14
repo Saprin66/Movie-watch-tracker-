@@ -66,10 +66,8 @@ export const Empty = ({ text }) => (
   <div className={`${PANEL} text-center py-16 text-[#8a90b8]`}>{text}</div>
 );
 
-export const Avatar = ({ name, size = "w-10 h-10", text = "text-sm" }) => (
-  <div
-    className={`${size} ${text} rounded-full bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] flex items-center justify-center font-bold text-white shrink-0`}
-  >
-    {name?.[0]?.toUpperCase() || "U"}
+export const Avatar = ({ name, avatar, size = "w-10 h-10", text = "text-sm" }) => (
+  <div className={`${size} ${text} rounded-full bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] flex items-center justify-center font-bold text-white shrink-0 overflow-hidden`}>
+    {avatar ? <img src={avatar} alt={`${name || "Пользователь"} — аватар`} className="w-full h-full object-cover" /> : (name?.[0]?.toUpperCase() || "U")}
   </div>
 );

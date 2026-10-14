@@ -35,7 +35,7 @@ import { API_URL, TMDB_API_KEY, TMDB, POSTER } from "./config";
 
 function MovieTracker() {
   const [friendsLastWatched, setFriendsLastWatched] = useState({});
-  const { user, token, logout, getFriends, getFriendRequests } = useAuth();
+  const { user, token, logout, getFriends, getFriendRequests, updateAvatar } = useAuth();
   const [activeTab, setActiveTab] = useState("movies");
   const [requestsCount, setRequestsCount] = useState(0);
   const [movies, setMovies] = useState([]);
@@ -60,6 +60,10 @@ function MovieTracker() {
   const [showcaseLoaded, setShowcaseLoaded] = useState(false);
   const [savingShowcase, setSavingShowcase] = useState(false);
   const [showcaseSaveError, setShowcaseSaveError] = useState("");
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarMessage, setAvatarMessage] = useState("");
+  const [avatarError, setAvatarError] = useState("");
+  const avatarInputRef = useRef(null);
   const [profileFriendsOpen, setProfileFriendsOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const avatarMenuRef = useRef(null);
@@ -76,8 +80,64 @@ function MovieTracker() {
   useEffect(() => {
     const openProfileSettings = () => setActiveTab("profile-settings");
     window.addEventListener("moviegrade:open-profile-settings", openProfileSettings);
-    return () => window.removeEventListener("moviegrade:open-profile-settings", openProfileSettings);
+  return () => window.removeEventListener("moviegrade:open-profile-settings", openProfileSettings);
   }, []);
+
+  const handleAvatarChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    setAvatarMessage("");
+    setAvatarError("");
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setAvatarError("Выбери файл изображения.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setAvatarError("Файл слишком большой. Максимальный размер исходного изображения — 10 МБ.");
+      return;
+    }
+
+    setAvatarSaving(true);
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const image = new Image();
+        const objectUrl = URL.createObjectURL(file);
+        image.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          const maxSide = 512;
+          const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+          const context = canvas.getContext("2d");
+          if (!context) return reject(new Error("Не удалось обработать изображение."));
+          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+          let quality = 0.86;
+          let result = canvas.toDataURL("image/webp", quality);
+          while (result.length > 450_000 && quality > 0.4) {
+            quality -= 0.1;
+            result = canvas.toDataURL("image/webp", quality);
+          }
+          if (result.length > 500_000) return reject(new Error("Изображение не удалось сжать до нужного размера. Выбери другое."));
+          resolve(result);
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error("Не удалось открыть это изображение."));
+        };
+        image.src = objectUrl;
+      });
+      const result = await updateAvatar(dataUrl);
+      if (!result.success) throw new Error(result.error || "Не удалось сохранить аватар.");
+      setAvatarMessage("Аватар успешно обновлён.");
+    } catch (error) {
+      setAvatarError(error.message || "Не удалось обновить аватар.");
+    } finally {
+      setAvatarSaving(false);
+    }
+  };
+
 
   useEffect(() => {
     if (!avatarMenuOpen) return;
@@ -727,7 +787,7 @@ function MovieTracker() {
               aria-expanded={avatarMenuOpen}
               className="rounded-full outline-none ring-offset-2 ring-offset-[#131631] focus-visible:ring-2 focus-visible:ring-[#f47c4f]"
             >
-              <Avatar name={user?.username} />
+              <Avatar name={user?.username} avatar={user?.avatar} />
             </button>
             <div className="hidden sm:block leading-tight">
               <button
@@ -742,7 +802,7 @@ function MovieTracker() {
             {avatarMenuOpen && (
               <div role="menu" aria-label="Меню аккаунта" className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-60 overflow-hidden rounded-2xl border border-white/10 bg-[#171a33] p-2 shadow-2xl shadow-black/40">
                 <div className="flex items-center gap-3 border-b border-white/10 px-3 py-3 mb-1">
-                  <Avatar name={user?.username} size="w-11 h-11" text="text-base" />
+                  <Avatar name={user?.username} avatar={user?.avatar} size="w-11 h-11" text="text-base" />
                   <div className="min-w-0">
                     <div className="font-semibold text-white truncate">{user?.username}</div>
                     <div className="text-xs text-[#8a90b8] truncate">{user?.email}</div>
@@ -773,7 +833,7 @@ function MovieTracker() {
             Журнал {user?.username}
           </h2>
           <div className="flex items-center gap-3 mb-5">
-            <Avatar name={user?.username} size="w-14 h-14" text="text-xl" />
+            <Avatar name={user?.username} avatar={user?.avatar} size="w-14 h-14" text="text-xl" />
             <div className="min-w-0">
               <div className="font-semibold text-white truncate">
                 {user?.username}
@@ -1225,8 +1285,23 @@ function MovieTracker() {
               <div className={`${PANEL} relative overflow-hidden p-6 sm:p-8`}>
                 <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-r from-[#f47c4f]/25 via-[#8a4fff]/15 to-transparent pointer-events-none" />
                 <div className="relative flex flex-col sm:flex-row sm:items-end gap-5">
-                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] p-[3px] shadow-xl shadow-black/20">
-                    {user?.avatar ? <img src={user.avatar} alt="" className="w-full h-full rounded-[13px] object-cover" /> : <div className="w-full h-full rounded-[13px] bg-[#171a33] flex items-center justify-center text-4xl font-bold text-white">{user?.username?.[0]?.toUpperCase() || "U"}</div>}
+                  <div className="flex flex-col items-center gap-2 shrink-0">
+                    <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] p-[3px] shadow-xl shadow-black/20">
+                      {user?.avatar ? <img src={user.avatar} alt="Аватар профиля" className="w-full h-full rounded-[13px] object-cover" /> : <div className="w-full h-full rounded-[13px] bg-[#171a33] flex items-center justify-center text-4xl font-bold text-white">{user?.username?.[0]?.toUpperCase() || "U"}</div>}
+                    </div>
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                      aria-label="Выбрать фотографию профиля"
+                    />
+                    <button type="button" disabled={avatarSaving} onClick={() => { setAvatarMessage(""); setAvatarError(""); avatarInputRef.current?.click(); }} className={`text-xs px-3 py-1.5 rounded-lg ${BTN_SOFT} disabled:opacity-50`}>
+                      {avatarSaving ? "Сохранение…" : "Изменить фото"}
+                    </button>
+                    {avatarMessage && <p role="status" className="text-xs text-emerald-300">{avatarMessage}</p>}
+                    {avatarError && <p role="alert" className="max-w-[180px] text-xs text-red-300 text-center">{avatarError}</p>}
                   </div>
                   <div className="flex-1 min-w-0 pb-1">
                     <div className="text-xs uppercase tracking-[0.2em] text-[#f47c4f] font-semibold mb-2">Кинопрофиль</div>
@@ -1285,7 +1360,7 @@ function MovieTracker() {
                   <Icon n={profileFriendsOpen ? "chevron-up" : "chevron-down"} className="w-5 h-5 text-[#8a90b8]" />
                 </button>
                 {profileFriendsOpen && <div className="mt-4 pt-4 border-t border-white/5">
-                  {friends.length === 0 ? <p className="text-sm text-[#8a90b8] py-3">Пока друзей нет. Их можно найти во вкладке «Друзья».</p> : <div className="grid sm:grid-cols-2 gap-2">{friends.map((friend) => <button key={friend.id} onClick={() => setSelectedUserId(friend.id)} className="flex items-center gap-3 rounded-xl p-3 bg-white/[0.03] hover:bg-white/[0.07] text-left transition-colors"><Avatar name={friend.username} /><span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-white truncate">{friend.username}</span><span className="block text-xs text-[#8a90b8]">Открыть профиль</span></span><Icon n="arrow-up-right" className="w-4 h-4 text-[#8a90b8]" /></button>)}</div>}
+                  {friends.length === 0 ? <p className="text-sm text-[#8a90b8] py-3">Пока друзей нет. Их можно найти во вкладке «Друзья».</p> : <div className="grid sm:grid-cols-2 gap-2">{friends.map((friend) => <button key={friend.id} onClick={() => setSelectedUserId(friend.id)} className="flex items-center gap-3 rounded-xl p-3 bg-white/[0.03] hover:bg-white/[0.07] text-left transition-colors"><Avatar name={friend.username} avatar={friend.avatar} /><span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-white truncate">{friend.username}</span><span className="block text-xs text-[#8a90b8]">Открыть профиль</span></span><Icon n="arrow-up-right" className="w-4 h-4 text-[#8a90b8]" /></button>)}</div>}
                   <button onClick={() => setActiveTab("friends")} className="mt-3 text-sm text-[#f47c4f] hover:text-[#ffad8d]">Управлять друзьями →</button>
                 </div>}
               </section>
@@ -1296,6 +1371,33 @@ function MovieTracker() {
             <div className="max-w-2xl space-y-4 pb-28">
               <button onClick={() => setActiveTab("profile")} className="inline-flex items-center gap-2 text-sm text-[#8a90b8] hover:text-white"><Icon n="arrow-left" className="w-4 h-4" /> Назад в профиль</button>
               <div><h2 className="text-3xl font-semibold text-white">Настройки профиля</h2><p className="text-sm text-[#8a90b8] mt-1">Управление аккаунтом и данными журнала.</p></div>
+              <div className={`${PANEL} p-5`}>
+                <h3 className="flex items-center gap-2 text-lg text-white mb-1"><Icon n="image" className="w-5 h-5" /> Аватар профиля</h3>
+                <p className="text-sm text-[#8a90b8] mb-4">Загрузи изображение с устройства. Оно будет автоматически обрезано по размеру и сжато.</p>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="w-20 h-20 shrink-0 rounded-2xl overflow-hidden border border-white/10 bg-[#171a33] flex items-center justify-center">
+                    {user?.avatar ? <img src={user.avatar} alt="Текущий аватар" className="w-full h-full object-cover" /> : <span className="text-3xl font-bold text-white">{user?.username?.[0]?.toUpperCase() || "U"}</span>}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+                    <button type="button" disabled={avatarSaving} onClick={() => avatarInputRef.current?.click()} className={`px-4 py-2.5 rounded-xl font-medium disabled:opacity-50 ${BTN_ORANGE}`}>
+                      {avatarSaving ? "Сохранение…" : "Выбрать изображение"}
+                    </button>
+                    {user?.avatar && <button type="button" disabled={avatarSaving} onClick={async () => {
+                      setAvatarSaving(true); setAvatarMessage(""); setAvatarError("");
+                      try {
+                        const result = await updateAvatar(null);
+                        if (!result.success) throw new Error(result.error || "Не удалось удалить аватар.");
+                        setAvatarMessage("Аватар удалён.");
+                      } catch (error) { setAvatarError(error.message || "Не удалось удалить аватар."); }
+                      finally { setAvatarSaving(false); }
+                    }} className={`px-4 py-2.5 rounded-xl ${BTN_SOFT} disabled:opacity-50`}>Удалить аватар</button>}
+                  </div>
+                </div>
+                {avatarMessage && <p role="status" className="mt-3 text-sm text-emerald-300">{avatarMessage}</p>}
+                {avatarError && <p role="alert" className="mt-3 rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-200">{avatarError}</p>}
+                <p className="text-xs text-[#8a90b8] mt-3">Поддерживаются изображения JPG, PNG, WebP и другие форматы, которые открывает браузер. Исходный файл — до 10 МБ.</p>
+              </div>
               <div className={`${PANEL} p-5`}>
                 <h3 className="flex items-center gap-2 text-lg text-white mb-1"><Icon n="user-round-pen" className="w-5 h-5" /> Личные данные</h3>
                 <p className="text-sm text-[#8a90b8] mb-4">Измени никнейм и данные профиля.</p>
@@ -1412,8 +1514,8 @@ function MovieTracker() {
                   >
                     {/* Аватар с индикатором онлайна */}
                     <div className="relative shrink-0 mt-1">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] flex items-center justify-center font-bold text-sm text-white shadow-lg">
-                        {f.username?.[0]?.toUpperCase() || "U"}
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] flex items-center justify-center font-bold text-sm text-white shadow-lg overflow-hidden">
+                        {f.avatar ? <img src={f.avatar} alt="" className="w-full h-full object-cover" /> : (f.username?.[0]?.toUpperCase() || "U")}
                       </div>
                       <div
                         className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#101328] transition-colors ${

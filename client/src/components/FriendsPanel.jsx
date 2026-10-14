@@ -7,9 +7,9 @@ const Icon = ({ n, className = 'w-4 h-4' }) => (
   <img src={`https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/${n}.svg`} alt="" className={`${className} invert shrink-0`} />
 );
 
-const Avatar = ({ name, size = 'w-10 h-10', text = 'text-sm' }) => (
-  <div className={`${size} ${text} rounded-full bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] flex items-center justify-center font-bold text-white shrink-0 relative`}>
-    {name?.[0]?.toUpperCase() || 'U'}
+const Avatar = ({ name, avatar, size = 'w-10 h-10', text = 'text-sm' }) => (
+  <div className={`${size} ${text} rounded-full bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] flex items-center justify-center font-bold text-white shrink-0 relative overflow-hidden`}>
+    {avatar ? <img src={avatar} alt='' className='w-full h-full object-cover' /> : (name?.[0]?.toUpperCase() || 'U')}
   </div>
 );
 
@@ -177,8 +177,8 @@ export default function FriendsPanel({ onUserClick, onRequestsChange }) {
       className="flex items-start gap-3 p-3 hover:bg-white/5 rounded-lg cursor-pointer transition-colors group"
     >
       <div className="relative shrink-0 mt-1">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] flex items-center justify-center font-bold text-sm text-white">
-          {friend.username?.[0]?.toUpperCase() || 'U'}
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] flex items-center justify-center font-bold text-sm text-white overflow-hidden">
+          {friend.avatar ? <img src={friend.avatar} alt="" className="w-full h-full object-cover" /> : (friend.username?.[0]?.toUpperCase() || 'U')}
         </div>
         <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#171a33] ${
           isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-gray-500'
@@ -231,7 +231,7 @@ export default function FriendsPanel({ onUserClick, onRequestsChange }) {
                 key={request.id} 
                 className="flex items-center gap-3 p-3 hover:bg-white/5 rounded-lg transition-colors"
               >
-                <Avatar name={request.username} />
+                <Avatar name={request.username} avatar={request.avatar} />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold text-white truncate">{request.username}</div>
                   <div className="text-xs text-[#8a90b8]">Хочет добавить вас в друзья</div>
@@ -298,7 +298,7 @@ export default function FriendsPanel({ onUserClick, onRequestsChange }) {
                 key={user.id} 
                 className="flex items-center gap-3 p-3 hover:bg-white/5 rounded-lg transition-colors"
               >
-                <Avatar name={user.username} />
+                <Avatar name={user.username} avatar={user.avatar} />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold text-white truncate">{user.username}</div>
                   <div className="text-xs text-[#8a90b8]">

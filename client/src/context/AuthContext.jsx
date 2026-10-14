@@ -159,6 +159,28 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateAvatar = async (avatar) => {
+    try {
+      const res = await fetch(`${API_URL}/api/users/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ avatar }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data.error || "Не удалось обновить аватар" };
+      }
+      setUser((current) => current ? { ...current, avatar: data.user?.avatar ?? avatar } : current);
+      return { success: true, message: data.message || "Аватар обновлён" };
+    } catch (error) {
+      console.error("Ошибка обновления аватара:", error);
+      return { success: false, error: "Ошибка соединения с сервером" };
+    }
+  };
+
   const resendCode = async () => {
     try {
       const res = await fetch(`${API_URL}/api/auth/resend-code`, {
@@ -308,6 +330,7 @@ export const AuthProvider = ({ children }) => {
         register,
         verifyEmail,
         updateProfile,
+        updateAvatar,
         resendCode,
         forgotPassword,
         resetPassword,
