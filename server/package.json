@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
- "scripts": {
-  "dev": "nodemon index.js",
-  "start": "node index.js",
-  "postinstall": "prisma generate"
-},
+  "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js",
+    "postinstall": "prisma generate",
+    "prestart": "prisma db push"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

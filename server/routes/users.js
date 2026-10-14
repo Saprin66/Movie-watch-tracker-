@@ -55,7 +55,7 @@ router.get('/friends/requests', authMiddleware, async (req, res) => {
 // 4. ОБНОВИТЬ СВОЙ ПРОФИЛЬ
 router.put('/profile', authMiddleware, async (req, res) => {
   try {
-    const { bio, avatar } = req.body;
+    const { bio, avatar, showcaseMovieIds } = req.body;
     const data = {};
 
     if (bio !== undefined) {
@@ -72,11 +72,18 @@ router.put('/profile', authMiddleware, async (req, res) => {
       data.avatar = avatar;
     }
 
+    if (showcaseMovieIds !== undefined) {
+      if (!Array.isArray(showcaseMovieIds) || showcaseMovieIds.length > 3 || showcaseMovieIds.some((id) => typeof id !== 'string' || id.length > 100)) {
+        return res.status(400).json({ error: 'В витрине можно выбрать до трёх фильмов' });
+      }
+      data.showcaseMovieIds = [...new Set(showcaseMovieIds)];
+    }
+
     const user = await prisma.user.update({
       where: { id: req.userId },
       data,
       // Только безопасные поля: без хэша пароля и кода подтверждения
-      select: { id: true, username: true, email: true, avatar: true, bio: true }
+      select: { id: true, username: true, email: true, avatar: true, bio: true, showcaseMovieIds: true }
     });
     res.json({ message: 'Профиль обновлен', user });
   } catch (error) {

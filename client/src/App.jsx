@@ -10,6 +10,7 @@ import ProfileModal from "./components/ProfileModal";
 import ReviewModal from "./components/ReviewModal";
 import MovieDetailsModal from "./components/MovieDetailsModal";
 import FriendsFeed from "./components/FriendsFeed";
+import HomeFeed from "./components/HomeFeed";
 import WhatToWatch from "./components/WhatToWatch";
 import { SORT_OPTIONS, sortMovies } from "./utils/sortMovies";
 import MovieFilters from "./components/MovieFilters";
@@ -71,6 +72,12 @@ function MovieTracker() {
   const [lastWatchedData, setLastWatchedData] = useState({});
   const [reviewMovieId, setReviewMovieId] = useState(null);
   useEffect(() => {
+    const openProfileSettings = () => setActiveTab("profile-settings");
+    window.addEventListener("moviegrade:open-profile-settings", openProfileSettings);
+    return () => window.removeEventListener("moviegrade:open-profile-settings", openProfileSettings);
+  }, []);
+
+  useEffect(() => {
     if (!avatarMenuOpen) return;
     const handlePointerDown = (event) => {
       if (avatarMenuRef.current && !avatarMenuRef.current.contains(event.target)) {
@@ -107,15 +114,31 @@ function MovieTracker() {
   };
 
   useEffect(() => {
-    if (!user?.id) return;
-    try {
-      const saved = JSON.parse(localStorage.getItem(`movieShowcase:${user.id}`) || "[]");
-      setShowcaseMovieIds(Array.isArray(saved) ? saved.slice(0, 3) : []);
-    } catch {
-      setShowcaseMovieIds([]);
-    }
-    setShowcaseLoaded(true);
-  }, [user?.id]);
+    if (!user?.id || !token) return;
+    let cancelled = false;
+    const loadShowcase = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/users/${user.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) throw new Error("Не удалось загрузить витрину");
+        const data = await response.json();
+        if (!cancelled && Array.isArray(data.showcaseMovieIds)) {
+          setShowcaseMovieIds(data.showcaseMovieIds.slice(0, 3));
+          localStorage.setItem(`movieShowcase:${user.id}`, JSON.stringify(data.showcaseMovieIds.slice(0, 3)));
+        }
+      } catch {
+        try {
+          const saved = JSON.parse(localStorage.getItem(`movieShowcase:${user.id}`) || "[]");
+          if (!cancelled) setShowcaseMovieIds(Array.isArray(saved) ? saved.slice(0, 3) : []);
+        } catch { if (!cancelled) setShowcaseMovieIds([]); }
+      } finally {
+        if (!cancelled) setShowcaseLoaded(true);
+      }
+    };
+    loadShowcase();
+    return () => { cancelled = true; };
+  }, [user?.id, token]);
 
   useEffect(() => {
     if (!showcaseLoaded || !user?.id) return;
@@ -614,6 +637,7 @@ function MovieTracker() {
   //БОКОВАЯ ПАНЕЛЬ С ВКЛАДКАМИ
 
   const navItems = [
+    { id: "home", label: "Главная", short: "Главная", icon: "house" },
     { id: "movies", label: "Мой список", icon: "layout-dashboard" },
     {
       id: "discover",
@@ -801,6 +825,12 @@ function MovieTracker() {
         </aside>
 
         <main className="flex-1 min-w-0 px-4 lg:px-8 py-6 pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-8">
+          {activeTab === "home" && (
+            <HomeFeed
+              onOpenMovie={setSelectedMovie}
+              onBrowse={() => setActiveTab("search")}
+            />
+          )}
           {activeTab === "movies" && (
             <div className="space-y-5">
               <div className="flex items-center justify-between flex-wrap gap-3">
@@ -1194,9 +1224,7 @@ function MovieTracker() {
                 <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-r from-[#f47c4f]/25 via-[#8a4fff]/15 to-transparent pointer-events-none" />
                 <div className="relative flex flex-col sm:flex-row sm:items-end gap-5">
                   <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] p-[3px] shadow-xl shadow-black/20">
-                    <div className="w-full h-full rounded-[13px] bg-[#171a33] flex items-center justify-center text-4xl font-bold text-white">
-                      {user?.username?.[0]?.toUpperCase() || "U"}
-                    </div>
+                    {user?.avatar ? <img src={user.avatar} alt="" className="w-full h-full rounded-[13px] object-cover" /> : <div className="w-full h-full rounded-[13px] bg-[#171a33] flex items-center justify-center text-4xl font-bold text-white">{user?.username?.[0]?.toUpperCase() || "U"}</div>}
                   </div>
                   <div className="flex-1 min-w-0 pb-1">
                     <div className="text-xs uppercase tracking-[0.2em] text-[#f47c4f] font-semibold mb-2">Кинопрофиль</div>
@@ -1218,61 +1246,34 @@ function MovieTracker() {
               </div>
 
               <section className={`${PANEL} p-5 sm:p-6`}>
-                <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
                   <div>
-                    <h3 className="text-xl font-bold text-white">Витрина любимых фильмов</h3>
-                    <p className="text-sm text-[#8a90b8] mt-1">Выбери до трёх фильмов из своего журнала — они будут отображаться в твоём профиле.</p>
+                    <h3 className="text-xl font-bold text-white">Витрина фильмов</h3>
+                    <p className="text-sm text-[#8a90b8] mt-1">Три фильма, которые лучше всего тебя представляют.</p>
                   </div>
-                  <span className="text-xs rounded-full bg-white/5 px-3 py-1.5 text-[#c9cce6]">{showcaseMovieIds.length}/3 выбрано</span>
+                  <button onClick={() => setActiveTab("profile-settings")} className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${BTN_SOFT}`}>
+                    <Icon n="settings-2" className="w-4 h-4" /> Настройки витрины
+                  </button>
                 </div>
-                {showcaseMovieIds.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-5">
+                {showcaseMovieIds.map((id) => movies.find((movie) => String(movie.id) === id)).filter(Boolean).length ? (
+                  <div className="grid grid-cols-3 gap-3 sm:gap-5">
                     {showcaseMovieIds.map((id) => movies.find((movie) => String(movie.id) === id)).filter(Boolean).map((movie) => (
                       <button key={movie.id} onClick={() => setSelectedMovie(movie)} className="group text-left min-w-0">
-                        <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-[#262b55] border border-white/10">
+                        <div className="aspect-[2/3] overflow-hidden rounded-xl bg-[#262b55] border border-white/10">
                           {movie.posterUrl ? <img src={movie.posterUrl} alt={movie.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" /> : <div className="h-full flex items-center justify-center"><Icon n="film" className="w-8 h-8 opacity-40" /></div>}
-                          <span className="absolute top-2 right-2 rounded-full bg-black/70 p-1.5 text-white"><Icon n="check" className="w-3 h-3" /></span>
                         </div>
                         <div className="text-sm font-semibold text-white mt-2 truncate">{movie.title}</div>
-                        <div className="text-xs text-[#8a90b8]">{movie.year || "Фильм из журнала"}</div>
+                        <div className="text-xs text-[#8a90b8]">{movie.year || "Из журнала"}</div>
                       </button>
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-dashed border-white/10 text-center py-8 px-4 mb-5">
+                  <div className="rounded-xl border border-dashed border-white/10 text-center py-8 px-4">
                     <Icon n="clapperboard" className="w-8 h-8 mx-auto text-[#f47c4f] mb-2" />
-                    <p className="text-sm text-[#c9cce6]">Пока витрина пустая</p>
-                    <p className="text-xs text-[#8a90b8] mt-1">Добавь сюда фильмы, которые лучше всего тебя представляют.</p>
+                    <p className="text-sm text-[#c9cce6]">Витрина пока пуста</p>
+                    <p className="text-xs text-[#8a90b8] mt-1">Нажми «Настройки витрины», чтобы выбрать до трёх фильмов.</p>
                   </div>
                 )}
-                {movies.length > 0 ? (
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-[#8a90b8] mb-3">Выбрать из журнала</div>
-                    <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto pr-1">
-                      {movies.map((movie) => {
-                        const selected = showcaseMovieIds.includes(String(movie.id));
-                        const full = showcaseMovieIds.length >= 3 && !selected;
-                        return <button key={movie.id} disabled={full} onClick={() => toggleShowcaseMovie(movie)} className={`rounded-full border px-3 py-2 text-xs transition-colors disabled:opacity-40 ${selected ? "border-[#f47c4f]/50 bg-[#f47c4f]/15 text-[#ffad8d]" : "border-white/10 bg-white/[0.03] text-[#c9cce6] hover:bg-white/10"}`}>
-                          {selected ? "✓ " : "+ "}{movie.title}
-                        </button>;
-                      })}
-                    </div>
-                    {showcaseMovieIds.length >= 3 && <p className="text-xs text-[#8a90b8] mt-2">Чтобы добавить другой фильм, сначала убери один из выбранных.</p>}
-                  </div>
-                ) : <p className="text-sm text-[#8a90b8]">Добавь фильмы в свой журнал, чтобы собрать витрину.</p>}
-              </section>
-
-              <section className={`${PANEL} p-5 sm:p-6`}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center"><Icon n="trophy" className="w-5 h-5 text-amber-300" /></div>
-                    <div><h3 className="text-lg font-bold text-white">Достижения</h3><p className="text-xs text-[#8a90b8]">Награды за твою киноманию</p></div>
-                  </div>
-                  <span className="rounded-full bg-amber-400/10 text-amber-200 text-xs px-3 py-1.5">В разработке</span>
-                </div>
-                <div className="grid grid-cols-3 gap-3 mt-5">
-                  {["Первый фильм", "Марафонец", "Кинокритик"].map((title, index) => <div key={title} className="rounded-xl bg-black/15 border border-white/5 p-3 text-center opacity-60"><div className="w-11 h-11 rounded-full mx-auto mb-2 bg-white/5 flex items-center justify-center"><Icon n={index === 0 ? "film" : index === 1 ? "flame" : "star"} className="w-5 h-5" /></div><div className="text-xs text-[#c9cce6]">{title}</div><div className="text-[10px] text-[#8a90b8] mt-1">Скоро</div></div>)}
-                </div>
               </section>
 
               <section className={`${PANEL} p-5 sm:p-6`}>
@@ -1297,6 +1298,33 @@ function MovieTracker() {
                 <h3 className="flex items-center gap-2 text-lg text-white mb-1"><Icon n="user-round-pen" className="w-5 h-5" /> Личные данные</h3>
                 <p className="text-sm text-[#8a90b8] mb-4">Измени никнейм и данные профиля.</p>
                 <button onClick={() => setSelectedUserId(user?.id)} className={`w-full py-2.5 rounded-lg font-medium ${BTN_SOFT}`}>Редактировать профиль</button>
+              </div>
+              <div className={`${PANEL} p-5`}>
+                <h3 className="flex items-center gap-2 text-lg text-white mb-1"><Icon n="clapperboard" className="w-5 h-5" /> Настройки витрины</h3>
+                <p className="text-sm text-[#8a90b8] mb-4">Выбери до трёх фильмов из журнала. Изменения будут видны в твоём профиле и профиле друзей.</p>
+                {movies.length ? <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {movies.map((movie) => {
+                    const selected = showcaseMovieIds.includes(String(movie.id));
+                    const disabled = !selected && showcaseMovieIds.length >= 3;
+                    return <button key={movie.id} disabled={disabled} onClick={() => toggleShowcaseMovie(movie)} className={`text-left rounded-xl border p-2 transition ${selected ? "border-[#f47c4f] bg-[#f47c4f]/10" : "border-white/10 bg-black/10 hover:bg-white/5"} disabled:opacity-40`}>
+                      <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#262b55]">
+                        {movie.posterUrl ? <img src={movie.posterUrl} alt={movie.title} className="w-full h-full object-cover" /> : <div className="h-full flex items-center justify-center"><Icon n="film" /></div>}
+                        {selected && <span className="absolute top-2 right-2 bg-[#f47c4f] rounded-full p-1"><Icon n="check" className="w-3 h-3" /></span>}
+                      </div>
+                      <div className="text-xs font-semibold text-white mt-2 line-clamp-2">{movie.title}</div>
+                    </button>;
+                  })}
+                </div> : <p className="text-sm text-[#8a90b8]">Сначала добавь фильмы в журнал.</p>}
+                <div className="flex justify-end mt-4">
+                  <button onClick={async () => {
+                    try {
+                      const response = await fetch(`${API_URL}/api/users/profile`, { method: "PUT", headers: authHeaders, body: JSON.stringify({ showcaseMovieIds: showcaseMovieIds.slice(0, 3) }) });
+                      const data = await response.json().catch(() => ({}));
+                      if (!response.ok) throw new Error(data.error || "Не удалось сохранить витрину");
+                      setActiveTab("profile");
+                    } catch (error) { alert(error.message || "Не удалось сохранить витрину"); }
+                  }} className={`px-4 py-2.5 rounded-xl ${BTN_ORANGE}`}>Сохранить витрину</button>
+                </div>
               </div>
               <div className={`${PANEL} p-5`}>
                 <h3 className="flex items-center gap-2 text-lg text-white mb-1"><Icon n="download" className="w-5 h-5" /> Импорт из файла</h3>
@@ -1467,6 +1495,7 @@ function MovieTracker() {
           userId={selectedUserId}
           token={token}
           onClose={() => setSelectedUserId(null)}
+          onUserClick={(id) => setSelectedUserId(id)}
         />
       )}
 

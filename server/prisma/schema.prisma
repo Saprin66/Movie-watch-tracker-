@@ -24,6 +24,7 @@ model User {
   resetRequestedAt  DateTime?
   passwordChangedAt DateTime?   // старые токены после смены пароля недействительны
   bio              String?
+  showcaseMovieIds String[]    @default([])
   lastSeen     DateTime    @default(now()) 
   avatar           String?
   movies           UserMovie[]
