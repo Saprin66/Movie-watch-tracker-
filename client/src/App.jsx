@@ -11,6 +11,7 @@ import ReviewModal from "./components/ReviewModal";
 import MovieDetailsModal from "./components/MovieDetailsModal";
 import FriendsFeed from "./components/FriendsFeed";
 import WhatToWatch from "./components/WhatToWatch";
+import HomeFeed from "./components/HomeFeed";
 import { SORT_OPTIONS, sortMovies } from "./utils/sortMovies";
 import MovieFilters from "./components/MovieFilters";
 import {
@@ -35,7 +36,7 @@ import { API_URL, TMDB_API_KEY, TMDB, POSTER } from "./config";
 function MovieTracker() {
   const [friendsLastWatched, setFriendsLastWatched] = useState({});
   const { user, token, logout, getFriends, getFriendRequests } = useAuth();
-  const [activeTab, setActiveTab] = useState("movies");
+  const [activeTab, setActiveTab] = useState("home");
   const [requestsCount, setRequestsCount] = useState(0);
   const [movies, setMovies] = useState([]);
   const [friends, setFriends] = useState([]);
@@ -100,7 +101,8 @@ function MovieTracker() {
   useEffect(() => {
     if (
       token &&
-      (activeTab === "movies" ||
+      (activeTab === "home" ||
+        activeTab === "movies" ||
         activeTab === "search" ||
         activeTab === "discover")
     )
@@ -520,6 +522,7 @@ function MovieTracker() {
   //БОКОВАЯ ПАНЕЛЬ С ВКЛАДКАМИ
 
   const navItems = [
+    { id: "home", label: "Главная", short: "Главная", icon: "house" },
     { id: "movies", label: "Мой список", icon: "layout-dashboard" },
     {
       id: "discover",
@@ -680,6 +683,13 @@ function MovieTracker() {
         </aside>
 
         <main className="flex-1 min-w-0 px-4 lg:px-8 py-6 pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-8">
+          {activeTab === "home" && (
+            <HomeFeed
+              onOpenMovie={setSelectedMovie}
+              onBrowse={() => setActiveTab("search")}
+            />
+          )}
+
           {activeTab === "movies" && (
             <div className="space-y-5">
               <div className="flex items-center justify-between flex-wrap gap-3">
