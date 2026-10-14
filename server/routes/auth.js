@@ -248,6 +248,8 @@ router.get('/me', authMiddleware, async (req, res) => {
         id: true,
         username: true,
         email: true,
+        avatar: true,
+        bio: true,
         isVerified: true,
         createdAt: true
       }
