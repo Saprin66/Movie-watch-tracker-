@@ -4,14 +4,13 @@ import AuthScreen from "./components/AuthScreen";
 import Footer from "./components/Footer";
 import PrivacyPolicy from "./components/PrivacyPolicy";
 import { useHashRoute } from "./hooks/useHashRoute";
-import { POLICY_HASH } from "./legal";
+import { POLICY_HASH, CONTACT_EMAIL } from "./legal";
 import FriendsPanel from "./components/FriendsPanel";
 import ProfileModal from "./components/ProfileModal";
 import ReviewModal from "./components/ReviewModal";
 import MovieDetailsModal from "./components/MovieDetailsModal";
 import FriendsFeed from "./components/FriendsFeed";
 import WhatToWatch from "./components/WhatToWatch";
-import HomeFeed from "./components/HomeFeed";
 import { SORT_OPTIONS, sortMovies } from "./utils/sortMovies";
 import MovieFilters from "./components/MovieFilters";
 import {
@@ -36,7 +35,7 @@ import { API_URL, TMDB_API_KEY, TMDB, POSTER } from "./config";
 function MovieTracker() {
   const [friendsLastWatched, setFriendsLastWatched] = useState({});
   const { user, token, logout, getFriends, getFriendRequests } = useAuth();
-  const [activeTab, setActiveTab] = useState("home");
+  const [activeTab, setActiveTab] = useState("movies");
   const [requestsCount, setRequestsCount] = useState(0);
   const [movies, setMovies] = useState([]);
   const [friends, setFriends] = useState([]);
@@ -56,6 +55,11 @@ function MovieTracker() {
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [searchMode, setSearchMode] = useState("text");
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [showcaseMovieIds, setShowcaseMovieIds] = useState([]);
+  const [showcaseLoaded, setShowcaseLoaded] = useState(false);
+  const [profileFriendsOpen, setProfileFriendsOpen] = useState(false);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const avatarMenuRef = useRef(null);
   const [movieFilter, setMovieFilter] = useState("all");
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({
@@ -66,6 +70,24 @@ function MovieTracker() {
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [lastWatchedData, setLastWatchedData] = useState({});
   const [reviewMovieId, setReviewMovieId] = useState(null);
+  useEffect(() => {
+    if (!avatarMenuOpen) return;
+    const handlePointerDown = (event) => {
+      if (avatarMenuRef.current && !avatarMenuRef.current.contains(event.target)) {
+        setAvatarMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setAvatarMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [avatarMenuOpen]);
+
   const [sortMode, setSortMode] = useState(() => {
     try {
       const saved = localStorage.getItem("movieSort");
@@ -82,6 +104,33 @@ function MovieTracker() {
     } catch {
       /* без хранилища просто не запоминаем */
     }
+  };
+
+  useEffect(() => {
+    if (!user?.id) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem(`movieShowcase:${user.id}`) || "[]");
+      setShowcaseMovieIds(Array.isArray(saved) ? saved.slice(0, 3) : []);
+    } catch {
+      setShowcaseMovieIds([]);
+    }
+    setShowcaseLoaded(true);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!showcaseLoaded || !user?.id) return;
+    try {
+      localStorage.setItem(`movieShowcase:${user.id}`, JSON.stringify(showcaseMovieIds.slice(0, 3)));
+    } catch {
+      // Если хранилище недоступно, витрина останется активной до перезагрузки.
+    }
+  }, [showcaseMovieIds, showcaseLoaded, user?.id]);
+
+  const toggleShowcaseMovie = (movie) => {
+    const id = String(movie.id);
+    setShowcaseMovieIds((prev) => prev.includes(id)
+      ? prev.filter((item) => item !== id)
+      : prev.length < 3 ? [...prev, id] : prev);
   };
 
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
@@ -101,8 +150,7 @@ function MovieTracker() {
   useEffect(() => {
     if (
       token &&
-      (activeTab === "home" ||
-        activeTab === "movies" ||
+      (activeTab === "movies" ||
         activeTab === "search" ||
         activeTab === "discover")
     )
@@ -110,9 +158,16 @@ function MovieTracker() {
   }, [token, activeTab]);
 
   useEffect(() => {
-    if (token && activeTab === "search" && !searchQuery.trim())
+    // Не загружаем популярные фильмы поверх результатов, выбранных фильтрами.
+    if (
+      token &&
+      activeTab === "search" &&
+      !searchQuery.trim() &&
+      searchMode !== "filters"
+    ) {
       loadPopularMovies();
-  }, [token, activeTab]);
+    }
+  }, [token, activeTab, searchQuery, searchMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -208,14 +263,26 @@ function MovieTracker() {
   };
 
   const loadPopularMovies = async () => {
+    // Защита от гонки запросов: ответ популярного каталога не должен
+    // перезаписывать результаты фильтров, если они загрузились позже.
+    const seq = ++searchSeq.current;
+    if (!TMDB_API_KEY) {
+      setCatalogError("На сайте не настроен ключ TMDB. Добавьте VITE_TMDB_API_KEY в переменные окружения хостинга и пересоберите проект.");
+      return;
+    }
     try {
       const res = await fetch(
         `${TMDB}/movie/popular?api_key=${TMDB_API_KEY}&language=ru-RU&page=1`,
       );
       const data = await res.json();
+      if (seq !== searchSeq.current) return;
+      if (!res.ok) throw new Error(data.status_message || "Не удалось загрузить популярные фильмы TMDB");
       setSearchResults(data.results || []);
+      setCatalogError("");
     } catch (error) {
+      if (seq !== searchSeq.current) return;
       console.error("Ошибка загрузки популярных фильмов:", error);
+      setCatalogError(error.message || "Ошибка соединения с TMDB");
     }
   };
 
@@ -313,12 +380,31 @@ function MovieTracker() {
   };
 
   const discoverMovies = async (page = 1) => {
+    const seq = ++searchSeq.current;
     setCatalogLoading(true);
     setCatalogError("");
     setSearchMode("filters");
     setCatalogPage(page);
+    if (!TMDB_API_KEY) {
+      setCatalogError("На сайте не настроен ключ TMDB. Добавьте VITE_TMDB_API_KEY в переменные окружения хостинга и пересоберите проект.");
+      setSearchResults([]);
+      setCatalogLoading(false);
+      return;
+    }
+    const fromYear = yearFrom.trim();
+    const toYear = yearTo.trim();
+    if ((fromYear && !/^\d{4}$/.test(fromYear)) || (toYear && !/^\d{4}$/.test(toYear))) {
+      setCatalogError("Укажи год четырьмя цифрами, например 2000.");
+      setCatalogLoading(false);
+      return;
+    }
+    if (fromYear && toYear && Number(fromYear) > Number(toYear)) {
+      setCatalogError("Год «от» не может быть больше года «до».");
+      setCatalogLoading(false);
+      return;
+    }
     const params = new URLSearchParams({
-      api_key: TMDB_API_KEY || "",
+      api_key: TMDB_API_KEY,
       language: "ru-RU",
       page: String(page),
       sort_by: sortBy,
@@ -331,14 +417,20 @@ function MovieTracker() {
     try {
       const res = await fetch(`${TMDB}/discover/${catalogType}?${params.toString()}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.status_message || "Не удалось выполнить подборку");
+      if (seq !== searchSeq.current) return;
+      if (!res.ok) {
+        const message = data.status_message || "Не удалось выполнить подборку TMDB";
+        throw new Error(message);
+      }
       setSearchResults((data.results || []).map((item) => ({ ...item, media_type: catalogType })));
       setCatalogTotalPages(Math.min(data.total_pages || 1, 500));
     } catch (error) {
-      setCatalogError(error.message || "Ошибка при поиске по фильтрам");
+      if (seq !== searchSeq.current) return;
+      console.error("Ошибка подбора по фильтрам:", error);
+      setCatalogError(error.message || "Ошибка соединения с TMDB. Проверьте ключ API и настройки сайта.");
       setSearchResults([]);
     } finally {
-      setCatalogLoading(false);
+      if (seq === searchSeq.current) setCatalogLoading(false);
     }
   };
 
@@ -522,7 +614,6 @@ function MovieTracker() {
   //БОКОВАЯ ПАНЕЛЬ С ВКЛАДКАМИ
 
   const navItems = [
-    { id: "home", label: "Главная", short: "Главная", icon: "house" },
     { id: "movies", label: "Мой список", icon: "layout-dashboard" },
     {
       id: "discover",
@@ -538,7 +629,7 @@ function MovieTracker() {
       icon: "users",
       badge: requestsCount,
     },
-    { id: "profile", label: "Настройки", icon: "settings" },
+    { id: "profile", label: "Профиль", icon: "user-round" },
   ];
 
   const tabs = [
@@ -601,24 +692,51 @@ function MovieTracker() {
           {/* Распорка только на широких экранах: на телефоне всё место отдано поиску */}
           <div className="hidden sm:block flex-1" />
 
-          <div className="flex items-center gap-3 shrink-0">
-            <Avatar name={user?.username} />
+          <div className="relative flex items-center gap-3 shrink-0" ref={avatarMenuRef}>
+            <button
+              type="button"
+              onClick={() => setAvatarMenuOpen((open) => !open)}
+              aria-label="Открыть меню аккаунта"
+              aria-haspopup="menu"
+              aria-expanded={avatarMenuOpen}
+              className="rounded-full outline-none ring-offset-2 ring-offset-[#131631] focus-visible:ring-2 focus-visible:ring-[#f47c4f]"
+            >
+              <Avatar name={user?.username} />
+            </button>
             <div className="hidden sm:block leading-tight">
-              <div className="text-sm font-semibold text-white">
+              <button
+                type="button"
+                onClick={() => setAvatarMenuOpen((open) => !open)}
+                className="text-sm font-semibold text-white hover:text-[#f47c4f] transition-colors"
+              >
                 {user?.username}
-              </div>
-              <div className="flex gap-3 text-xs text-[#8a90b8]">
-                <button
-                  onClick={() => setActiveTab("profile")}
-                  className="hover:text-white"
-                >
-                  Профиль
-                </button>
-                <button onClick={logout} className="hover:text-white">
-                  Выйти
-                </button>
-              </div>
+              </button>
+              <div className="text-xs text-[#8a90b8]">Мой аккаунт</div>
             </div>
+            {avatarMenuOpen && (
+              <div role="menu" aria-label="Меню аккаунта" className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-60 overflow-hidden rounded-2xl border border-white/10 bg-[#171a33] p-2 shadow-2xl shadow-black/40">
+                <div className="flex items-center gap-3 border-b border-white/10 px-3 py-3 mb-1">
+                  <Avatar name={user?.username} size="w-11 h-11" text="text-base" />
+                  <div className="min-w-0">
+                    <div className="font-semibold text-white truncate">{user?.username}</div>
+                    <div className="text-xs text-[#8a90b8] truncate">{user?.email}</div>
+                  </div>
+                </div>
+                <button role="menuitem" onClick={() => { setActiveTab("profile"); setAvatarMenuOpen(false); }} className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[#c9cce6] hover:bg-white/[0.06] hover:text-white text-left transition-colors">
+                  <Icon n="user-round" className="w-4 h-4" /> Профиль
+                </button>
+                <button role="menuitem" onClick={() => { setActiveTab("profile-settings"); setAvatarMenuOpen(false); }} className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[#c9cce6] hover:bg-white/[0.06] hover:text-white text-left transition-colors">
+                  <Icon n="settings" className="w-4 h-4" /> Настройки профиля
+                </button>
+                <a role="menuitem" href={`mailto:${CONTACT_EMAIL}`} onClick={() => setAvatarMenuOpen(false)} className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[#c9cce6] hover:bg-white/[0.06] hover:text-white transition-colors">
+                  <Icon n="life-buoy" className="w-4 h-4" /> Поддержка
+                </a>
+                <div className="my-1 border-t border-white/10" />
+                <button role="menuitem" onClick={() => { setAvatarMenuOpen(false); logout(); }} className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-red-300 hover:bg-red-500/10 text-left transition-colors">
+                  <Icon n="log-out" className="w-4 h-4" /> Выйти из аккаунта
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -683,13 +801,6 @@ function MovieTracker() {
         </aside>
 
         <main className="flex-1 min-w-0 px-4 lg:px-8 py-6 pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-8">
-          {activeTab === "home" && (
-            <HomeFeed
-              onOpenMovie={setSelectedMovie}
-              onBrowse={() => setActiveTab("search")}
-            />
-          )}
-
           {activeTab === "movies" && (
             <div className="space-y-5">
               <div className="flex items-center justify-between flex-wrap gap-3">
@@ -963,7 +1074,7 @@ function MovieTracker() {
 
               {searchResults.length > 0 ? (
                 <>
-                  {!searchQuery.trim() && (
+                  {!searchQuery.trim() && searchMode !== "filters" && (
                     <h3 className="flex items-center gap-2 text-lg text-[#f47c4f]">
                       <Icon n="flame" className={`w-5 h-5 ${ORANGE_FILTER}`} />{" "}
                       Сейчас популярно
@@ -1078,72 +1189,127 @@ function MovieTracker() {
           )}
 
           {activeTab === "profile" && (
-            <div className="max-w-2xl space-y-4">
-              <h2 className="text-3xl font-semibold text-white">Профиль</h2>
-              <div className={`${PANEL} p-6 flex items-center gap-5`}>
-                <Avatar
-                  name={user?.username}
-                  size="w-20 h-20"
-                  text="text-3xl"
-                />
-                <div>
-                  <div className="text-2xl font-semibold text-white">
-                    {user?.username}
+            <div className="max-w-5xl space-y-6">
+              <div className={`${PANEL} relative overflow-hidden p-6 sm:p-8`}>
+                <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-r from-[#f47c4f]/25 via-[#8a4fff]/15 to-transparent pointer-events-none" />
+                <div className="relative flex flex-col sm:flex-row sm:items-end gap-5">
+                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] p-[3px] shadow-xl shadow-black/20">
+                    <div className="w-full h-full rounded-[13px] bg-[#171a33] flex items-center justify-center text-4xl font-bold text-white">
+                      {user?.username?.[0]?.toUpperCase() || "U"}
+                    </div>
                   </div>
-                  <div className="text-sm text-[#8a90b8]">{user?.email}</div>
+                  <div className="flex-1 min-w-0 pb-1">
+                    <div className="text-xs uppercase tracking-[0.2em] text-[#f47c4f] font-semibold mb-2">Кинопрофиль</div>
+                    <h2 className="text-3xl sm:text-4xl font-bold text-white truncate">{user?.username || "Киноман"}</h2>
+                    <p className="text-sm text-[#8a90b8] mt-1">{user?.email}</p>
+                  </div>
+                  <button onClick={() => setActiveTab("profile-settings")} className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl ${BTN_SOFT}`}>
+                    <Icon n="settings" className="w-4 h-4" /> Настройки профиля
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-3 mt-7">
+                  {[{ v: movies.length, l: "В журнале" }, { v: watchedCount, l: "Просмотрено" }, { v: friends.length, l: "Друзей" }].map((stat) => (
+                    <div key={stat.l} className="rounded-xl bg-black/20 border border-white/5 p-4">
+                      <div className="text-2xl sm:text-3xl font-bold text-white">{stat.v}</div>
+                      <div className="text-xs text-[#8a90b8] mt-1">{stat.l}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { v: movies.length, l: "Всего в журнале" },
-                  { v: watchedCount, l: "Просмотрено" },
-                  { v: friends.length, l: "Друзей" },
-                ].map((s) => (
-                  <div key={s.l} className={`${PANEL} p-4`}>
-                    <div className="text-3xl font-semibold text-[#f47c4f]">
-                      {s.v}
-                    </div>
-                    <div className="text-xs text-[#8a90b8]">{s.l}</div>
+              <section className={`${PANEL} p-5 sm:p-6`}>
+                <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                  <div>
+                    <h3 className="text-xl font-bold text-white">Витрина любимых фильмов</h3>
+                    <p className="text-sm text-[#8a90b8] mt-1">Выбери до трёх фильмов из своего журнала — они будут отображаться в твоём профиле.</p>
                   </div>
-                ))}
-              </div>
+                  <span className="text-xs rounded-full bg-white/5 px-3 py-1.5 text-[#c9cce6]">{showcaseMovieIds.length}/3 выбрано</span>
+                </div>
+                {showcaseMovieIds.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-5">
+                    {showcaseMovieIds.map((id) => movies.find((movie) => String(movie.id) === id)).filter(Boolean).map((movie) => (
+                      <button key={movie.id} onClick={() => setSelectedMovie(movie)} className="group text-left min-w-0">
+                        <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-[#262b55] border border-white/10">
+                          {movie.posterUrl ? <img src={movie.posterUrl} alt={movie.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" /> : <div className="h-full flex items-center justify-center"><Icon n="film" className="w-8 h-8 opacity-40" /></div>}
+                          <span className="absolute top-2 right-2 rounded-full bg-black/70 p-1.5 text-white"><Icon n="check" className="w-3 h-3" /></span>
+                        </div>
+                        <div className="text-sm font-semibold text-white mt-2 truncate">{movie.title}</div>
+                        <div className="text-xs text-[#8a90b8]">{movie.year || "Фильм из журнала"}</div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-white/10 text-center py-8 px-4 mb-5">
+                    <Icon n="clapperboard" className="w-8 h-8 mx-auto text-[#f47c4f] mb-2" />
+                    <p className="text-sm text-[#c9cce6]">Пока витрина пустая</p>
+                    <p className="text-xs text-[#8a90b8] mt-1">Добавь сюда фильмы, которые лучше всего тебя представляют.</p>
+                  </div>
+                )}
+                {movies.length > 0 ? (
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-[#8a90b8] mb-3">Выбрать из журнала</div>
+                    <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto pr-1">
+                      {movies.map((movie) => {
+                        const selected = showcaseMovieIds.includes(String(movie.id));
+                        const full = showcaseMovieIds.length >= 3 && !selected;
+                        return <button key={movie.id} disabled={full} onClick={() => toggleShowcaseMovie(movie)} className={`rounded-full border px-3 py-2 text-xs transition-colors disabled:opacity-40 ${selected ? "border-[#f47c4f]/50 bg-[#f47c4f]/15 text-[#ffad8d]" : "border-white/10 bg-white/[0.03] text-[#c9cce6] hover:bg-white/10"}`}>
+                          {selected ? "✓ " : "+ "}{movie.title}
+                        </button>;
+                      })}
+                    </div>
+                    {showcaseMovieIds.length >= 3 && <p className="text-xs text-[#8a90b8] mt-2">Чтобы добавить другой фильм, сначала убери один из выбранных.</p>}
+                  </div>
+                ) : <p className="text-sm text-[#8a90b8]">Добавь фильмы в свой журнал, чтобы собрать витрину.</p>}
+              </section>
 
+              <section className={`${PANEL} p-5 sm:p-6`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center"><Icon n="trophy" className="w-5 h-5 text-amber-300" /></div>
+                    <div><h3 className="text-lg font-bold text-white">Достижения</h3><p className="text-xs text-[#8a90b8]">Награды за твою киноманию</p></div>
+                  </div>
+                  <span className="rounded-full bg-amber-400/10 text-amber-200 text-xs px-3 py-1.5">В разработке</span>
+                </div>
+                <div className="grid grid-cols-3 gap-3 mt-5">
+                  {["Первый фильм", "Марафонец", "Кинокритик"].map((title, index) => <div key={title} className="rounded-xl bg-black/15 border border-white/5 p-3 text-center opacity-60"><div className="w-11 h-11 rounded-full mx-auto mb-2 bg-white/5 flex items-center justify-center"><Icon n={index === 0 ? "film" : index === 1 ? "flame" : "star"} className="w-5 h-5" /></div><div className="text-xs text-[#c9cce6]">{title}</div><div className="text-[10px] text-[#8a90b8] mt-1">Скоро</div></div>)}
+                </div>
+              </section>
+
+              <section className={`${PANEL} p-5 sm:p-6`}>
+                <button onClick={() => setProfileFriendsOpen((open) => !open)} className="w-full flex items-center gap-3 text-left">
+                  <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center"><Icon n="users" className="w-5 h-5 text-sky-300" /></div>
+                  <div className="flex-1"><h3 className="text-lg font-bold text-white">Друзья</h3><p className="text-xs text-[#8a90b8]">{friends.length} в твоём круге · нажми, чтобы {profileFriendsOpen ? "скрыть список" : "посмотреть список"}</p></div>
+                  <Icon n={profileFriendsOpen ? "chevron-up" : "chevron-down"} className="w-5 h-5 text-[#8a90b8]" />
+                </button>
+                {profileFriendsOpen && <div className="mt-4 pt-4 border-t border-white/5">
+                  {friends.length === 0 ? <p className="text-sm text-[#8a90b8] py-3">Пока друзей нет. Их можно найти во вкладке «Друзья».</p> : <div className="grid sm:grid-cols-2 gap-2">{friends.map((friend) => <button key={friend.id} onClick={() => setSelectedUserId(friend.id)} className="flex items-center gap-3 rounded-xl p-3 bg-white/[0.03] hover:bg-white/[0.07] text-left transition-colors"><Avatar name={friend.username} /><span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-white truncate">{friend.username}</span><span className="block text-xs text-[#8a90b8]">Открыть профиль</span></span><Icon n="arrow-up-right" className="w-4 h-4 text-[#8a90b8]" /></button>)}</div>}
+                  <button onClick={() => setActiveTab("friends")} className="mt-3 text-sm text-[#f47c4f] hover:text-[#ffad8d]">Управлять друзьями →</button>
+                </div>}
+              </section>
+            </div>
+          )}
+
+          {activeTab === "profile-settings" && (
+            <div className="max-w-2xl space-y-4">
+              <button onClick={() => setActiveTab("profile")} className="inline-flex items-center gap-2 text-sm text-[#8a90b8] hover:text-white"><Icon n="arrow-left" className="w-4 h-4" /> Назад в профиль</button>
+              <div><h2 className="text-3xl font-semibold text-white">Настройки профиля</h2><p className="text-sm text-[#8a90b8] mt-1">Управление аккаунтом и данными журнала.</p></div>
               <div className={`${PANEL} p-5`}>
-                <h3 className="flex items-center gap-2 text-lg text-white mb-1">
-                  <Icon n="download" className="w-5 h-5" /> Импорт из файла
-                </h3>
-                <p className="text-sm text-[#8a90b8] mb-4">
-                  Загрузите .txt или .docx файл со списком фильмов
-                </p>
-                <label
-                  className={`block w-full text-center py-2.5 rounded-lg cursor-pointer ${importing ? "bg-[#262b55] text-[#8a90b8] cursor-not-allowed" : BTN_ORANGE}`}
-                >
-                  {importing
-                    ? `Импорт... ${importProgress.current}/${importProgress.total}`
-                    : "Выбрать файл"}
-                  <input
-                    type="file"
-                    accept=".txt,.docx"
-                    onChange={handleDocxImport}
-                    disabled={importing}
-                    className="hidden"
-                  />
+                <h3 className="flex items-center gap-2 text-lg text-white mb-1"><Icon n="user-round-pen" className="w-5 h-5" /> Личные данные</h3>
+                <p className="text-sm text-[#8a90b8] mb-4">Измени никнейм и данные профиля.</p>
+                <button onClick={() => setSelectedUserId(user?.id)} className={`w-full py-2.5 rounded-lg font-medium ${BTN_SOFT}`}>Редактировать профиль</button>
+              </div>
+              <div className={`${PANEL} p-5`}>
+                <h3 className="flex items-center gap-2 text-lg text-white mb-1"><Icon n="download" className="w-5 h-5" /> Импорт из файла</h3>
+                <p className="text-sm text-[#8a90b8] mb-4">Загрузите .txt или .docx файл со списком фильмов</p>
+                <label className={`block w-full text-center py-2.5 rounded-lg cursor-pointer ${importing ? "bg-[#262b55] text-[#8a90b8] cursor-not-allowed" : BTN_ORANGE}`}>
+                  {importing ? `Импорт... ${importProgress.current}/${importProgress.total}` : "Выбрать файл"}
+                  <input type="file" accept=".txt,.docx" onChange={handleDocxImport} disabled={importing} className="hidden" />
                 </label>
               </div>
-
-              <button
-                onClick={() => setSelectedUserId(user?.id)}
-                className={`w-full py-2.5 rounded-lg font-medium ${BTN_SOFT}`}
-              >
-                Редактировать профиль
-              </button>
-              <button
-                onClick={logout}
-                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-medium ${BTN_RED}`}
-              >
-                <Icon n="log-out" /> Выйти из аккаунта
-              </button>
+              <div className={`${PANEL} p-5`}>
+                <h3 className="text-lg font-semibold text-white mb-1">Сессия</h3><p className="text-sm text-[#8a90b8] mb-4">Выйти из текущего аккаунта на этом устройстве.</p>
+                <button onClick={logout} className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-medium ${BTN_RED}`}><Icon n="log-out" /> Выйти из аккаунта</button>
+              </div>
             </div>
           )}
           <Footer className="mt-12" />
@@ -1267,7 +1433,7 @@ function MovieTracker() {
       </div>
 
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#131631] border-t border-white/5 flex justify-around pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] safe-x">
-        {navItems.map((item) => (
+        {navItems.filter((item) => item.id !== "profile").map((item) => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}

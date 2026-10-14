@@ -51,8 +51,17 @@ export function useMetaBackfill({ movies, token, onUpdated }) {
           },
           body: JSON.stringify(body),
         });
-        // Ответ применяем даже после отмены цикла: на сервере запись уже обновлена
-        if (res.ok) onUpdatedRef.current(await res.json());
+        // Ответ применяем даже после отмены цикла: на сервере запись уже обновлена.
+        // Читаем тело ошибки, чтобы в консоли было понятно, почему API вернул 404/401.
+        const payload = await res.json().catch(() => ({}));
+        if (res.ok) {
+          onUpdatedRef.current(payload);
+        } else {
+          console.warn(
+            `Не удалось сохранить метаданные фильма ${movie.id}: HTTP ${res.status}`,
+            payload.error || payload.message || "Проверьте, что backend на Render обновлён и запись принадлежит текущему пользователю."
+          );
+        }
       } catch (error) {
         // Сеть или лимит TMDB: попробуем в следующий раз
         console.warn("Не удалось дозаполнить данные фильма:", error.message);
