@@ -58,6 +58,8 @@ function MovieTracker() {
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [showcaseMovieIds, setShowcaseMovieIds] = useState([]);
   const [showcaseLoaded, setShowcaseLoaded] = useState(false);
+  const [savingShowcase, setSavingShowcase] = useState(false);
+  const [showcaseSaveError, setShowcaseSaveError] = useState("");
   const [profileFriendsOpen, setProfileFriendsOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const avatarMenuRef = useRef(null);
@@ -1291,7 +1293,7 @@ function MovieTracker() {
           )}
 
           {activeTab === "profile-settings" && (
-            <div className="max-w-2xl space-y-4">
+            <div className="max-w-2xl space-y-4 pb-28">
               <button onClick={() => setActiveTab("profile")} className="inline-flex items-center gap-2 text-sm text-[#8a90b8] hover:text-white"><Icon n="arrow-left" className="w-4 h-4" /> Назад в профиль</button>
               <div><h2 className="text-3xl font-semibold text-white">Настройки профиля</h2><p className="text-sm text-[#8a90b8] mt-1">Управление аккаунтом и данными журнала.</p></div>
               <div className={`${PANEL} p-5`}>
@@ -1315,16 +1317,7 @@ function MovieTracker() {
                     </button>;
                   })}
                 </div> : <p className="text-sm text-[#8a90b8]">Сначала добавь фильмы в журнал.</p>}
-                <div className="flex justify-end mt-4">
-                  <button onClick={async () => {
-                    try {
-                      const response = await fetch(`${API_URL}/api/users/profile`, { method: "PUT", headers: authHeaders, body: JSON.stringify({ showcaseMovieIds: showcaseMovieIds.slice(0, 3) }) });
-                      const data = await response.json().catch(() => ({}));
-                      if (!response.ok) throw new Error(data.error || "Не удалось сохранить витрину");
-                      setActiveTab("profile");
-                    } catch (error) { alert(error.message || "Не удалось сохранить витрину"); }
-                  }} className={`px-4 py-2.5 rounded-xl ${BTN_ORANGE}`}>Сохранить витрину</button>
-                </div>
+                {showcaseSaveError && <p role="alert" className="mt-4 rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-200">{showcaseSaveError}</p>}
               </div>
               <div className={`${PANEL} p-5`}>
                 <h3 className="flex items-center gap-2 text-lg text-white mb-1"><Icon n="download" className="w-5 h-5" /> Импорт из файла</h3>
@@ -1333,6 +1326,44 @@ function MovieTracker() {
                   {importing ? `Импорт... ${importProgress.current}/${importProgress.total}` : "Выбрать файл"}
                   <input type="file" accept=".txt,.docx" onChange={handleDocxImport} disabled={importing} className="hidden" />
                 </label>
+              </div>
+              <div className="fixed bottom-4 left-1/2 z-40 w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 rounded-2xl border border-white/10 bg-[#171a36]/95 p-3 shadow-2xl backdrop-blur-xl sm:bottom-6 sm:p-4">
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-white">Витрина фильмов</p>
+                    <p className="text-xs text-[#a2a7c8]">Выбрано {showcaseMovieIds.length} из 3</p>
+                  </div>
+                  <button
+                    disabled={savingShowcase || !token}
+                    onClick={async () => {
+                      setSavingShowcase(true);
+                      setShowcaseSaveError("");
+                      const selectedIds = showcaseMovieIds.slice(0, 3);
+                      try {
+                        const response = await fetch(`${API_URL}/api/users/profile`, {
+                          method: "PUT",
+                          headers: authHeaders,
+                          body: JSON.stringify({ showcaseMovieIds: selectedIds }),
+                        });
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) throw new Error(data.error || `Не удалось сохранить витрину (${response.status})`);
+                        if (data.user && Array.isArray(data.user.showcaseMovieIds)) {
+                          setShowcaseMovieIds(data.user.showcaseMovieIds.slice(0, 3));
+                        }
+                        try { localStorage.setItem(`movieShowcase:${user.id}`, JSON.stringify(selectedIds)); } catch {}
+                        setActiveTab("profile");
+                      } catch (error) {
+                        const message = error instanceof TypeError
+                          ? "Не удалось подключиться к серверу. Проверь, что backend запущен на порту 3001, и попробуй ещё раз."
+                          : (error.message || "Не удалось сохранить витрину");
+                        setShowcaseSaveError(message);
+                      } finally {
+                        setSavingShowcase(false);
+                      }
+                    }}
+                    className={`shrink-0 rounded-xl px-5 py-3 font-semibold ${BTN_ORANGE} disabled:cursor-not-allowed disabled:opacity-50`}
+                  >{savingShowcase ? "Сохранение…" : "Сохранить витрину"}</button>
+                </div>
               </div>
               <div className={`${PANEL} p-5`}>
                 <h3 className="text-lg font-semibold text-white mb-1">Сессия</h3><p className="text-sm text-[#8a90b8] mb-4">Выйти из текущего аккаунта на этом устройстве.</p>

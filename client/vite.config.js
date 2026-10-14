@@ -7,6 +7,8 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Service worker регистрируется явно из main.jsx.
+      injectRegister: null,
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       devOptions: {
         enabled: true  // PWA работает и в dev-режиме
