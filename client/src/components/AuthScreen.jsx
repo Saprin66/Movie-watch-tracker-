@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import Footer from "./Footer";
 import { POLICY_HASH } from "../legal";
+import { Logo } from "./ui";
+import { POSTER_LARGE, TMDB, TMDB_API_KEY } from "../config";
 
 const ORANGE_FILTER =
   "[filter:invert(1)_sepia(1)_saturate(6)_hue-rotate(335deg)]";
@@ -14,51 +16,130 @@ const Icon = ({ n, className = "w-4 h-4" }) => (
 );
 
 const BTN =
-  "w-full bg-[#f47c4f] hover:bg-[#ff8f66] disabled:opacity-50 disabled:cursor-not-allowed text-[#1a1020] font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2";
+  "w-full h-[52px] bg-[#ff7a45] hover:bg-[#ff9166] disabled:opacity-50 disabled:cursor-not-allowed text-[#1b0d07] text-[15px] font-extrabold rounded-[14px] transition-colors flex items-center justify-center gap-2";
 const INPUT =
-  "w-full bg-[#1c2040] border border-white/5 rounded-lg px-4 py-3 text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#f47c4f]/60 transition-colors";
+  "w-full h-[52px] bg-[#12152a] border border-white/10 rounded-[14px] px-4 text-base sm:text-[15px] font-medium text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45] focus:ring-[3px] focus:ring-[#ff7a45]/20 transition";
+
+// Запасные «постеры» на случай, если TMDB недоступен
+const FALLBACK_POSTERS = [
+  { title: "Побег из Шоушенка", h: 210 },
+  { title: "Дюна: Часть вторая", h: 28 },
+  { title: "Паразиты", h: 140 },
+  { title: "Интерстеллар", h: 250 },
+];
+
+const COLLAGE = [
+  "w-[180px] h-[270px] left-[10%] top-[16%] -rotate-[7deg]",
+  "w-[200px] h-[300px] left-[42%] top-[11%] rotate-[4deg]",
+  "w-[170px] h-[255px] left-[22%] top-[45%] rotate-[3deg]",
+  "w-[185px] h-[278px] left-[54%] top-[42%] -rotate-[5deg]",
+];
+
+// Коллаж из популярных постеров TMDB для левой половины экрана входа
+function PosterCollage() {
+  const [posters, setPosters] = useState([]);
+
+  useEffect(() => {
+    if (!TMDB_API_KEY) return undefined;
+    let cancelled = false;
+    fetch(`${TMDB}/movie/popular?api_key=${TMDB_API_KEY}&language=ru-RU&page=1`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        setPosters(
+          (data.results || [])
+            .filter((m) => m.poster_path)
+            .slice(0, 4)
+            .map((m) => ({ title: m.title, src: `${POSTER_LARGE}${m.poster_path}` })),
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const items = posters.length === 4 ? posters : FALLBACK_POSTERS;
+
+  return (
+    <div className="absolute inset-0" aria-hidden="true">
+      {items.map((p, i) => (
+        <div
+          key={p.title}
+          className={`absolute overflow-hidden rounded-2xl border border-white/10 shadow-[0_24px_50px_rgba(0,0,0,0.45)] ${COLLAGE[i]}`}
+          style={
+            p.src
+              ? undefined
+              : {
+                  background: `radial-gradient(110% 60% at 15% 0%, hsla(${p.h},90%,60%,.55), transparent 62%), linear-gradient(165deg, hsl(${p.h},45%,20%), hsl(${(p.h + 40) % 360},55%,8%))`,
+                }
+          }
+        >
+          {p.src ? (
+            <img src={p.src} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <span className="absolute left-3.5 right-3.5 bottom-4 font-display font-bold text-[15px] leading-tight text-white">
+              {p.title}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function Shell({ children }) {
   return (
-    <div className="min-h-app bg-[#0f1226] bg-[radial-gradient(ellipse_at_top_left,rgba(244,124,79,0.15),transparent_55%)] flex flex-col items-center justify-center gap-6 p-4">
-      <div className="w-full max-w-md bg-[#171a33] border border-white/5 rounded-2xl p-8 shadow-2xl shadow-black/50">
-        {children}
-      </div>
-      <Footer className="w-full max-w-md" />
+    <div className="min-h-app bg-[#0a0c18] flex flex-col lg:flex-row">
+      <section className="hidden lg:block relative flex-1 min-h-[100dvh] overflow-hidden bg-[#0d1021] mg-glow-auth">
+        <div className="absolute left-14 top-12 z-10">
+          <Logo size="lg" />
+        </div>
+        <PosterCollage />
+        <div className="absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-[#0d1021] to-transparent" />
+        <div className="absolute left-14 right-14 bottom-12 z-10">
+          <h2 className="font-display text-[30px] font-semibold leading-[1.15] text-white max-w-md">
+            Всё, что ты посмотрел, в одном журнале
+          </h2>
+          <p className="mt-3 text-[15px] leading-relaxed text-[#aeb3d6] max-w-sm">
+            Оценки, отзывы и списки на потом. А ещё то, что смотрят друзья.
+          </p>
+        </div>
+      </section>
+
+      <section className="flex-1 flex flex-col items-center justify-center gap-8 px-4 py-10 sm:px-8 safe-top">
+        <div className="lg:hidden">
+          <Logo size="lg" />
+        </div>
+        <div className="w-full max-w-[420px]">{children}</div>
+        <Footer className="w-full max-w-[420px]" />
+      </section>
     </div>
   );
 }
 
 const Field = ({ label, icon, ...props }) => (
   <label className="block">
-    <span className="block text-xs text-[#8a90b8] mb-1.5">{label}</span>
+    <span className="block text-[13px] font-bold text-[#aeb3d6] mb-2">{label}</span>
     <div className="relative">
       <Icon
         n={icon}
-        className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] opacity-50"
+        className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] opacity-45"
       />
-      <input {...props} className={`${INPUT} pl-11`} />
+      <input {...props} className={`${INPUT} pl-12`} />
     </div>
   </label>
 );
 
 const Notice = ({ error, children }) => (
   <div
-    className={`flex items-center gap-2 text-sm p-3 rounded-lg border ${error ? "bg-red-500/10 border-red-500/30 text-red-300" : "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"}`}
+    className={`flex items-center gap-2.5 text-sm p-3.5 rounded-xl border ${error ? "bg-red-500/10 border-red-500/30 text-red-300" : "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"}`}
   >
     <Icon n={error ? "circle-alert" : "circle-check"} className="w-4 h-4" />
     {children}
   </div>
 );
 
-const Logo = () => (
-  <div className="flex items-center justify-center gap-2 mb-1">
-    <Icon n="clapperboard" className={`w-8 h-8 ${ORANGE_FILTER}`} />
-    <span className="text-2xl font-bold text-white">
-      Movie<span className="text-[#f47c4f]">Grade</span>
-    </span>
-  </div>
-);
 
 export default function AuthScreen() {
   // 'auth' | 'verify' | 'forgot' (ввод email) | 'reset' (код и новый пароль)
@@ -217,19 +298,19 @@ export default function AuthScreen() {
   if (step === "forgot") {
     return (
       <Shell>
-        <div className="text-center mb-6">
-          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#f47c4f]/15 flex items-center justify-center">
+        <div className="mb-7">
+          <div className="w-14 h-14 mb-5 rounded-2xl bg-[#ff7a45]/15 flex items-center justify-center">
             <Icon n="key-round" className={`w-7 h-7 ${ORANGE_FILTER}`} />
           </div>
-          <h1 className="text-2xl font-semibold text-white mb-1">
+          <h1 className="font-display text-[26px] sm:text-[28px] font-semibold text-white mb-2.5">
             Сброс пароля
           </h1>
-          <p className="text-sm text-[#8a90b8]">
+          <p className="text-[15px] text-[#8b91b5]">
             Укажите email аккаунта, и мы отправим на него код
           </p>
         </div>
 
-        <form onSubmit={handleForgotSubmit} className="space-y-4">
+        <form onSubmit={handleForgotSubmit} className="space-y-[18px]">
           <Field
             label="Email"
             icon="mail"
@@ -250,7 +331,7 @@ export default function AuthScreen() {
           <button
             type="button"
             onClick={backToLogin}
-            className="w-full text-[#8a90b8] hover:text-white text-sm py-2 flex items-center justify-center gap-2"
+            className="w-full min-h-[44px] text-[#8b91b5] hover:text-white text-sm font-bold flex items-center justify-center gap-2"
           >
             <Icon n="arrow-left" className="w-4 h-4 opacity-70" />
             Вернуться ко входу
@@ -264,21 +345,21 @@ export default function AuthScreen() {
   if (step === "reset") {
     return (
       <Shell>
-        <div className="text-center mb-6">
-          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#f47c4f]/15 flex items-center justify-center">
+        <div className="mb-7">
+          <div className="w-14 h-14 mb-5 rounded-2xl bg-[#ff7a45]/15 flex items-center justify-center">
             <Icon n="shield-check" className={`w-7 h-7 ${ORANGE_FILTER}`} />
           </div>
-          <h1 className="text-2xl font-semibold text-white mb-1">
+          <h1 className="font-display text-[26px] sm:text-[28px] font-semibold text-white mb-2.5">
             Новый пароль
           </h1>
-          <p className="text-sm text-[#8a90b8]">
+          <p className="text-sm text-[#8b91b5]">
             Введите код из письма и придумайте новый пароль
           </p>
         </div>
 
-        <form onSubmit={handleResetSubmit} className="space-y-4">
+        <form onSubmit={handleResetSubmit} className="space-y-[18px]">
           <label className="block">
-            <span className="block text-xs text-[#8a90b8] mb-1.5">
+            <span className="block text-[13px] font-bold text-[#aeb3d6] mb-2">
               Код из письма
             </span>
             <input
@@ -322,7 +403,7 @@ export default function AuthScreen() {
           <button
             type="button"
             onClick={openForgot}
-            className="w-full text-[#f47c4f] hover:text-[#ff8f66] text-sm py-2"
+            className="w-full min-h-[44px] text-[#ff935f] hover:text-[#ffa27d] text-sm font-bold"
           >
             Отправить код ещё раз
           </button>
@@ -330,7 +411,7 @@ export default function AuthScreen() {
           <button
             type="button"
             onClick={backToLogin}
-            className="w-full text-[#8a90b8] hover:text-white text-sm py-2 flex items-center justify-center gap-2"
+            className="w-full min-h-[44px] text-[#8b91b5] hover:text-white text-sm font-bold flex items-center justify-center gap-2"
           >
             <Icon n="arrow-left" className="w-4 h-4 opacity-70" />
             Вернуться ко входу
@@ -344,14 +425,14 @@ export default function AuthScreen() {
   if (step === "verify") {
     return (
       <Shell>
-        <div className="text-center mb-6">
-          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#f47c4f]/15 flex items-center justify-center">
+        <div className="mb-7">
+          <div className="w-14 h-14 mb-5 rounded-2xl bg-[#ff7a45]/15 flex items-center justify-center">
             <Icon n="mail" className={`w-7 h-7 ${ORANGE_FILTER}`} />
           </div>
-          <h1 className="text-2xl font-semibold text-white mb-1">
+          <h1 className="font-display text-[26px] sm:text-[28px] font-semibold text-white mb-2.5">
             Подтверждение email
           </h1>
-          <p className="text-sm text-[#8a90b8]">
+          <p className="text-sm text-[#8b91b5]">
             Мы отправили 6-значный код на адрес
           </p>
           <p className="text-sm font-semibold text-white mt-1">
@@ -359,9 +440,9 @@ export default function AuthScreen() {
           </p>
         </div>
 
-        <form onSubmit={handleVerifySubmit} className="space-y-4">
+        <form onSubmit={handleVerifySubmit} className="space-y-[18px]">
           <label className="block">
-            <span className="block text-xs text-[#8a90b8] mb-1.5">
+            <span className="block text-[13px] font-bold text-[#aeb3d6] mb-2">
               Код подтверждения
             </span>
             <input
@@ -391,7 +472,7 @@ export default function AuthScreen() {
             type="button"
             onClick={handleResendCode}
             disabled={isLoading}
-            className="w-full text-[#f47c4f] hover:text-[#ff8f66] disabled:opacity-50 text-sm py-2 flex items-center justify-center gap-2"
+            className="w-full min-h-[44px] text-[#ff935f] hover:text-[#ffa27d] disabled:opacity-50 text-sm font-bold flex items-center justify-center gap-2"
           >
             <Icon n="refresh-cw" className={`w-4 h-4 ${ORANGE_FILTER}`} />
             Отправить код повторно
@@ -405,7 +486,7 @@ export default function AuthScreen() {
               setError("");
               setSuccessMsg("");
             }}
-            className="w-full text-[#8a90b8] hover:text-white text-sm py-2 flex items-center justify-center gap-2"
+            className="w-full min-h-[44px] text-[#8b91b5] hover:text-white text-sm font-bold flex items-center justify-center gap-2"
           >
             <Icon n="arrow-left" className="w-4 h-4 opacity-70" />
             Вернуться ко входу
@@ -418,23 +499,30 @@ export default function AuthScreen() {
   // ========== ОБЫЧНЫЙ ЭКРАН ВХОДА / РЕГИСТРАЦИИ ==========
   return (
     <Shell>
-      <div className="text-center mb-7">
-        <Logo />
-        <p className="text-sm text-[#8a90b8]">Твой личный дневник киномана</p>
+      <div className="mb-7">
+        <h1 className="font-display text-[26px] sm:text-[28px] font-semibold text-white">
+          {isLogin ? "С возвращением" : "Создать аккаунт"}
+        </h1>
+        <p className="mt-2.5 text-[15px] text-[#8b91b5]">
+          {isLogin ? "Твой личный дневник киномана" : "Это бесплатно и займёт минуту"}
+        </p>
       </div>
 
-      <div className="flex gap-6 border-b border-white/5 mb-6">
+      <div className="flex gap-1.5 p-[5px] rounded-[15px] bg-[#0f1226] border border-white/[0.06] mb-7" role="tablist">
         {[
           { v: true, l: "Вход" },
           { v: false, l: "Регистрация" },
         ].map((t) => (
           <button
             key={t.l}
+            type="button"
+            role="tab"
+            aria-selected={isLogin === t.v}
             onClick={() => switchMode(t.v)}
-            className={`pb-3 -mb-px text-sm border-b-2 transition-colors ${
+            className={`flex-1 min-h-[44px] rounded-[11px] text-sm font-bold transition-colors ${
               isLogin === t.v
-                ? "text-[#f47c4f] border-[#f47c4f]"
-                : "text-[#8a90b8] border-transparent hover:text-white"
+                ? "bg-[#1d2140] text-white"
+                : "text-[#8b91b5] hover:text-white"
             }`}
           >
             {t.l}
@@ -442,7 +530,7 @@ export default function AuthScreen() {
         ))}
       </div>
 
-      <form onSubmit={handleAuthSubmit} className="space-y-4">
+      <form onSubmit={handleAuthSubmit} className="space-y-[18px]">
         {/* 1. Поле EMAIL: показываем ВСЕГДА (и при входе, и при регистрации) */}
         <Field
           label="Email"
@@ -486,7 +574,7 @@ export default function AuthScreen() {
             <button
               type="button"
               onClick={openForgot}
-              className="text-xs text-[#8a90b8] hover:text-[#f47c4f] transition-colors"
+              className="min-h-[36px] text-[13px] font-bold text-[#ff935f] hover:text-[#ffa27d] transition-colors"
             >
               Забыли пароль?
             </button>
@@ -494,12 +582,12 @@ export default function AuthScreen() {
         )}
 
         {!isLogin && (
-          <label className="flex items-start gap-3 text-xs leading-relaxed text-[#8a90b8] cursor-pointer">
+          <label className="flex items-start gap-3 text-[13px] leading-relaxed text-[#8b91b5] cursor-pointer">
             <input
               type="checkbox"
               checked={acceptedPolicy}
               onChange={(e) => setAcceptedPolicy(e.target.checked)}
-              className="mt-0.5 w-5 h-5 shrink-0 accent-[#f47c4f] cursor-pointer"
+              className="mt-0.5 w-[22px] h-[22px] shrink-0 accent-[#ff7a45] cursor-pointer"
             />
             <span>
               Я прочитал(а){" "}
@@ -507,7 +595,7 @@ export default function AuthScreen() {
                 href={POLICY_HASH}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#f47c4f] hover:underline"
+                className="text-[#ff935f] font-bold hover:underline"
               >
                 политику конфиденциальности
               </a>{" "}
@@ -534,7 +622,7 @@ export default function AuthScreen() {
               Загрузка...
             </>
           ) : isLogin ? (
-            "Войти по Email"
+            "Войти"
           ) : (
             "Создать аккаунт"
           )}

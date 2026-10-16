@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "./Icon";
-import { Chip, Grid, MovieCard } from "./ui";
-import { BTN_ORANGE, BTN_SOFT, ORANGE_FILTER, PANEL } from "./styles";
+import { Chip, Grid, MovieCard, Poster } from "./ui";
+import { BTN_ORANGE, BTN_SOFT, DARK_ICON, EYEBROW, ORANGE_FILTER, PAGE_TITLE, PANEL, SECTION_TITLE } from "./styles";
 import { POSTER, TMDB_API_KEY } from "../config";
 import { fetchTmdb } from "../utils/tmdb";
 import {
@@ -58,15 +58,15 @@ function Providers({ region, onRegionChange, providers, loading }) {
     : [];
 
   return (
-    <div className="mt-5 pt-5 border-t border-white/5">
+    <div className="mt-6 pt-5 border-t border-white/[0.07]">
       <div className="flex items-center justify-between gap-3 mb-3">
-        <h4 className="text-sm font-semibold text-white">Где смотреть</h4>
-        <label className="flex items-center gap-2 text-xs text-[#8a90b8]">
+        <h4 className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#7b81a6]">Где смотреть</h4>
+        <label className="flex items-center gap-2 text-xs text-[#8b91b5]">
           Регион
           <select
             value={region}
             onChange={(e) => onRegionChange(e.target.value)}
-            className="bg-[#1c2040] border border-white/5 rounded-lg px-2 py-1 text-sm text-white focus:outline-none focus:border-[#f47c4f]/60"
+            className="h-10 bg-[#0d1021] border border-white/[0.09] rounded-xl px-3 text-sm font-bold text-white focus:outline-none focus:border-[#ff7a45]"
           >
             {REGIONS.map((r) => (
               <option key={r.code} value={r.code}>
@@ -78,9 +78,9 @@ function Providers({ region, onRegionChange, providers, loading }) {
       </div>
 
       {loading ? (
-        <p className="text-sm text-[#8a90b8]">Ищу, где можно посмотреть...</p>
+        <p className="text-sm text-[#8b91b5]">Ищу, где можно посмотреть...</p>
       ) : groups.length === 0 ? (
-        <p className="text-sm text-[#8a90b8]">
+        <p className="text-sm text-[#8b91b5]">
           Для региона «{regionLabel}» нет данных о сервисах. Попробуйте другой
           регион.
         </p>
@@ -95,13 +95,13 @@ function Providers({ region, onRegionChange, providers, loading }) {
                 {providers[group.key].map((p) => (
                   <span
                     key={p.provider_id}
-                    className="inline-flex items-center gap-2 bg-[#1c2040] border border-white/5 rounded-lg pl-1.5 pr-2.5 py-1 text-xs text-[#c9cce6]"
+                    className="inline-flex items-center gap-2.5 bg-[#0d1021] border border-white/[0.08] rounded-xl pl-2 pr-3.5 py-2 text-[13px] font-bold text-[#e9ebf7]"
                   >
                     {p.logo_path && (
                       <img
                         src={`https://image.tmdb.org/t/p/w45${p.logo_path}`}
                         alt=""
-                        className="w-5 h-5 rounded"
+                        className="w-7 h-7 rounded-lg"
                       />
                     )}
                     {p.provider_name}
@@ -119,7 +119,7 @@ function Providers({ region, onRegionChange, providers, loading }) {
                   href={providers.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#f47c4f] hover:underline"
+                  className="text-[#ff7a45] hover:underline"
                 >
                   Открыть страницу
                 </a>
@@ -157,18 +157,10 @@ export function PickedMovie({
 
   return (
     <div>
-      <div className="flex gap-5">
-        {movie.posterUrl ? (
-          <img
-            src={movie.posterUrl}
-            alt={movie.title}
-            className="w-28 sm:w-36 aspect-[2/3] self-start object-cover rounded-xl border border-white/10 shrink-0"
-          />
-        ) : (
-          <div className="w-28 sm:w-36 aspect-[2/3] self-start bg-[#262b55] rounded-xl shrink-0 flex items-center justify-center">
-            <Icon n="film" className="w-8 h-8 opacity-30" />
-          </div>
-        )}
+      <div className="flex flex-col sm:flex-row gap-5 sm:gap-8">
+        <div className="w-40 sm:w-[220px] aspect-[2/3] self-center sm:self-start shrink-0 overflow-hidden rounded-[18px] border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
+          <Poster src={movie.posterUrl} title={movie.title} />
+        </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -176,23 +168,23 @@ export function PickedMovie({
             {year && <Chip>{year}</Chip>}
             {runtime && <Chip>{runtime}</Chip>}
             {rating && (
-              <span className="inline-flex items-center gap-1 text-xs text-[#f47c4f]">
+              <span className="inline-flex items-center gap-1 text-xs text-[#ff7a45]">
                 <Icon n="star" className={`w-3.5 h-3.5 ${ORANGE_FILTER}`} />
                 {rating}
               </span>
             )}
           </div>
 
-          <h3 className="text-xl sm:text-2xl font-bold text-white break-words">
+          <h3 className="font-display text-2xl sm:text-[28px] font-bold leading-tight text-white break-words">
             {movie.title}
           </h3>
 
           {details?.genres?.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-3 flex flex-wrap gap-1.5">
               {details.genres.map((g) => (
                 <span
                   key={g.id}
-                  className="text-[11px] text-[#8a90b8] bg-white/5 px-2 py-0.5 rounded"
+                  className="text-xs font-bold text-[#aeb3d6] bg-white/[0.07] px-3 py-1 rounded-full"
                 >
                   {g.name}
                 </span>
@@ -200,27 +192,27 @@ export function PickedMovie({
             </div>
           )}
 
-          <p className="mt-3 text-sm text-[#c9cce6] leading-relaxed line-clamp-6">
+          <p className="mt-4 text-sm text-[#c4c8e4] leading-[1.7] line-clamp-6">
             {details
               ? details.overview || "Описание отсутствует"
               : "Загружаю описание..."}
           </p>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-5 flex flex-wrap gap-2.5">
             <button
               type="button"
               onClick={onAnother}
               disabled={!canPickAnother}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm ${BTN_SOFT} disabled:opacity-40 disabled:cursor-not-allowed`}
+              className={`inline-flex items-center gap-2 h-11 px-5 rounded-xl text-sm ${BTN_SOFT} disabled:opacity-40 disabled:cursor-not-allowed`}
             >
               <Icon n="shuffle" /> Выбрать другой
             </button>
             <button
               type="button"
               onClick={onWatched}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm ${BTN_ORANGE}`}
+              className={`inline-flex items-center gap-2 h-11 px-5 rounded-xl text-sm ${BTN_ORANGE}`}
             >
-              <Icon n="check" className="w-4 h-4 [filter:brightness(0.1)]" />
+              <Icon n="check" className={`w-4 h-4 ${DARK_ICON}`} />
               Отметить просмотренным
             </button>
           </div>
@@ -356,17 +348,18 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
     .slice(0, 12);
 
   return (
-    <div className="max-w-5xl space-y-8">
+    <div className="max-w-5xl space-y-9">
       <div>
-        <h2 className="text-3xl font-semibold text-white">Что смотреть</h2>
-        <p className="text-sm text-[#8a90b8]">
+        <div className={`${EYEBROW} mb-2.5`}>Выбор на вечер</div>
+        <h1 className={PAGE_TITLE}>Что смотреть</h1>
+        <p className="mt-2.5 text-sm text-[#8b91b5]">
           Случайный выбор из вашего списка и подборка по вашим оценкам
         </p>
       </div>
 
-      <section className={`${PANEL} p-5`}>
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h3 className="text-lg text-white">Из вашего списка</h3>
+      <section className={`${PANEL} relative overflow-hidden rounded-[24px] p-5 sm:p-7 mg-glow-corner`}>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <h2 className={SECTION_TITLE}>Из вашего списка</h2>
           <div className="flex gap-1.5">
             {KINDS.map((k) => (
               <button
@@ -374,10 +367,10 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
                 type="button"
                 onClick={() => setKind(k.id)}
                 aria-pressed={kind === k.id}
-                className={`px-3 py-1 rounded-lg text-xs transition-colors ${
+                className={`min-h-[36px] px-4 rounded-full text-[13px] font-bold transition-colors ${
                   kind === k.id
-                    ? "bg-[#f47c4f]/15 text-[#f47c4f]"
-                    : "bg-white/5 text-[#8a90b8] hover:text-white"
+                    ? "bg-[#ff7a45]/[0.16] text-[#ff9a6c]"
+                    : "bg-white/[0.06] text-[#8b91b5] hover:text-white"
                 }`}
               >
                 {k.label}
@@ -399,7 +392,7 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
             onWatched={() => onMarkWatched(picked.id)}
           />
         ) : (
-          <p className="py-8 text-center text-sm text-[#8a90b8]">
+          <p className="py-8 text-center text-sm text-[#8b91b5]">
             В списке «Буду смотреть» пока ничего нет
             {kind !== "all" ? " для этого фильтра" : ""}. Добавьте фильмы
             через поиск или из подборки ниже.
@@ -408,14 +401,14 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
       </section>
 
       <section>
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
-          <h3 className="text-lg text-white">Рекомендации по вашим оценкам</h3>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+          <h2 className={SECTION_TITLE}>Рекомендации по вашим оценкам</h2>
           {hasWatched && TMDB_API_KEY && (
             <button
               type="button"
               onClick={() => setRefreshKey((k) => k + 1)}
               disabled={recs.status === "loading"}
-              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs ${BTN_SOFT} disabled:opacity-50`}
+              className={`inline-flex items-center gap-2 h-10 px-4 rounded-xl text-[13px] ${BTN_SOFT} disabled:opacity-50`}
             >
               <Icon n="refresh-cw" className="w-3.5 h-3.5" /> Другая подборка
             </button>
@@ -423,18 +416,18 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
         </div>
 
         {!TMDB_API_KEY ? (
-          <p className="py-8 text-sm text-[#8a90b8]">
+          <p className="py-8 text-sm text-[#8b91b5]">
             Не задан ключ TMDB, рекомендации недоступны.
           </p>
         ) : !hasWatched ? (
-          <p className="py-8 text-sm text-[#8a90b8]">
+          <p className="py-8 text-sm text-[#8b91b5]">
             Отметьте несколько фильмов просмотренными и поставьте оценки, и здесь
             появятся рекомендации.
           </p>
         ) : (
           <>
             {recs.seeds.length > 0 && (
-              <p className="text-xs text-[#8a90b8] mb-4">
+              <p className="text-[13px] text-[#8b91b5] mt-1 mb-5">
                 На основе:{" "}
                 {recs.seeds
                   .map((s) => (s.rating ? `${s.title} (${s.rating})` : s.title))
@@ -443,11 +436,11 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
             )}
 
             {recs.status === "loading" && visibleRecs.length === 0 ? (
-              <p className="py-8 text-sm text-[#8a90b8] animate-pulse">
+              <p className="py-8 text-sm text-[#8b91b5] animate-pulse">
                 Подбираю...
               </p>
             ) : visibleRecs.length === 0 ? (
-              <p className="py-8 text-sm text-[#8a90b8]">
+              <p className="py-8 text-sm text-[#8b91b5]">
                 Новых рекомендаций не нашлось. Попробуйте другую подборку.
               </p>
             ) : (
@@ -462,7 +455,7 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
                   return (
                     <MovieCard
                       key={key}
-                      poster={`${POSTER}${item.poster_path}`}
+                      poster={item.poster_path ? `${POSTER}${item.poster_path}` : null}
                       title={title}
                       chips={
                         <>

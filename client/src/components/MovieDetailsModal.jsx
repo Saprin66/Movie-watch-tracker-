@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Icon from "./Icon";
-import { Chip } from "./ui";
-import { BTN_ORANGE, BTN_SOFT, ORANGE_FILTER } from "./styles";
+import { Chip, Poster } from "./ui";
+import { BTN_ORANGE, BTN_SOFT, DARK_ICON, ORANGE_FILTER } from "./styles";
 import { BACKDROP, POSTER_LARGE, PROFILE } from "../config";
 import { fetchTmdb } from "../utils/tmdb";
 import { useScrollLock } from "../hooks/useScrollLock";
@@ -42,34 +42,34 @@ function Skeleton() {
 function Fact({ label, children }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[11px] uppercase tracking-wide text-[#6f759e]">
+      <dt className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#7b81a6] mb-1.5">
         {label}
       </dt>
-      <dd className="text-sm text-[#c9cce6] break-words">{children}</dd>
+      <dd className="text-[15px] font-bold text-white break-words">{children}</dd>
     </div>
   );
 }
 
 function CastMember({ person }) {
   return (
-    <li className="w-[72px] shrink-0 text-center">
+    <li className="w-[84px] shrink-0 text-center">
       {person.profile_path ? (
         <img
           src={`${PROFILE}${person.profile_path}`}
           alt=""
           loading="lazy"
-          className="w-14 h-14 mx-auto rounded-full object-cover border border-white/10"
+          className="w-[68px] h-[68px] mx-auto rounded-full object-cover border-2 border-white/10"
         />
       ) : (
-        <div className="w-14 h-14 mx-auto rounded-full bg-[#262b55] flex items-center justify-center text-sm font-semibold text-[#8a90b8]">
+        <div className="w-[68px] h-[68px] mx-auto rounded-full bg-gradient-to-br from-[#ff7a45]/70 to-[#8b5cf6]/70 border-2 border-white/10 flex items-center justify-center text-lg font-extrabold text-white">
           {person.name?.[0] || "?"}
         </div>
       )}
-      <div className="mt-1.5 text-[11px] leading-tight text-white line-clamp-2">
+      <div className="mt-2.5 text-xs font-bold leading-tight text-[#e9ebf7] line-clamp-2">
         {person.name}
       </div>
       {person.character && (
-        <div className="text-[10px] leading-tight text-[#6f759e] line-clamp-2">
+        <div className="mt-0.5 text-[11px] leading-tight text-[#7b81a6] line-clamp-2">
           {person.character}
         </div>
       )}
@@ -150,21 +150,21 @@ export default function MovieDetailsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/80 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-6 bg-[#04050c]/80 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative w-full sm:max-w-3xl max-h-[92dvh] sm:max-h-[90vh] flex flex-col bg-[#171a33] border border-white/10 rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl shadow-black/60"
+        className="relative w-full sm:max-w-[860px] max-h-[94dvh] sm:max-h-[90vh] flex flex-col bg-[#12152a] border border-white/10 rounded-t-[26px] sm:rounded-[28px] overflow-hidden shadow-[0_40px_120px_rgba(0,0,0,0.7)]"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           type="button"
           onClick={onClose}
           aria-label="Закрыть"
-          className="absolute top-3 right-3 z-20 p-2 bg-black/55 hover:bg-black/75 rounded-full transition-colors"
+          className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 z-20 w-11 h-11 flex items-center justify-center bg-[#080a16]/70 hover:bg-[#080a16]/90 backdrop-blur rounded-full transition-colors"
         >
           <Icon n="x" className="w-5 h-5" />
         </button>
@@ -172,37 +172,27 @@ export default function MovieDetailsModal({
         <div className="flex-1 overflow-y-auto scroll-contain">
           {/* Верхняя картинка */}
           <div
-            className={`relative bg-[#1c2040] ${backdropPath ? "h-44 sm:h-72" : "h-28 sm:h-36"}`}
+            className={`relative mg-glow-backdrop ${backdropPath ? "h-48 sm:h-[300px]" : "h-32 sm:h-44"}`}
           >
-            {backdropPath ? (
+            {backdropPath && (
               <img
                 src={`${BACKDROP}${backdropPath}`}
                 alt=""
                 className="w-full h-full object-cover object-top"
               />
-            ) : (
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(244,124,79,0.25),transparent_65%)]" />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#171a33] via-[#171a33]/40 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#12152a] via-[#12152a]/45 to-transparent" />
           </div>
 
-          <div className="relative px-4 sm:px-8 pb-6 -mt-16 sm:-mt-24">
+          <div className="relative px-[18px] sm:px-10 pb-7 -mt-20 sm:-mt-28">
             {/* Постер и заголовок */}
-            <div className="flex items-end gap-4 sm:gap-6">
-              {posterPath ? (
-                <img
-                  src={`${POSTER_LARGE}${posterPath}`}
-                  alt={title}
-                  className="w-28 sm:w-44 aspect-[2/3] self-end object-cover rounded-xl shadow-2xl shadow-black/60 ring-1 ring-white/10 shrink-0"
-                />
-              ) : (
-                <div className="w-28 sm:w-44 aspect-[2/3] bg-[#262b55] rounded-xl ring-1 ring-white/10 shrink-0 flex items-center justify-center">
-                  <Icon n="film" className="w-8 h-8 opacity-30" />
-                </div>
-              )}
+            <div className="flex items-end gap-4 sm:gap-7">
+              <div className="w-[118px] sm:w-[190px] aspect-[2/3] self-end shrink-0 overflow-hidden rounded-[14px] sm:rounded-[18px] border border-white/[0.14] shadow-[0_24px_60px_rgba(0,0,0,0.6)]">
+                <Poster src={posterPath ? `${POSTER_LARGE}${posterPath}` : null} title={title} />
+              </div>
 
               <div className="min-w-0 flex-1 pb-1">
-                <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                <div className="flex flex-wrap items-center gap-1.5 mb-3">
                   {isTv && <Chip tone="orange">Сериал</Chip>}
                   {year && <Chip>{year}</Chip>}
                   {runtime && <Chip>{runtime}</Chip>}
@@ -214,36 +204,36 @@ export default function MovieDetailsModal({
                   )}
                 </div>
 
-                <h2 className="text-xl sm:text-3xl font-bold text-white leading-tight break-words">
+                <h2 className="font-display text-[21px] sm:text-[34px] font-bold text-white leading-[1.08] break-words">
                   {title}
                 </h2>
                 {originalTitle && originalTitle !== title && (
-                  <div className="mt-0.5 text-xs sm:text-sm text-[#8a90b8] break-words">
+                  <div className="mt-1.5 text-xs sm:text-[13px] text-[#8b91b5] break-words">
                     {originalTitle}
                   </div>
                 )}
 
                 {rating && (
-                  <div className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f47c4f]/15 text-[#f47c4f]">
-                    <Icon n="star" className={`w-4 h-4 ${ORANGE_FILTER}`} />
-                    <span className="text-base font-bold leading-none">
+                  <div className="mt-3.5 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#ff7a45]/[0.16] text-[#ff935f]">
+                    <Icon n="star" className={`w-[18px] h-[18px] ${ORANGE_FILTER}`} />
+                    <span className="font-display text-lg sm:text-xl font-bold leading-none">
                       {rating}
                     </span>
-                    <span className="text-[11px] opacity-70">TMDB</span>
+                    <span className="text-[11px] font-bold opacity-75">TMDB</span>
                   </div>
                 )}
               </div>
             </div>
 
             {existing && (
-              <div className="mt-5 flex flex-wrap items-center gap-2 text-sm">
+              <div className="mt-6 flex flex-wrap items-center gap-2.5 text-sm">
                 <Chip tone={existing.status === "WATCHED" ? "green" : "blue"}>
                   {existing.status === "WATCHED"
                     ? "В журнале: просмотрено"
                     : "В журнале: буду смотреть"}
                 </Chip>
                 {existing.rating && (
-                  <span className="text-[#f47c4f]">
+                  <span className="font-bold text-[#ff935f]">
                     Ваша оценка: {existing.rating}/10
                   </span>
                 )}
@@ -251,7 +241,7 @@ export default function MovieDetailsModal({
             )}
 
             {details?.tagline && (
-              <p className="mt-5 text-sm italic text-[#8a90b8]">
+              <p className="mt-6 text-sm sm:text-[15px] italic text-[#8b91b5]">
                 «{details.tagline}»
               </p>
             )}
@@ -261,7 +251,7 @@ export default function MovieDetailsModal({
                 {genres.map((g) => (
                   <span
                     key={g.id}
-                    className="text-xs text-[#9aa0c8] bg-white/5 px-2.5 py-1 rounded-full"
+                    className="text-xs font-bold text-[#c4c8e4] bg-white/[0.08] px-3.5 py-1.5 rounded-full"
                   >
                     {g.name}
                   </span>
@@ -269,21 +259,21 @@ export default function MovieDetailsModal({
               </div>
             )}
 
-            <section className="mt-5">
-              <h3 className="text-xs uppercase tracking-wide text-[#6f759e] mb-2">
+            <section className="mt-7">
+              <h3 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#7b81a6] mb-3">
                 Описание
               </h3>
               {loading && !overview ? (
                 <Skeleton />
               ) : (
-                <p className="text-sm sm:text-[15px] text-[#c9cce6] leading-relaxed whitespace-pre-line">
+                <p className="text-sm sm:text-[15px] text-[#d0d3ea] leading-[1.75] whitespace-pre-line">
                   {overview || "Описание отсутствует"}
                 </p>
               )}
             </section>
 
             {(directors.length > 0 || trailer) && (
-              <dl className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+              <dl className="mt-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
                 {directors.length > 0 && (
                   <Fact label={isTv ? "Создатели" : "Режиссёр"}>
                     {directors.join(", ")}
@@ -295,7 +285,7 @@ export default function MovieDetailsModal({
                       href={`https://www.youtube.com/watch?v=${trailer.key}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-[#f47c4f] hover:underline"
+                      className="inline-flex items-center gap-2 text-[#ff935f] hover:underline"
                     >
                       <Icon
                         n="play"
@@ -309,11 +299,11 @@ export default function MovieDetailsModal({
             )}
 
             {cast.length > 0 && (
-              <section className="mt-6">
-                <h3 className="text-xs uppercase tracking-wide text-[#6f759e] mb-3">
+              <section className="mt-8">
+                <h3 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#7b81a6] mb-3.5">
                   В ролях
                 </h3>
-                <ul className="flex gap-3 overflow-x-auto scroll-contain pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+                <ul className="no-scrollbar flex gap-3.5 overflow-x-auto scroll-contain pb-2 -mx-[18px] px-[18px] sm:mx-0 sm:px-0">
                   {cast.map((person) => (
                     <CastMember key={person.credit_id || person.id} person={person} />
                   ))}
@@ -324,7 +314,7 @@ export default function MovieDetailsModal({
         </div>
 
         {/* Кнопки всегда под рукой, даже когда описание длинное */}
-        <div className="shrink-0 flex gap-2 border-t border-white/5 bg-[#171a33] px-4 sm:px-8 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        <div className="shrink-0 flex gap-2.5 border-t border-white/[0.07] bg-[#12152a] px-4 sm:px-10 pt-3 sm:pt-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-4">
           {existing ? (
             <button
               type="button"
@@ -332,9 +322,9 @@ export default function MovieDetailsModal({
                 onOpenReview(existing.id);
                 onClose();
               }}
-              className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm ${BTN_ORANGE}`}
+              className={`flex-1 inline-flex items-center justify-center gap-2 h-[52px] px-4 rounded-[14px] text-[15px] ${BTN_ORANGE}`}
             >
-              <Icon n="message-square-text" className="w-4 h-4 [filter:brightness(0.1)]" />
+              <Icon n="message-square-text" className={`w-[18px] h-[18px] ${DARK_ICON}`} />
               Оценка и отзыв
             </button>
           ) : (
@@ -342,23 +332,23 @@ export default function MovieDetailsModal({
               <button
                 type="button"
                 onClick={() => handleAdd("WATCHED")}
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold transition-colors bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300"
+                className="flex-1 inline-flex items-center justify-center gap-2 h-[52px] px-4 rounded-[14px] text-[15px] font-extrabold transition-colors bg-emerald-400/[0.16] hover:bg-emerald-400/25 text-[#58dcaa]"
               >
-                <Icon n="check" className="w-4 h-4" /> Смотрел
+                <Icon n="check" className="w-[18px] h-[18px] [filter:invert(1)_sepia(1)_saturate(3)_hue-rotate(100deg)]" /> Смотрел
               </button>
               <button
                 type="button"
                 onClick={() => handleAdd("WATCHLIST")}
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold transition-colors bg-[#f47c4f]/15 hover:bg-[#f47c4f]/25 text-[#f47c4f]"
+                className={`flex-1 inline-flex items-center justify-center gap-2 h-[52px] px-4 rounded-[14px] text-[15px] ${BTN_ORANGE}`}
               >
-                <Icon n="bookmark" className="w-4 h-4" /> В список
+                <Icon n="bookmark" className={`w-[18px] h-[18px] ${DARK_ICON}`} /> В список
               </button>
             </>
           )}
           <button
             type="button"
             onClick={onClose}
-            className={`hidden sm:inline-flex items-center justify-center px-4 py-3 rounded-lg text-sm ${BTN_SOFT}`}
+            className={`hidden sm:inline-flex items-center justify-center h-[52px] px-7 rounded-[14px] text-[15px] ${BTN_SOFT}`}
           >
             Закрыть
           </button>
