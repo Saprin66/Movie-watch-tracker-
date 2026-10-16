@@ -1,6 +1,8 @@
 // Общие списки «смотрим вместе».
-// Владелец создаёт список и приглашает друзей. Любой участник добавляет фильмы
-// и отмечает просмотренные; удалить фильм может тот, кто его добавил, или владелец.
+// Владелец создаёт список и приглашает друзей. Приглашённый видит уведомление и может
+// принять или отклонить его; участником он становится только после согласия.
+// Любой участник добавляет фильмы и отмечает просмотренные; удалить фильм может тот,
+// кто его добавил, или владелец.
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
@@ -26,14 +28,19 @@ async function friendIdsOf(userId) {
   return new Set(rows.map((r) => (r.userId === userId ? r.friendId : r.userId)));
 }
 
-// Список, если пользователь в нём участвует; иначе null
+// Список, если пользователь в нём участвует (принял приглашение); иначе null
 async function findListForMember(listId, userId) {
   const membership = await prisma.sharedListMember.findUnique({
     where: { listId_userId: { listId, userId } },
-    select: { list: { select: { id: true, name: true, ownerId: true } } },
+    select: { status: true, list: { select: { id: true, name: true, ownerId: true } } },
   });
-  return membership ? membership.list : null;
+  return membership && membership.status === 'accepted' ? membership.list : null;
 }
+
+const memberInclude = {
+  orderBy: { createdAt: 'asc' },
+  select: { status: true, user: { select: userSelect } },
+};
 
 function cleanName(value) {
   if (typeof value !== 'string') return null;
@@ -50,7 +57,8 @@ function shapeList(list, userId) {
     isOwner: list.ownerId === userId,
     createdAt: list.createdAt,
     updatedAt: list.updatedAt,
-    members: list.members.map((m) => m.user),
+    // Принявшие приглашение и ещё не ответившие (pending: true)
+    members: list.members.map((m) => ({ ...m.user, pending: m.status === 'pending' })),
     itemsCount: list._count?.items ?? list.items?.length ?? 0,
     preview: (list.items || []).slice(0, 4).map((i) => ({
       id: i.id,
@@ -64,10 +72,10 @@ function shapeList(list, userId) {
 router.get('/', async (req, res) => {
   try {
     const lists = await prisma.sharedList.findMany({
-      where: { members: { some: { userId: req.userId } } },
+      where: { members: { some: { userId: req.userId, status: 'accepted' } } },
       orderBy: { updatedAt: 'desc' },
       include: {
-        members: { orderBy: { createdAt: 'asc' }, select: { user: { select: userSelect } } },
+        members: memberInclude,
         items: {
           where: { watched: false },
           orderBy: { createdAt: 'desc' },
@@ -111,11 +119,14 @@ router.post('/', async (req, res) => {
         name,
         ownerId: req.userId,
         members: {
-          create: [req.userId, ...memberIds].map((userId) => ({ userId })),
+          create: [
+            { userId: req.userId, status: 'accepted' },
+            ...memberIds.map((userId) => ({ userId, status: 'pending' })),
+          ],
         },
       },
       include: {
-        members: { orderBy: { createdAt: 'asc' }, select: { user: { select: userSelect } } },
+        members: memberInclude,
         _count: { select: { items: true } },
       },
     });
@@ -123,6 +134,70 @@ router.post('/', async (req, res) => {
   } catch (error) {
     console.error('Ошибка создания общего списка:', error);
     res.status(500).json({ error: 'Не удалось создать список' });
+  }
+});
+
+// Приглашения в списки, на которые пользователь ещё не ответил
+router.get('/invites', async (req, res) => {
+  try {
+    const invites = await prisma.sharedListMember.findMany({
+      where: { userId: req.userId, status: 'pending' },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        createdAt: true,
+        list: {
+          select: {
+            id: true,
+            name: true,
+            owner: { select: userSelect },
+            _count: { select: { items: true, members: true } },
+          },
+        },
+      },
+    });
+    res.json(
+      invites.map((i) => ({
+        listId: i.list.id,
+        name: i.list.name,
+        owner: i.list.owner,
+        itemsCount: i.list._count.items,
+        membersCount: i.list._count.members,
+        invitedAt: i.createdAt,
+      }))
+    );
+  } catch (error) {
+    console.error('Ошибка загрузки приглашений:', error);
+    res.status(500).json({ error: 'Не удалось загрузить приглашения' });
+  }
+});
+
+// Принять приглашение
+router.post('/:id/accept', async (req, res) => {
+  try {
+    const result = await prisma.sharedListMember.updateMany({
+      where: { listId: req.params.id, userId: req.userId, status: 'pending' },
+      data: { status: 'accepted' },
+    });
+    if (result.count === 0) return res.status(404).json({ error: 'Приглашение не найдено' });
+    await prisma.sharedList.update({ where: { id: req.params.id }, data: { updatedAt: new Date() } });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Ошибка принятия приглашения:', error);
+    res.status(500).json({ error: 'Не удалось принять приглашение' });
+  }
+});
+
+// Отклонить приглашение
+router.post('/:id/decline', async (req, res) => {
+  try {
+    const result = await prisma.sharedListMember.deleteMany({
+      where: { listId: req.params.id, userId: req.userId, status: 'pending' },
+    });
+    if (result.count === 0) return res.status(404).json({ error: 'Приглашение не найдено' });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Ошибка отклонения приглашения:', error);
+    res.status(500).json({ error: 'Не удалось отклонить приглашение' });
   }
 });
 
@@ -135,7 +210,7 @@ router.get('/:id', async (req, res) => {
     const list = await prisma.sharedList.findUnique({
       where: { id: req.params.id },
       include: {
-        members: { orderBy: { createdAt: 'asc' }, select: { user: { select: userSelect } } },
+        members: memberInclude,
         items: {
           orderBy: [{ watched: 'asc' }, { createdAt: 'desc' }],
           include: { addedBy: { select: userSelect } },
@@ -218,7 +293,7 @@ router.post('/:id/leave', async (req, res) => {
   }
 });
 
-// Пригласить друга (только владелец, только своего друга)
+// Пригласить друга (только владелец, только своего друга). Друг получит приглашение.
 router.post('/:id/members', async (req, res) => {
   try {
     const list = await findListForMember(req.params.id, req.userId);
@@ -238,7 +313,7 @@ router.post('/:id/members', async (req, res) => {
     await prisma.sharedListMember.upsert({
       where: { listId_userId: { listId: list.id, userId } },
       update: {},
-      create: { listId: list.id, userId },
+      create: { listId: list.id, userId, status: 'pending' },
     });
     await prisma.sharedList.update({ where: { id: list.id }, data: { updatedAt: new Date() } });
     res.status(201).json({ success: true });

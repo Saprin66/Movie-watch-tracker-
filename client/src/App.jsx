@@ -14,6 +14,8 @@ import FriendsFeed from "./components/FriendsFeed";
 import HomeFeed from "./components/HomeFeed";
 import WhatToWatch from "./components/WhatToWatch";
 import SharedLists from "./components/SharedLists";
+import { NotificationsBell, InviteToast } from "./components/Notifications";
+import { listsRequest } from "./utils/listsApi";
 import { SORT_OPTIONS, sortMovies } from "./utils/sortMovies";
 import MovieFilters from "./components/MovieFilters";
 import {
@@ -42,7 +44,7 @@ import { API_URL, TMDB_API_KEY, TMDB, POSTER } from "./config";
 
 function MovieTracker() {
   const [friendsLastWatched, setFriendsLastWatched] = useState({});
-  const { user, token, logout, getFriends, getFriendRequests, updateAvatar, deleteAccount } = useAuth();
+  const { user, token, logout, getFriends, getFriendRequests, handleFriendRequest, updateAvatar, deleteAccount } = useAuth();
   const [activeTab, setActiveTab] = useState("movies");
   const [requestsCount, setRequestsCount] = useState(0);
   const [movies, setMovies] = useState([]);
@@ -92,6 +94,12 @@ function MovieTracker() {
   const [lastWatchedData, setLastWatchedData] = useState({});
   const [reviewMovieId, setReviewMovieId] = useState(null);
   const [openListId, setOpenListId] = useState(null);
+  // Уведомления: заявки в друзья и приглашения в общие списки
+  const [friendRequests, setFriendRequests] = useState([]);
+  const [listInvites, setListInvites] = useState([]);
+  const [toastInvite, setToastInvite] = useState(null);
+  const [listsRefreshKey, setListsRefreshKey] = useState(0);
+  const refreshNotificationsRef = useRef(() => {});
   // Удаление аккаунта: окно подтверждения с паролем
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
@@ -296,17 +304,47 @@ function MovieTracker() {
     if (token) loadFriends();
   }, [token]);
 
-  // Бейдж входящих заявок: при входе, раз в минуту и при возврате в приложение
+  // Уведомления (заявки в друзья и приглашения в общие списки):
+  // при входе, раз в минуту и при возврате в приложение
   useEffect(() => {
-    if (!token) return undefined;
+    if (!token || !user?.id) return undefined;
     let cancelled = false;
+    const notifiedKey = `listInvitesNotified:${user.id}`;
 
     const refresh = async () => {
       if (document.visibilityState === "hidden") return;
-      const data = await getFriendRequests();
-      if (!cancelled) setRequestsCount(Array.isArray(data) ? data.length : 0);
+      const [requests, invites] = await Promise.all([
+        getFriendRequests(),
+        listsRequest(token, "/invites"),
+      ]);
+      if (cancelled) return;
+      const requestList = Array.isArray(requests) ? requests : [];
+      setFriendRequests(requestList);
+      setRequestsCount(requestList.length);
+      if (!invites.ok) return;
+      const inviteList = Array.isArray(invites.data) ? invites.data : [];
+      setListInvites(inviteList);
+
+      // Всплывающее уведомление показываем один раз на каждое новое приглашение
+      let notified = [];
+      try {
+        notified = JSON.parse(localStorage.getItem(notifiedKey) || "[]");
+      } catch {
+        notified = [];
+      }
+      const fresh = inviteList.find((i) => !notified.includes(i.listId));
+      if (fresh) {
+        setToastInvite(fresh);
+        try {
+          const ids = [...new Set([...notified, ...inviteList.map((i) => i.listId)])].slice(-100);
+          localStorage.setItem(notifiedKey, JSON.stringify(ids));
+        } catch {
+          /* без хранилища уведомление может показаться повторно */
+        }
+      }
     };
 
+    refreshNotificationsRef.current = refresh;
     refresh();
     const timer = setInterval(refresh, 60 * 1000);
     document.addEventListener("visibilitychange", refresh);
@@ -315,7 +353,34 @@ function MovieTracker() {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [token]);
+  }, [token, user?.id]);
+
+  const acceptInvite = async (invite) => {
+    const result = await listsRequest(token, `/${invite.listId}/accept`, { method: "POST" });
+    setToastInvite((t) => (t?.listId === invite.listId ? null : t));
+    setListInvites((prev) => prev.filter((i) => i.listId !== invite.listId));
+    if (result.ok) {
+      setListsRefreshKey((k) => k + 1);
+      setOpenListId(invite.listId);
+      setActiveTab("together");
+    }
+    refreshNotificationsRef.current();
+  };
+
+  const declineInvite = async (invite) => {
+    await listsRequest(token, `/${invite.listId}/decline`, { method: "POST" });
+    setToastInvite((t) => (t?.listId === invite.listId ? null : t));
+    setListInvites((prev) => prev.filter((i) => i.listId !== invite.listId));
+    refreshNotificationsRef.current();
+  };
+
+  const answerFriendRequest = async (request, action) => {
+    await handleFriendRequest(request.id, action);
+    setFriendRequests((prev) => prev.filter((r) => r.id !== request.id));
+    setRequestsCount((n) => Math.max(0, n - 1));
+    if (action === "accept") loadFriends();
+    refreshNotificationsRef.current();
+  };
 
   const authHeaders = {
     "Content-Type": "application/json",
@@ -728,7 +793,7 @@ function MovieTracker() {
       icon: "sparkles",
     },
     { id: "feed", label: "Лента друзей", short: "Лента", icon: "activity" },
-    { id: "together", label: "Смотрим вместе", short: "Вместе", icon: "popcorn" },
+    { id: "together", label: "Смотрим вместе", short: "Вместе", icon: "popcorn", badge: listInvites.length },
     { id: "search", label: "Искать", icon: "compass" },
     {
       id: "friends",
@@ -827,7 +892,7 @@ function MovieTracker() {
           <button
             type="button"
             onClick={() => setActiveTab("home")}
-            className="lg:hidden shrink-0"
+            className="hidden sm:block lg:hidden shrink-0"
             aria-label="На главную"
           >
             <Logo showText={false} />
@@ -882,6 +947,16 @@ function MovieTracker() {
             <Icon n="plus" className="w-4 h-4" /> Новая запись
           </button>
 
+          <NotificationsBell
+            invites={listInvites}
+            requests={friendRequests}
+            onAcceptInvite={acceptInvite}
+            onDeclineInvite={declineInvite}
+            onAcceptFriend={(r) => answerFriendRequest(r, "accept")}
+            onDeclineFriend={(r) => answerFriendRequest(r, "reject")}
+            onOpenFriend={setSelectedUserId}
+          />
+
           <div className="relative flex items-center shrink-0" ref={avatarMenuRef}>
             <button
               type="button"
@@ -892,9 +967,6 @@ function MovieTracker() {
               className="relative rounded-full outline-none ring-offset-2 ring-offset-[#0a0c18] focus-visible:ring-2 focus-visible:ring-[#ff7a45]"
             >
               <Avatar name={user?.username} avatar={user?.avatar} size="w-11 h-11" />
-              {requestsCount > 0 && (
-                <span className="lg:hidden absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-[#ff7a45] border-2 border-[#0a0c18]" />
-              )}
             </button>
             {avatarMenuOpen && (
               <div role="menu" aria-label="Меню аккаунта" className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-64 overflow-hidden rounded-2xl border border-white/10 bg-[#12152a] p-2 shadow-2xl shadow-black/50">
@@ -1327,6 +1399,10 @@ function MovieTracker() {
               onOpenMovie={setSelectedMovie}
               openListId={openListId}
               onOpenList={setOpenListId}
+              invites={listInvites}
+              onAcceptInvite={acceptInvite}
+              onDeclineInvite={declineInvite}
+              refreshKey={listsRefreshKey}
             />
           )}
 
@@ -1336,7 +1412,10 @@ function MovieTracker() {
               <h1 className={`${PAGE_TITLE} mb-7`}>Сообщество</h1>
               <FriendsPanel
                 onUserClick={setSelectedUserId}
-                onRequestsChange={setRequestsCount}
+                onRequestsChange={(n) => {
+                  setRequestsCount(n);
+                  refreshNotificationsRef.current();
+                }}
                 onFriendsChange={loadFriends}
               />
             </div>
@@ -1715,6 +1794,15 @@ function MovieTracker() {
               ...metaFromTmdb(details || selectedMovie),
             })
           }
+        />
+      )}
+
+      {toastInvite && (
+        <InviteToast
+          invite={toastInvite}
+          onAccept={() => acceptInvite(toastInvite)}
+          onDecline={() => declineInvite(toastInvite)}
+          onClose={() => setToastInvite(null)}
         />
       )}
 
