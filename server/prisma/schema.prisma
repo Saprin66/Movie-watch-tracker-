@@ -86,13 +86,15 @@ model SharedList {
   @@index([ownerId])
 }
 
-// Участник общего списка (владелец тоже записан участником)
+// Участник общего списка (владелец тоже записан участником).
+// Приглашённый друг сначала в статусе pending и становится участником, только когда примет приглашение.
 model SharedListMember {
   id        String     @id @default(uuid())
   listId    String
   userId    String
   list      SharedList @relation(fields: [listId], references: [id], onDelete: Cascade)
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    String     @default("accepted") // pending — приглашён, ждёт ответа; accepted — участник
   createdAt DateTime   @default(now())
 
   @@unique([listId, userId])

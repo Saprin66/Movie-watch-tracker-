@@ -98,7 +98,7 @@ function CreateListDialog({ friends, onClose, onCreate }) {
 
         <div className="mt-6">
           <div className="text-[13px] font-bold text-[#aeb3d6] mb-2.5">
-            Кого пригласить <span className="font-medium text-[#6f759e]">можно позже</span>
+            Кого пригласить <span className="font-medium text-[#6f759e]">друзья получат приглашение</span>
           </div>
           {friends.length === 0 ? (
             <p className="text-sm text-[#8b91b5] rounded-xl bg-white/[0.03] p-4">
@@ -420,19 +420,23 @@ function ListDetail({ listId, token, friends, onBack, onChanged, onOpenMovie }) 
 
         <div className="mt-6 pt-5 border-t border-white/[0.07]">
           <div className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#7b81a6] mb-3">
-            Участники · {list.members.length}
+            Участники · {list.members.filter((m) => !m.pending).length}
+            {list.members.some((m) => m.pending) && ` · приглашены ${list.members.filter((m) => m.pending).length}`}
           </div>
           <div className="flex flex-wrap gap-2">
             {list.members.map((m) => (
-              <span key={m.id} className="inline-flex items-center gap-2 h-10 pl-1.5 pr-3 rounded-full bg-white/[0.06] text-sm font-bold text-white">
-                <Avatar name={m.username} avatar={m.avatar} size="w-7 h-7" text="text-[11px]" />
+              <span key={m.id} className={`inline-flex items-center gap-2 h-10 pl-1.5 pr-3 rounded-full text-sm font-bold ${m.pending ? "border border-dashed border-white/15 text-[#8b91b5]" : "bg-white/[0.06] text-white"}`}>
+                <span className={m.pending ? "opacity-50" : ""}>
+                  <Avatar name={m.username} avatar={m.avatar} size="w-7 h-7" text="text-[11px]" />
+                </span>
                 {m.username}
                 {m.id === list.ownerId && <span className="text-[11px] font-bold text-[#ff9a6c]">создатель</span>}
+                {m.pending && <span className="text-[11px] font-semibold text-[#7b81a6]">ждёт ответа</span>}
                 {list.isOwner && m.id !== list.ownerId && (
                   <button
                     type="button"
                     onClick={() => { setConfirmError(""); setConfirm({ kind: "member", member: m }); }}
-                    aria-label={`Убрать ${m.username} из списка`}
+                    aria-label={m.pending ? `Отменить приглашение для ${m.username}` : `Убрать ${m.username} из списка`}
                     className="-mr-1 w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-500/25"
                   >
                     <Icon n="x" className="w-3.5 h-3.5 opacity-70" />
@@ -508,7 +512,7 @@ function ListDetail({ listId, token, friends, onBack, onChanged, onOpenMovie }) 
       {confirm && (
         <ConfirmDialog
           title={
-            confirm.kind === "delete" ? "Удалить список?" : confirm.kind === "leave" ? "Выйти из списка?" : "Убрать участника?"
+            confirm.kind === "delete" ? "Удалить список?" : confirm.kind === "leave" ? "Выйти из списка?" : confirm.member.pending ? "Отменить приглашение?" : "Убрать участника?"
           }
           message={
             confirm.kind === "delete" ? (
@@ -516,10 +520,14 @@ function ListDetail({ listId, token, friends, onBack, onChanged, onOpenMovie }) 
             ) : confirm.kind === "leave" ? (
               <>Вы точно хотите выйти из списка <b className="text-white">«{list.name}»</b>? Вернуться можно, если создатель пригласит снова.</>
             ) : (
-              <>Убрать <b className="text-white">{confirm.member.username}</b> из списка «{list.name}»? Добавленные им фильмы останутся.</>
+              confirm.member.pending ? (
+                <>Отменить приглашение для <b className="text-white">{confirm.member.username}</b> в список «{list.name}»?</>
+              ) : (
+                <>Убрать <b className="text-white">{confirm.member.username}</b> из списка «{list.name}»? Добавленные им фильмы останутся.</>
+              )
             )
           }
-          confirmLabel={confirm.kind === "delete" ? "Удалить список" : confirm.kind === "leave" ? "Выйти" : "Убрать"}
+          confirmLabel={confirm.kind === "delete" ? "Удалить список" : confirm.kind === "leave" ? "Выйти" : confirm.member.pending ? "Отменить приглашение" : "Убрать"}
           icon={confirm.kind === "leave" ? "log-out" : confirm.kind === "member" ? "user-minus" : "trash-2"}
           busy={busy}
           error={confirmError}
@@ -531,8 +539,53 @@ function ListDetail({ listId, token, friends, onBack, onChanged, onOpenMovie }) 
   );
 }
 
+// Карточка приглашения в общий список
+function InviteCard({ invite, onAccept, onDecline }) {
+  const [busy, setBusy] = useState(false);
+  const run = async (fn) => {
+    setBusy(true);
+    try {
+      await fn();
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className={`${PANEL} p-4 border-[#ff7a45]/30 mg-glow-corner`}>
+      <div className="flex items-start gap-3">
+        <Avatar name={invite.owner?.username} avatar={invite.owner?.avatar} size="w-11 h-11" />
+        <div className="min-w-0 flex-1">
+          <div className="font-display text-base font-semibold text-white truncate">{invite.name}</div>
+          <p className="mt-1 text-[13px] text-[#8b91b5]">
+            Приглашает <b className="text-[#c4c8e4]">{invite.owner?.username || "друг"}</b>
+            {invite.itemsCount > 0 && ` · ${invite.itemsCount} ${pluralize(invite.itemsCount, "фильм", "фильма", "фильмов")}`}
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 flex gap-2">
+        <button type="button" disabled={busy} onClick={() => run(onAccept)} className={`flex-1 h-11 rounded-xl text-sm inline-flex items-center justify-center gap-2 disabled:opacity-50 ${BTN_ORANGE}`}>
+          <Icon n="check" className={`w-4 h-4 ${DARK_ICON}`} /> Принять
+        </button>
+        <button type="button" disabled={busy} onClick={() => run(onDecline)} className={`flex-1 h-11 rounded-xl text-sm disabled:opacity-50 ${BTN_SOFT}`}>
+          Отклонить
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Страница «Смотрим вместе»: все общие списки и открытый список
-export default function SharedLists({ token, friends, onOpenMovie, openListId, onOpenList }) {
+export default function SharedLists({
+  token,
+  friends,
+  onOpenMovie,
+  openListId,
+  onOpenList,
+  invites = [],
+  onAcceptInvite,
+  onDeclineInvite,
+  refreshKey = 0,
+}) {
   const [lists, setLists] = useState(null);
   const [error, setError] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -550,7 +603,7 @@ export default function SharedLists({ token, friends, onOpenMovie, openListId, o
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   if (openListId) {
     return (
@@ -581,6 +634,20 @@ export default function SharedLists({ token, friends, onOpenMovie, openListId, o
       </div>
 
       {error && <p role="alert" className="rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</p>}
+
+      {invites.length > 0 && (
+        <section className="space-y-3">
+          <h2 className={`${SECTION_TITLE} flex items-center gap-2.5`}>
+            Приглашения
+            <span className="font-sans text-xs font-extrabold min-w-[22px] h-[22px] px-2 rounded-full inline-flex items-center justify-center bg-[#ff7a45] text-[#1b0d07]">{invites.length}</span>
+          </h2>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {invites.map((inv) => (
+              <InviteCard key={inv.listId} invite={inv} onAccept={() => onAcceptInvite(inv)} onDecline={() => onDeclineInvite(inv)} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {lists === null ? (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -619,7 +686,7 @@ export default function SharedLists({ token, friends, onOpenMovie, openListId, o
                     {l.isOwner && <span className="text-[#ff9a6c] font-bold"> · ваш список</span>}
                   </div>
                 </div>
-                <Members members={l.members} />
+                <Members members={l.members.filter((m) => !m.pending)} />
               </div>
             </button>
           ))}

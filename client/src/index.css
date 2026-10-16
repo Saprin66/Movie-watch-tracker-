@@ -117,3 +117,15 @@ body {
     radial-gradient(60% 90% at 10% 100%, rgba(100, 70, 210, 0.45), transparent 60%),
     linear-gradient(135deg, #2a1d2b, #0e1024);
 }
+
+/* Появление всплывающего уведомления */
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
