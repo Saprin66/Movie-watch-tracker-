@@ -539,4 +539,31 @@ router.put('/me', authMiddleware, async (req, res) => {
   }
 });
 
+// Удаление аккаунта. Нужен текущий пароль. Вместе с пользователем удаляются его журнал,
+// дружбы, заявки и созданные им общие списки (каскадом в базе). В чужих общих списках
+// добавленные им фильмы остаются, но без автора.
+router.delete('/me', loginLimiter, authMiddleware, async (req, res) => {
+  try {
+    const { password } = req.body || {};
+    if (typeof password !== 'string' || password.length === 0) {
+      return res.status(400).json({ error: 'Введите пароль, чтобы подтвердить удаление' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: { id: true, password: true }
+    });
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.status(400).json({ error: 'Неверный пароль' });
+
+    await prisma.user.delete({ where: { id: user.id } });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Ошибка удаления аккаунта:', error);
+    res.status(500).json({ error: 'Не удалось удалить аккаунт' });
+  }
+});
+
 module.exports = router;
