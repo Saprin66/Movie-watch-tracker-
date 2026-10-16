@@ -30,6 +30,9 @@ model User {
   movies           UserMovie[]
   friends          Friend[]    @relation("userFriends")
   friendOf         Friend[]    @relation("friendOf")
+  ownedLists       SharedList[]       @relation("ownedLists")
+  listMemberships  SharedListMember[]
+  listItemsAdded   SharedListItem[]   @relation("listItemsAdded")
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 }
@@ -67,4 +70,50 @@ model UserMovie {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+}
+
+// Общий список «смотрим вместе»: владелец и друзья-участники добавляют фильмы
+model SharedList {
+  id        String             @id @default(uuid())
+  name      String
+  ownerId   String
+  owner     User               @relation("ownedLists", fields: [ownerId], references: [id], onDelete: Cascade)
+  members   SharedListMember[]
+  items     SharedListItem[]
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@index([ownerId])
+}
+
+// Участник общего списка (владелец тоже записан участником)
+model SharedListMember {
+  id        String     @id @default(uuid())
+  listId    String
+  userId    String
+  list      SharedList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@unique([listId, userId])
+  @@index([userId])
+}
+
+// Фильм или сериал в общем списке
+model SharedListItem {
+  id          String     @id @default(uuid())
+  listId      String
+  list        SharedList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  tmdbId      Int
+  mediaType   String     @default("movie") // movie | tv
+  title       String
+  posterUrl   String?
+  releaseYear Int?
+  watched     Boolean    @default(false)
+  addedById   String?
+  addedBy     User?      @relation("listItemsAdded", fields: [addedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime   @default(now())
+
+  @@unique([listId, tmdbId, mediaType])
+  @@index([listId])
 }

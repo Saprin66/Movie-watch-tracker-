@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import ConfirmDialog from './ConfirmDialog';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -13,8 +14,8 @@ const Avatar = ({ name, avatar, size = 'w-10 h-10', text = 'text-sm' }) => (
   </div>
 );
 
-export default function FriendsPanel({ onUserClick, onRequestsChange }) {
-  const { searchUsers, getFriends, getFriendRequests, handleFriendRequest, sendFriendRequest, token } = useAuth();
+export default function FriendsPanel({ onUserClick, onRequestsChange, onFriendsChange }) {
+  const { searchUsers, getFriends, getFriendRequests, handleFriendRequest, sendFriendRequest, removeFriend, token } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -22,6 +23,9 @@ export default function FriendsPanel({ onUserClick, onRequestsChange }) {
   const [requests, setRequests] = useState([]);
   const [lastWatchedData, setLastWatchedData] = useState({});
   const [loading, setLoading] = useState(true);
+  const [friendToRemove, setFriendToRemove] = useState(null);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState('');
 
   useEffect(() => {
     loadFriends();
@@ -104,6 +108,21 @@ export default function FriendsPanel({ onUserClick, onRequestsChange }) {
     }
   };
 
+  const confirmRemove = async () => {
+    if (!friendToRemove) return;
+    setRemoving(true);
+    setRemoveError('');
+    const result = await removeFriend(friendToRemove.id);
+    setRemoving(false);
+    if (!result.success) {
+      setRemoveError(result.error);
+      return;
+    }
+    setFriendToRemove(null);
+    onFriendsChange?.();
+    loadFriends();
+  };
+
   const formatLastSeen = (lastSeen) => {
     if (!lastSeen) return 'Не в сети';
     const minutesAgo = Math.floor((new Date() - new Date(lastSeen)) / 1000 / 60);
@@ -184,11 +203,14 @@ export default function FriendsPanel({ onUserClick, onRequestsChange }) {
               const lastMovie = lastWatchedData[friend.id];
 
               return (
+                <div
+                  key={friend.id}
+                  className="flex items-center gap-2 p-2 pr-2.5 bg-[#12152a] border border-white/[0.07] rounded-[20px] hover:border-[#ff7a45]/40 transition-colors group"
+                >
                 <button
                   type="button"
-                  key={friend.id}
                   onClick={() => onUserClick(friend.id)}
-                  className="flex items-center gap-3.5 p-4 text-left bg-[#12152a] border border-white/[0.07] rounded-[20px] hover:border-[#ff7a45]/40 transition-colors group"
+                  className="flex-1 min-w-0 flex items-center gap-3.5 p-2 text-left rounded-2xl"
                 >
                   <span className="relative shrink-0">
                     <Avatar name={friend.username} avatar={friend.avatar} size="w-12 h-12" />
@@ -207,6 +229,16 @@ export default function FriendsPanel({ onUserClick, onRequestsChange }) {
                     )}
                   </span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => { setRemoveError(''); setFriendToRemove(friend); }}
+                  aria-label={`Удалить ${friend.username} из друзей`}
+                  title="Удалить из друзей"
+                  className="shrink-0 w-11 h-11 flex items-center justify-center rounded-xl bg-white/[0.05] hover:bg-red-500/20 transition-colors"
+                >
+                  <Icon n="user-minus" className="w-[18px] h-[18px] opacity-70" />
+                </button>
+                </div>
               );
             })}
           </div>
@@ -266,6 +298,19 @@ export default function FriendsPanel({ onUserClick, onRequestsChange }) {
           </div>
         )}
       </section>
+
+      {friendToRemove && (
+        <ConfirmDialog
+          title="Удалить из друзей?"
+          message={<>Вы точно хотите удалить <b className="text-white">{friendToRemove.username}</b> из друзей? Вы перестанете видеть отзывы друг друга, а его записи пропадут из вашей ленты. Позже можно снова отправить заявку.</>}
+          confirmLabel="Удалить из друзей"
+          icon="user-minus"
+          busy={removing}
+          error={removeError}
+          onConfirm={confirmRemove}
+          onClose={() => setFriendToRemove(null)}
+        />
+      )}
     </div>
   );
 }

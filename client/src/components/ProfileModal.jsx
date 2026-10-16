@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import RecentMovies from "./RecentMovies";
+import ConfirmDialog from "./ConfirmDialog";
 import { Poster } from "./ui";
 import { useScrollLock } from "../hooks/useScrollLock";
 
@@ -37,9 +38,12 @@ const lastSeenLabel = (value) => {
   return `${Math.floor(minutes / 1440)} дн назад`;
 };
 
-export default function ProfileModal({ userId, token, onClose, onUserClick }) {
+export default function ProfileModal({ userId, token, onClose, onUserClick, onFriendRemoved }) {
   useScrollLock();
-  const { updateProfile, user } = useAuth();
+  const { updateProfile, user, removeFriend } = useAuth();
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState("");
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -102,6 +106,15 @@ export default function ProfileModal({ userId, token, onClose, onUserClick }) {
                   <span className={profile.lastSeen && Date.now() - new Date(profile.lastSeen).getTime() < 5 * 60 * 1000 ? "text-[#58dcaa] font-bold" : ""}>{lastSeenLabel(profile.lastSeen)}</span>
                 </div>
               </div>
+              {!isOwnProfile && !profile.reviewsHidden && (
+                <button
+                  type="button"
+                  onClick={() => { setRemoveError(""); setConfirmRemove(true); }}
+                  className="self-start sm:self-end inline-flex items-center gap-2 h-11 px-4 rounded-xl text-sm font-bold bg-white/[0.07] hover:bg-red-500/20 text-[#e9ebf7] transition-colors"
+                >
+                  <Icon n="user-minus" className="w-4 h-4 opacity-80" /> Удалить из друзей
+                </button>
+              )}
             </section>
 
             {isOwnProfile && <section className="bg-[#171b38] border border-white/[0.06] rounded-[20px] p-5">
@@ -159,6 +172,27 @@ export default function ProfileModal({ userId, token, onClose, onUserClick }) {
           </div>
         ) : <div className="p-8 text-center text-[#8b91b5]">Не удалось загрузить профиль</div>}
       </div>
+      {confirmRemove && profile && (
+        <ConfirmDialog
+          title="Удалить из друзей?"
+          message={<>Вы точно хотите удалить <b className="text-white">{profile.username}</b> из друзей? Вы перестанете видеть отзывы друг друга, а его записи пропадут из вашей ленты.</>}
+          confirmLabel="Удалить из друзей"
+          icon="user-minus"
+          busy={removing}
+          error={removeError}
+          onClose={() => setConfirmRemove(false)}
+          onConfirm={async () => {
+            setRemoving(true);
+            setRemoveError("");
+            const result = await removeFriend(profile.id);
+            setRemoving(false);
+            if (!result.success) return setRemoveError(result.error);
+            setConfirmRemove(false);
+            onFriendRemoved?.(profile.id);
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 }

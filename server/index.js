@@ -5,6 +5,7 @@ const { PrismaClient } = require('@prisma/client');
 
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
+const listRoutes = require('./routes/lists');
 const { authMiddleware } = require('./middleware/auth');
 const { buildFeed } = require('./feed');
 const { parseMeta } = require('./movieMeta');
@@ -78,6 +79,7 @@ app.get('/api/users/search', authMiddleware, async (req, res) => {
 app.use('/api/users', userRoutes);
 
 app.use('/api/auth', authRoutes);
+app.use('/api/lists', listRoutes);
 
 // === ВСЕ МАРШРУТЫ /api/users/* ДОЛЖНЫ БЫТЬ ВЫШЕ app.use('/api/users', userRoutes) ===
 
@@ -140,6 +142,31 @@ app.get('/api/friends/list', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Не удалось загрузить список друзей' });
   }
 });
+// УДАЛИТЬ ИЗ ДРУЗЕЙ: убирает дружбу (и любые заявки) в обе стороны
+app.delete('/api/friends/:friendId', authMiddleware, async (req, res) => {
+  try {
+    const { friendId } = req.params;
+    if (friendId === req.userId) {
+      return res.status(400).json({ error: 'Нельзя удалить себя' });
+    }
+    const result = await prisma.friend.deleteMany({
+      where: {
+        OR: [
+          { userId: req.userId, friendId },
+          { userId: friendId, friendId: req.userId }
+        ]
+      }
+    });
+    if (result.count === 0) {
+      return res.status(404).json({ error: 'Этого пользователя нет в друзьях' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Ошибка удаления из друзей:', error);
+    res.status(500).json({ error: 'Не удалось удалить из друзей' });
+  }
+});
+
 app.get('/api/users/:userId', authMiddleware, async (req, res) => {
   try {
     const targetUserId = req.params.userId; // <-- ID того, чей профиль смотрим

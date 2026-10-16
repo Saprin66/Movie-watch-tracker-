@@ -5,6 +5,8 @@ import { BTN_ORANGE, BTN_SOFT, DARK_ICON, ORANGE_FILTER } from "./styles";
 import { BACKDROP, POSTER_LARGE, PROFILE } from "../config";
 import { fetchTmdb } from "../utils/tmdb";
 import { useScrollLock } from "../hooks/useScrollLock";
+import { useAuth } from "../context/AuthContext";
+import { itemFromTmdb, listsRequest } from "../utils/listsApi";
 
 const DETAILS_PARAMS =
   "&language=ru-RU&append_to_response=credits,videos&include_video_language=ru,en,null";
@@ -142,6 +144,35 @@ export default function MovieDetailsModal({
   const trailer = (details?.videos?.results || []).find(
     (v) => v.site === "YouTube" && v.type === "Trailer",
   );
+
+  // «В общий список»: выбор списка «смотрим вместе»
+  const { token } = useAuth();
+  const [listsOpen, setListsOpen] = useState(false);
+  const [lists, setLists] = useState(null);
+  const [listsError, setListsError] = useState("");
+  const [listStatus, setListStatus] = useState({});
+
+  const toggleLists = async () => {
+    const next = !listsOpen;
+    setListsOpen(next);
+    if (next && lists === null) {
+      const result = await listsRequest(token);
+      setLists(result.ok ? result.data : []);
+      setListsError(result.ok ? "" : result.error);
+    }
+  };
+
+  const addToList = async (list) => {
+    setListStatus((prev) => ({ ...prev, [list.id]: "adding" }));
+    const result = await listsRequest(token, `/${list.id}/items`, {
+      method: "POST",
+      body: itemFromTmdb({ ...movie, ...(details || {}), media_type: type }),
+    });
+    setListStatus((prev) => ({
+      ...prev,
+      [list.id]: result.ok ? "added" : result.status === 409 ? "exists" : result.error,
+    }));
+  };
 
   const handleAdd = (status) => {
     onAdd(status, details);
@@ -313,6 +344,51 @@ export default function MovieDetailsModal({
           </div>
         </div>
 
+        {listsOpen && (
+          <div className="shrink-0 border-t border-white/[0.07] bg-[#171b38] px-4 sm:px-10 py-4 max-h-[40dvh] overflow-y-auto scroll-contain">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h3 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#7b81a6]">Добавить в общий список</h3>
+              <button type="button" onClick={() => setListsOpen(false)} aria-label="Скрыть общие списки" className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/[0.08]">
+                <Icon n="x" className="w-4 h-4 opacity-70" />
+              </button>
+            </div>
+            {lists === null ? (
+              <p className="text-sm text-[#8b91b5]">Загружаю списки…</p>
+            ) : listsError ? (
+              <p className="text-sm text-red-300">{listsError}</p>
+            ) : lists.length === 0 ? (
+              <p className="text-sm text-[#8b91b5]">Общих списков пока нет. Создай их во вкладке «Смотрим вместе».</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {lists.map((l) => {
+                  const st = listStatus[l.id];
+                  const done = st === "added" || st === "exists";
+                  return (
+                    <li key={l.id} className="flex items-center gap-3 rounded-xl bg-white/[0.03] p-2 pl-3.5">
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-bold text-white truncate">{l.name}</span>
+                        <span className={`block text-xs ${st && !done && st !== "adding" ? "text-red-300" : "text-[#8b91b5]"}`}>
+                          {st === "added" ? "Добавлено" : st === "exists" ? "Уже есть в этом списке" : st && st !== "adding" ? st : `${l.members.length} участн.`}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        disabled={done || st === "adding"}
+                        onClick={() => addToList(l)}
+                        aria-label={`Добавить в список ${l.name}`}
+                        className={`shrink-0 h-10 px-4 rounded-xl text-[13px] inline-flex items-center gap-1.5 disabled:opacity-60 ${done ? "bg-emerald-400/[0.14] text-[#58dcaa] font-bold" : BTN_ORANGE}`}
+                      >
+                        <Icon n={done ? "check" : "plus"} className={`w-4 h-4 ${done ? "[filter:invert(1)_sepia(1)_saturate(3)_hue-rotate(100deg)]" : DARK_ICON}`} />
+                        {done ? "Готово" : "Добавить"}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+
         {/* Кнопки всегда под рукой, даже когда описание длинное */}
         <div className="shrink-0 flex gap-2.5 border-t border-white/[0.07] bg-[#12152a] px-4 sm:px-10 pt-3 sm:pt-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-4">
           {existing ? (
@@ -345,6 +421,17 @@ export default function MovieDetailsModal({
               </button>
             </>
           )}
+          <button
+            type="button"
+            onClick={toggleLists}
+            aria-expanded={listsOpen}
+            aria-label="В общий список"
+            title="В общий список с друзьями"
+            className={`shrink-0 inline-flex items-center justify-center gap-2 h-[52px] w-[52px] sm:w-auto sm:px-5 rounded-[14px] text-[15px] ${listsOpen ? "bg-[#ff7a45]/[0.16] text-[#ff9a6c] font-bold" : BTN_SOFT}`}
+          >
+            <Icon n="popcorn" className={`w-[18px] h-[18px] ${listsOpen ? ORANGE_FILTER : ""}`} />
+            <span className="hidden sm:inline">Вместе</span>
+          </button>
           <button
             type="button"
             onClick={onClose}

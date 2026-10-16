@@ -311,6 +311,41 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const removeFriend = async (friendId) => {
+    try {
+      const res = await fetch(`${API_URL}/api/friends/${friendId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) return { success: true };
+      return { success: false, error: data.error || "Не удалось удалить из друзей" };
+    } catch (error) {
+      return { success: false, error: "Ошибка соединения с сервером" };
+    }
+  };
+
+  const deleteAccount = async (password) => {
+    try {
+      const res = await fetch(`${API_URL}/api/auth/me`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data.error || "Не удалось удалить аккаунт" };
+      }
+      logout();
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: "Ошибка соединения с сервером" };
+    }
+  };
+
   const logout = () => {
     // Закэшированные ответы API принадлежат прежнему пользователю: убираем их
     if (typeof caches !== "undefined") {
@@ -340,6 +375,8 @@ export const AuthProvider = ({ children }) => {
         getFriendRequests,
         handleFriendRequest,
         sendFriendRequest,
+        removeFriend,
+        deleteAccount,
       }}
     >
       {children}

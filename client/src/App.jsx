@@ -8,10 +8,12 @@ import { POLICY_HASH, CONTACT_EMAIL } from "./legal";
 import FriendsPanel from "./components/FriendsPanel";
 import ProfileModal from "./components/ProfileModal";
 import ReviewModal from "./components/ReviewModal";
+import ConfirmDialog from "./components/ConfirmDialog";
 import MovieDetailsModal from "./components/MovieDetailsModal";
 import FriendsFeed from "./components/FriendsFeed";
 import HomeFeed from "./components/HomeFeed";
 import WhatToWatch from "./components/WhatToWatch";
+import SharedLists from "./components/SharedLists";
 import { SORT_OPTIONS, sortMovies } from "./utils/sortMovies";
 import MovieFilters from "./components/MovieFilters";
 import {
@@ -34,12 +36,13 @@ import {
   EYEBROW,
   PAGE_TITLE,
   SECTION_TITLE,
+  INPUT,
 } from "./components/styles";
 import { API_URL, TMDB_API_KEY, TMDB, POSTER } from "./config";
 
 function MovieTracker() {
   const [friendsLastWatched, setFriendsLastWatched] = useState({});
-  const { user, token, logout, getFriends, getFriendRequests, updateAvatar } = useAuth();
+  const { user, token, logout, getFriends, getFriendRequests, updateAvatar, deleteAccount } = useAuth();
   const [activeTab, setActiveTab] = useState("movies");
   const [requestsCount, setRequestsCount] = useState(0);
   const [movies, setMovies] = useState([]);
@@ -88,6 +91,12 @@ function MovieTracker() {
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [lastWatchedData, setLastWatchedData] = useState({});
   const [reviewMovieId, setReviewMovieId] = useState(null);
+  const [openListId, setOpenListId] = useState(null);
+  // Удаление аккаунта: окно подтверждения с паролем
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   useEffect(() => {
     const openProfileSettings = () => setActiveTab("profile-settings");
     window.addEventListener("moviegrade:open-profile-settings", openProfileSettings);
@@ -719,6 +728,7 @@ function MovieTracker() {
       icon: "sparkles",
     },
     { id: "feed", label: "Лента друзей", short: "Лента", icon: "activity" },
+    { id: "together", label: "Смотрим вместе", short: "Вместе", icon: "popcorn" },
     { id: "search", label: "Искать", icon: "compass" },
     {
       id: "friends",
@@ -1310,6 +1320,16 @@ function MovieTracker() {
             />
           )}
 
+          {activeTab === "together" && (
+            <SharedLists
+              token={token}
+              friends={friends}
+              onOpenMovie={setSelectedMovie}
+              openListId={openListId}
+              onOpenList={setOpenListId}
+            />
+          )}
+
           {activeTab === "friends" && (
             <div className="max-w-3xl">
               <div className={`${EYEBROW} mb-2.5`}>Люди</div>
@@ -1317,6 +1337,7 @@ function MovieTracker() {
               <FriendsPanel
                 onUserClick={setSelectedUserId}
                 onRequestsChange={setRequestsCount}
+                onFriendsChange={loadFriends}
               />
             </div>
           )}
@@ -1515,6 +1536,17 @@ function MovieTracker() {
                 <h2 className={`${SECTION_TITLE} mb-2`}>Сессия</h2><p className="text-sm text-[#8b91b5] mb-5">Выйти из текущего аккаунта на этом устройстве.</p>
                 <button onClick={logout} className={`w-full h-11 flex items-center justify-center gap-2 rounded-xl text-sm ${BTN_RED}`}><Icon n="log-out" /> Выйти из аккаунта</button>
               </div>
+              <div className="rounded-[20px] border border-red-400/25 bg-red-500/[0.06] p-5 sm:p-6">
+                <h2 className={`flex items-center gap-3 ${SECTION_TITLE} mb-2.5`}><span className="w-[38px] h-[38px] rounded-xl bg-red-400/[0.14] flex items-center justify-center shrink-0"><Icon n="trash-2" className="w-[18px] h-[18px] [filter:invert(1)_sepia(1)_saturate(5)_hue-rotate(310deg)_brightness(1.1)]" /></span>Удалить аккаунт</h2>
+                <p className="text-sm text-[#aeb3d6] mb-5 leading-relaxed">Аккаунт удалится навсегда вместе с журналом, оценками, отзывами, друзьями и созданными тобой общими списками. Восстановить его будет нельзя.</p>
+                <button
+                  type="button"
+                  onClick={() => { setDeletePassword(""); setDeleteError(""); setDeleteAccountOpen(true); }}
+                  className="w-full sm:w-auto h-11 px-6 rounded-xl text-sm font-extrabold bg-red-500 hover:bg-red-400 text-white transition-colors"
+                >
+                  Удалить аккаунт
+                </button>
+              </div>
             </div>
           )}
           <Footer className="mt-12" />
@@ -1615,7 +1647,7 @@ function MovieTracker() {
 
       <nav
         aria-label="Разделы"
-        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#0d1021]/95 backdrop-blur-xl border-t border-white/[0.07] flex justify-around px-1.5 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] safe-x"
+        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#0d1021]/95 backdrop-blur-xl border-t border-white/[0.07] flex justify-around px-0.5 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] safe-x"
       >
         {navItems.filter((item) => item.id !== "profile").map((item) => {
           const active = activeTab === item.id;
@@ -1624,7 +1656,7 @@ function MovieTracker() {
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               aria-current={active ? "page" : undefined}
-              className="flex-1 min-w-0 min-h-[48px] flex flex-col items-center justify-center gap-1 px-1"
+              className="flex-1 min-w-0 min-h-[48px] flex flex-col items-center justify-center gap-1 px-0"
             >
               <span className="relative">
                 <Icon
@@ -1641,7 +1673,7 @@ function MovieTracker() {
                 )}
               </span>
               <span
-                className={`max-w-full truncate text-[10px] font-bold ${active ? "text-[#ff935f]" : "text-[#7b81a6]"}`}
+                className={`max-w-full truncate text-[10px] font-semibold tracking-[-0.01em] ${active ? "text-[#ff935f]" : "text-[#7b81a6]"}`}
               >
                 {item.short ?? item.label}
               </span>
@@ -1656,6 +1688,7 @@ function MovieTracker() {
           token={token}
           onClose={() => setSelectedUserId(null)}
           onUserClick={(id) => setSelectedUserId(id)}
+          onFriendRemoved={loadFriends}
         />
       )}
 
@@ -1683,6 +1716,39 @@ function MovieTracker() {
             })
           }
         />
+      )}
+
+      {deleteAccountOpen && (
+        <ConfirmDialog
+          title="Удалить аккаунт?"
+          message={<>Вы точно хотите удалить аккаунт <b className="text-white">{user?.username}</b>? Журнал, оценки, отзывы, друзья и ваши общие списки удалятся навсегда. Это нельзя отменить.</>}
+          confirmLabel="Удалить навсегда"
+          icon="trash-2"
+          busy={deleteBusy}
+          error={deleteError}
+          confirmDisabled={!deletePassword}
+          onClose={() => setDeleteAccountOpen(false)}
+          onConfirm={async () => {
+            setDeleteBusy(true);
+            setDeleteError("");
+            const result = await deleteAccount(deletePassword);
+            setDeleteBusy(false);
+            if (!result.success) setDeleteError(result.error);
+          }}
+        >
+          <label className="block">
+            <span className="block text-[13px] font-bold text-[#aeb3d6] mb-2">Введите пароль для подтверждения</span>
+            <input
+              type="password"
+              autoComplete="current-password"
+              autoFocus
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              className={INPUT}
+              placeholder="Пароль"
+            />
+          </label>
+        </ConfirmDialog>
       )}
 
       {reviewMovie && (
