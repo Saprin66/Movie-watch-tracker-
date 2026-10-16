@@ -51,7 +51,7 @@ const saveSetting = (key, value) => {
 
 const typeOf = (movie) => (movie.mediaType === "tv" ? "tv" : "movie");
 
-function Providers({ region, onRegionChange, providers, loading }) {
+function Providers({ region, onRegionChange, providers, loading, failed }) {
   const regionLabel = REGIONS.find((r) => r.code === region)?.label || region;
   const groups = providers
     ? PROVIDER_GROUPS.filter((g) => providers[g.key]?.length > 0)
@@ -79,6 +79,10 @@ function Providers({ region, onRegionChange, providers, loading }) {
 
       {loading ? (
         <p className="text-sm text-[#8b91b5]">Ищу, где можно посмотреть...</p>
+      ) : failed ? (
+        <p className="text-sm text-[#8b91b5]">
+          Не удалось получить данные о сервисах: нет связи с TMDB.
+        </p>
       ) : groups.length === 0 ? (
         <p className="text-sm text-[#8b91b5]">
           Для региона «{regionLabel}» нет данных о сервисах. Попробуйте другой
@@ -138,6 +142,9 @@ export function PickedMovie({
   details,
   providers,
   providersLoading,
+  providersFailed,
+  detailsFailed,
+  onRetry,
   region,
   onRegionChange,
   canPickAnother,
@@ -192,11 +199,26 @@ export function PickedMovie({
             </div>
           )}
 
-          <p className="mt-4 text-sm text-[#c4c8e4] leading-[1.7] line-clamp-6">
-            {details
-              ? details.overview || "Описание отсутствует"
-              : "Загружаю описание..."}
-          </p>
+          {detailsFailed ? (
+            <div role="alert" className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+              <span className="flex-1 min-w-[200px]">
+                Не удалось загрузить описание: нет связи с TMDB. Проверь интернет или VPN.
+              </span>
+              <button
+                type="button"
+                onClick={onRetry}
+                className={`h-10 px-4 rounded-xl text-sm ${BTN_SOFT}`}
+              >
+                Повторить
+              </button>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-[#c4c8e4] leading-[1.7] line-clamp-6">
+              {details
+                ? details.overview || "Описание отсутствует"
+                : "Загружаю описание..."}
+            </p>
+          )}
 
           <div className="mt-5 flex flex-wrap gap-2.5">
             <button
@@ -224,6 +246,7 @@ export function PickedMovie({
         onRegionChange={onRegionChange}
         providers={providers}
         loading={providersLoading}
+        failed={providersFailed}
       />
     </div>
   );
@@ -235,6 +258,10 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
   const [details, setDetails] = useState(null);
   const [providers, setProviders] = useState(null);
   const [providersLoading, setProvidersLoading] = useState(false);
+  const [detailsFailed, setDetailsFailed] = useState(false);
+  const [providersFailed, setProvidersFailed] = useState(false);
+  // Увеличивается по кнопке «Повторить», чтобы заново запросить данные TMDB
+  const [retryKey, setRetryKey] = useState(0);
   const [region, setRegion] = useState(() => readSetting("watchRegion", "RU"));
   const [recs, setRecs] = useState({ status: "idle", seeds: [], list: [] });
   const [refreshKey, setRefreshKey] = useState(0);
@@ -275,21 +302,26 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
     if (!pickedTmdbId || !TMDB_API_KEY) return;
     let cancelled = false;
     setDetails(null);
+    setDetailsFailed(false);
     fetchTmdb(pickedType, pickedTmdbId, "", "&language=ru-RU")
       .then((found) => {
-        if (!cancelled) setDetails(found ? found.data : null);
+        if (!cancelled) setDetails(found ? found.data : { overview: "" });
       })
-      .catch((error) => console.error("Ошибка загрузки описания:", error));
+      .catch((error) => {
+        console.warn("Не удалось загрузить описание из TMDB:", error.message);
+        if (!cancelled) setDetailsFailed(true);
+      });
     return () => {
       cancelled = true;
     };
-  }, [pickedTmdbId, pickedType]);
+  }, [pickedTmdbId, pickedType, retryKey]);
 
   useEffect(() => {
     if (!pickedTmdbId || !TMDB_API_KEY) return;
     let cancelled = false;
     setProvidersLoading(true);
     setProviders(null);
+    setProvidersFailed(false);
     fetchTmdb(pickedType, pickedTmdbId, "/watch/providers")
       .then((found) => {
         if (cancelled) return;
@@ -297,13 +329,16 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
         setProvidersLoading(false);
       })
       .catch((error) => {
-        console.error("Ошибка загрузки сервисов:", error);
-        if (!cancelled) setProvidersLoading(false);
+        console.warn("Не удалось загрузить сервисы из TMDB:", error.message);
+        if (!cancelled) {
+          setProvidersLoading(false);
+          setProvidersFailed(true);
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [pickedTmdbId, pickedType, region]);
+  }, [pickedTmdbId, pickedType, region, retryKey]);
 
   const changeRegion = (code) => {
     setRegion(code);
@@ -385,6 +420,9 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
             details={details}
             providers={providers}
             providersLoading={providersLoading}
+            providersFailed={providersFailed}
+            detailsFailed={detailsFailed}
+            onRetry={() => setRetryKey((k) => k + 1)}
             region={region}
             onRegionChange={changeRegion}
             canPickAnother={watchlist.length > 1}
