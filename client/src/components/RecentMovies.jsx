@@ -1,4 +1,5 @@
 import Icon from "./Icon";
+import { Poster } from "./ui";
 
 const formatDate = (value) => {
   if (!value) return "";
@@ -14,7 +15,7 @@ const formatDate = (value) => {
 export default function RecentMovies({ movies, reviewsHidden = false }) {
   return (
     <div>
-      <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+      <h3 className="font-display text-base sm:text-[17px] font-semibold text-white mb-4 flex items-center gap-2.5">
         <Icon n="clock" className="w-4 h-4 opacity-50" />
         Последние фильмы
       </h3>
@@ -24,7 +25,7 @@ export default function RecentMovies({ movies, reviewsHidden = false }) {
         </p>
       )}
 
-      <ul className="space-y-3">
+      <ul className="space-y-2.5">
         {movies.map((movie, idx) => {
           const isWatched = movie.status === "WATCHED";
           const date = formatDate(
@@ -34,36 +35,27 @@ export default function RecentMovies({ movies, reviewsHidden = false }) {
           return (
             <li
               key={movie.id || idx}
-              className="flex gap-3 bg-[#1c2040] border border-white/5 rounded-xl p-3"
+              className="flex gap-3.5 bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3"
             >
-              {movie.posterUrl ? (
-                <img
-                  src={movie.posterUrl}
-                  alt={movie.title || "Фильм"}
-                  loading="lazy"
-                  className="w-16 sm:w-20 aspect-[2/3] self-start object-cover rounded-lg shrink-0"
-                />
-              ) : (
-                <div className="w-16 sm:w-20 aspect-[2/3] self-start bg-[#262b55] rounded-lg shrink-0 flex items-center justify-center">
-                  <Icon n="film" className="w-6 h-6 opacity-30" />
-                </div>
-              )}
+              <div className="w-14 sm:w-16 aspect-[2/3] self-start shrink-0 overflow-hidden rounded-[10px] border border-white/[0.08]">
+                <Poster src={movie.posterUrl} title={movie.title || "Фильм"} small />
+              </div>
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div
-                      className="text-sm font-semibold text-white truncate"
+                      className="text-sm font-extrabold text-white truncate"
                       title={movie.title}
                     >
                       {movie.title || "Без названия"}
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
                       <span
-                        className={`px-2 py-0.5 rounded ${
+                        className={`px-2.5 py-0.5 rounded-full font-bold ${
                           isWatched
-                            ? "bg-emerald-500/15 text-emerald-300"
-                            : "bg-sky-500/15 text-sky-300"
+                            ? "bg-emerald-400/[0.14] text-[#58dcaa]"
+                            : "bg-sky-400/[0.15] text-[#86b8ff]"
                         }`}
                       >
                         {isWatched ? "Просмотрено" : "Буду смотреть"}
@@ -74,10 +66,10 @@ export default function RecentMovies({ movies, reviewsHidden = false }) {
 
                   {movie.rating && (
                     <div
-                      className="shrink-0 flex items-baseline gap-0.5 px-2.5 py-1 rounded-lg bg-[#f47c4f]/15 text-[#f47c4f]"
+                      className="shrink-0 flex items-baseline gap-0.5 px-3 py-1.5 rounded-[10px] bg-[#ff7a45]/15 text-[#ff935f]"
                       aria-label={`Оценка ${movie.rating} из 10`}
                     >
-                      <span className="text-lg font-bold leading-none">
+                      <span className="font-display text-base font-bold leading-none">
                         {movie.rating}
                       </span>
                       <span className="text-[11px] opacity-70">/10</span>
@@ -86,7 +78,7 @@ export default function RecentMovies({ movies, reviewsHidden = false }) {
                 </div>
 
                 {movie.comment ? (
-                  <p className="mt-2 text-sm text-[#c9cce6] leading-relaxed whitespace-pre-line break-words line-clamp-6">
+                  <p className="mt-2 text-sm text-[#c4c8e4] leading-relaxed whitespace-pre-line break-words line-clamp-6">
                     {movie.comment}
                   </p>
                 ) : (

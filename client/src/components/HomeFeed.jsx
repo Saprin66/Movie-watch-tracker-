@@ -1,23 +1,24 @@
 import { useEffect, useState } from "react";
 import { TMDB, TMDB_API_KEY, POSTER, BACKDROP } from "../config";
-import { MovieCard, Chip, Empty } from "./ui";
+import { MovieCard, Chip, Empty, Row } from "./ui";
+import { BTN_ORANGE, BTN_SOFT, EYEBROW, PAGE_TITLE, SECTION_TITLE } from "./styles";
 
 const IMAGE = (path) => (path ? `${POSTER}${path}` : null);
 const YEAR = (movie) => (movie.release_date || movie.first_air_date || "").slice(0, 4);
 
 function MovieRow({ title, subtitle, items, onOpenMovie, loading, emptyText }) {
   return (
-    <section className="space-y-3">
+    <section className="space-y-4">
       <div>
-        <h2 className="text-xl sm:text-2xl font-semibold text-white">{title}</h2>
-        {subtitle && <p className="mt-1 text-sm text-[#8a90b8]">{subtitle}</p>}
+        <h2 className={SECTION_TITLE}>{title}</h2>
+        {subtitle && <p className="mt-1.5 text-[13px] text-[#8b91b5]">{subtitle}</p>}
       </div>
       {loading ? (
-        <div className="flex gap-3 overflow-hidden">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="w-32 sm:w-40 shrink-0 aspect-[2/3] rounded-xl bg-white/5 animate-pulse" />)}</div>
+        <div className="flex gap-3 sm:gap-4 overflow-hidden">{Array.from({ length: 7 }).map((_, i) => <div key={i} className="w-[112px] sm:w-[136px] shrink-0 aspect-[2/3] rounded-[14px] bg-white/5 animate-pulse" />)}</div>
       ) : items.length ? (
-        <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
+        <Row>
           {items.map((movie, index) => (
-            <div key={`${movie.media_type || "movie"}-${movie.id}`} className="w-32 sm:w-40 shrink-0 snap-start">
+            <div key={`${movie.media_type || "movie"}-${movie.id}`} className="w-[112px] sm:w-[136px] shrink-0 snap-start">
               <MovieCard
                 poster={IMAGE(movie.poster_path)}
                 title={movie.title || movie.name}
@@ -27,7 +28,7 @@ function MovieRow({ title, subtitle, items, onOpenMovie, loading, emptyText }) {
               />
             </div>
           ))}
-        </div>
+        </Row>
       ) : <Empty text={emptyText || "Пока не удалось загрузить подборку."} />}
     </section>
   );
@@ -94,22 +95,22 @@ export default function HomeFeed({ onOpenMovie, onBrowse }) {
     .slice(0, 10);
 
   return (
-    <div className="space-y-9">
-      <header className="flex flex-wrap items-end justify-between gap-3">
+    <div className="space-y-10">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.22em] text-[#f47c4f] mb-2">Movie night</p>
-          <h1 className="text-3xl sm:text-4xl font-bold text-white">Главная</h1>
-          <p className="mt-2 text-sm sm:text-base text-[#a0a5ca]">Трейлеры, рейтинги и идеи для следующего просмотра.</p>
+          <p className={`${EYEBROW} mb-2.5`}>Movie night</p>
+          <h1 className={PAGE_TITLE}>Главная</h1>
+          <p className="mt-2.5 text-sm text-[#8b91b5]">Трейлеры, рейтинги и идеи для следующего просмотра.</p>
         </div>
-        <button onClick={onBrowse} className="rounded-xl bg-[#f47c4f] px-4 py-2.5 text-sm font-semibold text-[#1a1020] hover:bg-[#ff956b] transition">Подобрать по фильтрам →</button>
+        <button onClick={onBrowse} className={`h-11 rounded-xl px-5 text-sm ${BTN_SOFT}`}>Подобрать по фильтрам →</button>
       </header>
 
-      {error && <div className="rounded-xl border border-red-400/20 bg-red-400/5 p-4 text-sm text-red-200">{error}. Проверьте подключение и ключ TMDB.</div>}
+      {error && <div className="rounded-2xl border border-red-400/20 bg-red-400/5 p-4 text-sm text-red-200">{error}. Проверьте подключение и ключ TMDB.</div>}
 
       {featured && (
-        <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#171a33]">
+        <section className="relative overflow-hidden rounded-[24px] border border-white/[0.08] mg-glow-hero">
           <div className="grid lg:grid-cols-[1.35fr_1fr]">
-            <div className="relative min-h-[220px] sm:min-h-[320px] bg-black">
+            <div className="relative min-h-[220px] sm:min-h-[340px] bg-black/60">
               {trailerKey ? (
                 <iframe
                   className="absolute inset-0 h-full w-full min-h-[220px] sm:min-h-[320px]"
@@ -122,17 +123,17 @@ export default function HomeFeed({ onOpenMovie, onBrowse }) {
                 />
               ) : featured.backdrop_path ? (
                 <img className="absolute inset-0 h-full w-full object-cover" src={`${BACKDROP}${featured.backdrop_path}`} alt="" />
-              ) : <div className="absolute inset-0 bg-gradient-to-br from-[#252b58] to-[#131631]" />}
+              ) : <div className="absolute inset-0 bg-gradient-to-br from-[#252b58] to-[#0d1021]" />}
             </div>
-            <div className="flex flex-col justify-center p-5 sm:p-7 lg:p-8">
-              <span className="mb-3 w-fit rounded-full bg-[#f47c4f]/15 px-3 py-1 text-xs font-medium text-[#f47c4f]">{trailerKey ? "Трейлер / фрагмент" : "В центре внимания"}</span>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white">{featured.title || featured.name}</h2>
-              <div className="mt-3 flex flex-wrap gap-2 text-sm text-[#a0a5ca]">
-                {YEAR(featured) && <span>{YEAR(featured)}</span>}
-                <span>★ {Number(featured.vote_average || 0).toFixed(1)} / 10</span>
+            <div className="flex flex-col justify-center p-5 sm:p-8 lg:p-9">
+              <div className="mb-4 flex flex-wrap gap-2">
+                <Chip tone="orange">{trailerKey ? "Трейлер" : "В центре внимания"}</Chip>
+                {YEAR(featured) && <Chip>{YEAR(featured)}</Chip>}
+                <Chip>★ {Number(featured.vote_average || 0).toFixed(1)} / 10</Chip>
               </div>
-              <p className="mt-4 line-clamp-5 text-sm leading-6 text-[#c1c5e1]">{featured.overview || "Посмотрите трейлер и решите, подходит ли этот фильм для следующего вечера."}</p>
-              <button onClick={() => onOpenMovie(featured)} className="mt-6 w-fit rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/15">Подробнее о фильме</button>
+              <h2 className="font-display text-2xl sm:text-[34px] font-bold leading-[1.08] text-white">{featured.title || featured.name}</h2>
+              <p className="mt-4 line-clamp-5 text-sm leading-relaxed text-[#c4c8e4]">{featured.overview || "Посмотрите трейлер и решите, подходит ли этот фильм для следующего вечера."}</p>
+              <button onClick={() => onOpenMovie(featured)} className={`mt-6 w-fit h-11 rounded-xl px-5 text-sm ${BTN_ORANGE}`}>Подробнее о фильме</button>
               {!trailerKey && <p className="mt-3 text-xs text-[#777da6]">Для этого фильма TMDB пока не нашёл подходящий трейлер на YouTube.</p>}
             </div>
           </div>
