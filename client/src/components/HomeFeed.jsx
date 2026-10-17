@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TMDB, TMDB_API_KEY, POSTER, BACKDROP } from "../config";
+import { TMDB, TMDB_API_KEY, POSTER, BACKDROP, tmdbImage } from "../config";
 import { MovieCard, Chip, Empty, Row } from "./ui";
 import { BTN_ORANGE, BTN_SOFT, EYEBROW, PAGE_TITLE, SECTION_TITLE } from "./styles";
 
@@ -122,7 +122,7 @@ export default function HomeFeed({ onOpenMovie, onBrowse }) {
                   allowFullScreen
                 />
               ) : featured.backdrop_path ? (
-                <img className="absolute inset-0 h-full w-full object-cover" src={`${BACKDROP}${featured.backdrop_path}`} alt="" />
+                <img className="absolute inset-0 h-full w-full object-cover" src={tmdbImage(`${BACKDROP}${featured.backdrop_path}`)} alt="" />
               ) : <div className="absolute inset-0 bg-gradient-to-br from-[#252b58] to-[#0d1021]" />}
             </div>
             <div className="flex flex-col justify-center p-5 sm:p-8 lg:p-9">

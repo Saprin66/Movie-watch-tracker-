@@ -52,6 +52,37 @@ export default defineConfig({
         // Запросы к нашему API: сначала сеть, при её отсутствии последний ответ из кэша
         runtimeCaching: [
           {
+            // Картинки TMDB через наш сервер: не меняются, храним долго
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/img/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'tmdb-images',
+              expiration: {
+                maxEntries: 400,
+                maxAgeSeconds: 60 * 60 * 24 * 30
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            // Каталог TMDB через наш сервер: берём из сети, кэш нужен только без сети
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/tmdb/'),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'tmdb-cache',
+              networkTimeoutSeconds: 10,
+              expiration: {
+                maxEntries: 150,
+                maxAgeSeconds: 60 * 60 * 24 * 7
+              },
+              cacheableResponse: {
+                statuses: [200]
+              }
+            }
+          },
+          {
             urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
             handler: 'NetworkFirst',
             options: {

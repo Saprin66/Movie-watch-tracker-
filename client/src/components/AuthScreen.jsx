@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import Footer from "./Footer";
 import { POLICY_HASH } from "../legal";
 import { Logo } from "./ui";
-import { POSTER_LARGE, TMDB, TMDB_API_KEY } from "../config";
+import { POSTER_LARGE, TMDB, TMDB_API_KEY, tmdbImage } from "../config";
 
 const ORANGE_FILTER =
   "[filter:invert(1)_sepia(1)_saturate(6)_hue-rotate(335deg)]";
@@ -76,7 +76,7 @@ function PosterCollage() {
           }
         >
           {p.src ? (
-            <img src={p.src} alt="" className="w-full h-full object-cover" />
+            <img src={tmdbImage(p.src)} alt="" className="w-full h-full object-cover" />
           ) : (
             <span className="absolute left-3.5 right-3.5 bottom-4 font-display font-bold text-[15px] leading-tight text-white">
               {p.title}
