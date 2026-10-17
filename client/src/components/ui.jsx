@@ -1,5 +1,4 @@
 import { PANEL } from "./styles";
-import { tmdbImage } from "../config";
 
 export function Chip({ children, tone = "soft" }) {
   const tones = {
@@ -47,7 +46,7 @@ export function PosterFallback({ title, className = "", small = false }) {
 export function Poster({ src, title, className = "", small = false }) {
   return src ? (
     <img
-      src={tmdbImage(src)}
+      src={src}
       alt={title}
       loading="lazy"
       className={`w-full h-full object-cover ${className}`}

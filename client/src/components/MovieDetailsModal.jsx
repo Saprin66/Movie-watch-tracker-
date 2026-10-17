@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Icon from "./Icon";
 import { Chip, Poster } from "./ui";
 import { BTN_ORANGE, BTN_SOFT, DARK_ICON, ORANGE_FILTER } from "./styles";
-import { BACKDROP, POSTER_LARGE, PROFILE, tmdbImage } from "../config";
+import { BACKDROP, POSTER_LARGE, PROFILE } from "../config";
 import { fetchTmdb } from "../utils/tmdb";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { useAuth } from "../context/AuthContext";
@@ -57,7 +57,7 @@ function CastMember({ person }) {
     <li className="w-[84px] shrink-0 text-center">
       {person.profile_path ? (
         <img
-          src={tmdbImage(`${PROFILE}${person.profile_path}`)}
+          src={`${PROFILE}${person.profile_path}`}
           alt=""
           loading="lazy"
           className="w-[68px] h-[68px] mx-auto rounded-full object-cover border-2 border-white/10"
@@ -207,7 +207,7 @@ export default function MovieDetailsModal({
           >
             {backdropPath && (
               <img
-                src={tmdbImage(`${BACKDROP}${backdropPath}`)}
+                src={`${BACKDROP}${backdropPath}`}
                 alt=""
                 className="w-full h-full object-cover object-top"
               />

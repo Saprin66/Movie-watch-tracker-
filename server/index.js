@@ -6,7 +6,6 @@ const { PrismaClient } = require('@prisma/client');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const listRoutes = require('./routes/lists');
-const { tmdbApiProxy, tmdbImageProxy } = require('./tmdbProxy');
 const { authMiddleware } = require('./middleware/auth');
 const { buildFeed } = require('./feed');
 const { parseMeta } = require('./movieMeta');
@@ -31,10 +30,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json({ limit: '1mb' }));
-
-// Каталог и картинки TMDB через наш сервер (сайт работает без доступа к TMDB у пользователя)
-app.use('/api/tmdb', ...tmdbApiProxy);
-app.use('/api/img', ...tmdbImageProxy);
 
 app.get('/', (req, res) => {
   res.send('Welcome to Movie Grade API');
