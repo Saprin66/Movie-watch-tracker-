@@ -1,11 +1,11 @@
 const express = require('express');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const { Resend } = require('resend');
 const { JWT_SECRET } = require('../config');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, authAllowUnverified, readToken, signToken } = require('../middleware/auth');
+const { cleanUsername } = require('../security');
 const { rateLimit } = require('../middleware/rateLimit');
 
 const router = express.Router();
@@ -18,6 +18,9 @@ const FROM_EMAIL = 'Movie Grade <hello@sapringrade.ru>';
 const POLICY_VERSION = '2026-10-14';
 
 const MAX_CODE_ATTEMPTS = 5;
+
+// Хэш-заглушка для сравнения, когда пользователя с таким email нет (защита от подбора email по времени)
+const DUMMY_HASH = bcrypt.hashSync('timing-safe-placeholder', 10);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Ограничения по IP
@@ -68,12 +71,12 @@ const findUserByEmail = (email) =>
 // 1. РЕГИСТРАЦИЯ
 router.post('/register', registerLimiter, async (req, res) => {
   try {
-    const { password } = req.body;
-    const username = typeof req.body.username === 'string' ? req.body.username.trim() : '';
-    const email = typeof req.body.email === 'string' ? req.body.email.trim() : '';
+    const { password } = req.body || {};
+    const username = cleanUsername(req.body?.username);
+    const email = typeof req.body?.email === 'string' ? req.body?.email.trim() : '';
 
-    if (username.length < 3 || username.length > 20) {
-      return res.status(400).json({ error: 'Ник должен содержать от 3 до 20 символов' });
+    if (!username) {
+      return res.status(400).json({ error: 'Ник: от 3 до 20 символов, только буквы, цифры, пробел, точка, дефис и подчёркивание' });
     }
     if (email.length > 254 || !EMAIL_RE.test(email)) {
       return res.status(400).json({ error: 'Введите корректный email' });
@@ -81,12 +84,18 @@ router.post('/register', registerLimiter, async (req, res) => {
     if (typeof password !== 'string' || password.length < 8 || password.length > 72) {
       return res.status(400).json({ error: 'Пароль должен содержать от 8 до 72 символов' });
     }
-    if (req.body.acceptedPolicy !== true) {
+    if (req.body?.acceptedPolicy !== true) {
       return res.status(400).json({ error: 'Необходимо принять политику конфиденциальности' });
     }
 
+    // Email сравниваем без учёта регистра: иначе Test@mail.ru и test@mail.ru стали бы двумя аккаунтами
     const existingUser = await prisma.user.findFirst({
-      where: { OR: [{ username }, { email }] }
+      where: {
+        OR: [
+          { username: { equals: username, mode: 'insensitive' } },
+          { email: { equals: email, mode: 'insensitive' } }
+        ]
+      }
     });
 
     if (existingUser) {
@@ -127,12 +136,12 @@ router.post('/register', registerLimiter, async (req, res) => {
           </div>
         `
       });
-      console.log('✅ Email отправлен на:', email);
+      console.log('Письмо с кодом отправлено, пользователь', user.id);
     } catch (emailError) {
       console.error('❌ Ошибка отправки email:', emailError);
     }
 
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    const token = signToken(user.id);
 
     res.status(201).json({
       token,
@@ -153,7 +162,7 @@ router.post('/register', registerLimiter, async (req, res) => {
 // 2. ВХОД
 // router.post('/login', loginLimiter, async (req, res) => {
 //   try {
-//     const { email, password } = req.body;
+//     const { email, password } = req.body || {};
 //     const user = await prisma.user.findUnique({ where: { username } });
 
 //     if (!user) return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
@@ -188,22 +197,19 @@ router.post('/register', registerLimiter, async (req, res) => {
 // Вход по email
 router.post('/login', loginLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = typeof req.body?.email === 'string' ? req.body?.email.trim() : '';
+    const password = req.body?.password;
 
-    if (!email || !password) {
+    if (!email || typeof password !== 'string' || !password || email.length > 254 || password.length > 72) {
       return res.status(400).json({ error: 'Введите email и пароль' });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email }
-    });
+    const user = await findUserByEmail(email);
 
-    if (!user) {
-      return res.status(401).json({ error: 'Неверный email или пароль' });
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
+    // Сравниваем пароль даже для несуществующего пользователя: по времени ответа
+    // нельзя будет понять, зарегистрирован ли такой email
+    const isPasswordValid = await bcrypt.compare(password, user ? user.password : DUMMY_HASH);
+    if (!user || !isPasswordValid) {
       return res.status(401).json({ error: 'Неверный email или пароль' });
     }
 
@@ -217,11 +223,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       data: { lastSeen: new Date() }
     });
 
-    const token = jwt.sign(
-      { userId: user.id },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    const token = signToken(user.id);
 
     res.json({
       token,
@@ -240,7 +242,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 });
 
 // 3. ПОЛУЧИТЬ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
-router.get('/me', authMiddleware, async (req, res) => {
+router.get('/me', authAllowUnverified, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.userId },
@@ -269,12 +271,9 @@ router.get('/me', authMiddleware, async (req, res) => {
 // 4. ПОДТВЕРЖДЕНИЕ EMAIL
 router.post('/verify-email', codeLimiter, async (req, res) => {
   try {
-    const { code } = req.body;
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: 'Нет токена' });
-
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const code = req.body?.code;
+    const decoded = readToken(req);
+    if (!decoded) return res.status(401).json({ error: 'Недействительный или протухший токен' });
 
     const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
     if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
@@ -317,11 +316,8 @@ router.post('/verify-email', codeLimiter, async (req, res) => {
 // 5. ПОВТОРНАЯ ОТПРАВКА КОДА
 router.post('/resend-code', codeLimiter, async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: 'Нет токена' });
-
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = readToken(req);
+    if (!decoded) return res.status(401).json({ error: 'Недействительный или протухший токен' });
 
     const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
     if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
@@ -364,7 +360,7 @@ router.post('/resend-code', codeLimiter, async (req, res) => {
 // Ответ всегда одинаковый, чтобы нельзя было узнать, зарегистрирован ли email
 router.post('/forgot-password', forgotLimiter, async (req, res) => {
   try {
-    const email = typeof req.body.email === 'string' ? req.body.email.trim() : '';
+    const email = typeof req.body?.email === 'string' ? req.body?.email.trim() : '';
     if (email.length > 254 || !EMAIL_RE.test(email)) {
       return res.status(400).json({ error: 'Введите корректный email' });
     }
@@ -421,9 +417,9 @@ router.post('/forgot-password', forgotLimiter, async (req, res) => {
 // 7. СБРОС ПАРОЛЯ: проверка кода и установка нового пароля
 router.post('/reset-password', codeLimiter, async (req, res) => {
   try {
-    const email = typeof req.body.email === 'string' ? req.body.email.trim() : '';
-    const code = typeof req.body.code === 'string' ? req.body.code.trim() : '';
-    const { password } = req.body;
+    const email = typeof req.body?.email === 'string' ? req.body?.email.trim() : '';
+    const code = typeof req.body?.code === 'string' ? req.body?.code.trim() : '';
+    const { password } = req.body || {};
 
     if (email.length > 254 || !EMAIL_RE.test(email)) {
       return res.status(400).json({ error: 'Введите корректный email' });
@@ -494,20 +490,16 @@ router.post('/reset-password', codeLimiter, async (req, res) => {
 // Обновление профиля (смена ника)
 router.put('/me', authMiddleware, async (req, res) => {
   try {
-    const { username } = req.body;
+    const username = cleanUsername(req.body?.username);
 
-    if (!username || username.trim().length < 3) {
-      return res.status(400).json({ error: 'Ник должен содержать минимум 3 символа' });
-    }
-
-    if (username.trim().length > 20) {
-      return res.status(400).json({ error: 'Ник не может быть длиннее 20 символов' });
+    if (!username) {
+      return res.status(400).json({ error: 'Ник: от 3 до 20 символов, только буквы, цифры, пробел, точка, дефис и подчёркивание' });
     }
 
     // Проверяем, не занят ли ник
     const existingUser = await prisma.user.findFirst({
       where: {
-        username: username.trim(),
+        username: { equals: username, mode: 'insensitive' },
         id: { not: req.userId }
       }
     });
@@ -518,7 +510,7 @@ router.put('/me', authMiddleware, async (req, res) => {
 
     const updatedUser = await prisma.user.update({
       where: { id: req.userId },
-      data: { username: username.trim() },
+      data: { username },
       select: {
         id: true,
         username: true,
@@ -542,7 +534,7 @@ router.put('/me', authMiddleware, async (req, res) => {
 // Удаление аккаунта. Нужен текущий пароль. Вместе с пользователем удаляются его журнал,
 // дружбы, заявки и созданные им общие списки (каскадом в базе). В чужих общих списках
 // добавленные им фильмы остаются, но без автора.
-router.delete('/me', loginLimiter, authMiddleware, async (req, res) => {
+router.delete('/me', loginLimiter, authAllowUnverified, async (req, res) => {
   try {
     const { password } = req.body || {};
     if (typeof password !== 'string' || password.length === 0) {

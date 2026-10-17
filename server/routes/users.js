@@ -1,6 +1,7 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
+const { isValidAvatar } = require('../security');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -8,7 +9,7 @@ const prisma = new PrismaClient();
 // 1. ПОИСК ПОЛЬЗОВАТЕЛЕЙ (должен быть ДО /:userId)
 router.get('/search', authMiddleware, async (req, res) => {
   try {
-    const { query } = req.query;
+    const query = typeof req.query.query === 'string' ? req.query.query.trim().slice(0, 50) : '';
     if (!query) return res.json([]);
 
     const users = await prisma.user.findMany({
@@ -55,19 +56,21 @@ router.get('/friends/requests', authMiddleware, async (req, res) => {
 // 4. ОБНОВИТЬ СВОЙ ПРОФИЛЬ
 router.put('/profile', authMiddleware, async (req, res) => {
   try {
-    const { bio, avatar, showcaseMovieIds } = req.body;
+    const { bio, avatar, showcaseMovieIds } = req.body || {};
     const data = {};
 
     if (bio !== undefined) {
       if (bio !== null && (typeof bio !== 'string' || bio.length > 300)) {
         return res.status(400).json({ error: 'Описание не должно быть длиннее 300 символов' });
       }
-      data.bio = bio;
+      data.bio = bio === null ? null : bio.trim();
     }
 
     if (avatar !== undefined) {
-      if (avatar !== null && (typeof avatar !== 'string' || avatar.length > 500_000)) {
-        return res.status(400).json({ error: 'Аватар слишком большой' });
+      // Только картинка в data URL, которую делает сам сайт. Ссылка на чужой сервер
+      // позволила бы узнавать IP всех, кто открывает профиль.
+      if (avatar !== null && !isValidAvatar(avatar)) {
+        return res.status(400).json({ error: 'Аватар должен быть изображением не больше 500 КБ' });
       }
       data.avatar = avatar;
     }
@@ -133,6 +136,14 @@ router.post('/:userId/friend-request', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Нельзя добавить себя' });
     }
 
+    const target = await prisma.user.findUnique({
+      where: { id: req.params.userId },
+      select: { id: true, isVerified: true }
+    });
+    if (!target || !target.isVerified) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
     const existing = await prisma.friend.findFirst({
       where: {
         OR: [
@@ -160,7 +171,10 @@ router.post('/:userId/friend-request', authMiddleware, async (req, res) => {
 // 7. ПРИНЯТЬ/ОТКЛОНИТЬ ЗАЯВКУ
 router.put('/:userId/friend-request', authMiddleware, async (req, res) => {
   try {
-    const { action } = req.body; // 'accept' или 'reject'
+    const { action } = req.body || {}; // 'accept' или 'reject'
+    if (action !== 'accept' && action !== 'reject') {
+      return res.status(400).json({ error: 'Неизвестное действие' });
+    }
 
     const friendship = await prisma.friend.findFirst({
       where: { userId: req.params.userId, friendId: req.userId, status: 'pending' }

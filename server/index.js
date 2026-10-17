@@ -1,4 +1,4 @@
-const { CORS_ORIGINS } = require('./config'); // грузит .env и проверяет JWT_SECRET
+require('./config'); // грузит .env и проверяет JWT_SECRET
 const express = require('express');
 const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
@@ -9,6 +9,7 @@ const listRoutes = require('./routes/lists');
 const { authMiddleware } = require('./middleware/auth');
 const { buildFeed } = require('./feed');
 const { parseMeta } = require('./movieMeta');
+const { corsOptions, securityHeaders, apiLimiter, cleanPosterUrl, isPositiveInt } = require('./security');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -17,19 +18,14 @@ const PORT = process.env.PORT || 3001;
 // За прокси хостинга (Render и т.п.) нужен реальный IP клиента для лимитов запросов
 app.set('trust proxy', 1);
 
-if (CORS_ORIGINS.length === 0) {
-  console.warn(
-    '⚠️ CORS_ORIGINS не задан: API принимает запросы с любых сайтов. ' +
-    'Укажите адрес фронтенда, например CORS_ORIGINS=https://ваш-сайт.ru,http://localhost:5173'
-  );
-}
-
-app.use(cors({
-  origin: CORS_ORIGINS.length > 0 ? CORS_ORIGINS : '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// Не сообщаем, что сервер на Express
+app.disable('x-powered-by');
+app.use(securityHeaders);
+// Только адреса нашего фронтенда (см. security.js и переменную CORS_ORIGINS)
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '1mb' }));
+// Общий лимит запросов к API с одного адреса
+app.use('/api', apiLimiter);
 
 app.get('/', (req, res) => {
   res.send('Welcome to Movie Grade API');
@@ -43,10 +39,13 @@ app.get('/api/ping', authMiddleware, async (req, res) => {
 // === ПОИСК ПОЛЬЗОВАТЕЛЕЙ ===
 app.get('/api/users/search', authMiddleware, async (req, res) => {
   try {
-    const { query } = req.query;
-    
-    if (!query || query.trim() === '') {
+    const query = typeof req.query.query === 'string' ? req.query.query.trim() : '';
+
+    if (!query) {
       return res.status(400).json({ error: 'Поисковый запрос не может быть пустым' });
+    }
+    if (query.length > 50) {
+      return res.status(400).json({ error: 'Слишком длинный запрос' });
     }
 
     // Ищем пользователей, чьё имя содержит запрос (регистронезависимо для PostgreSQL)
@@ -54,8 +53,11 @@ app.get('/api/users/search', authMiddleware, async (req, res) => {
       where: {
         username: {
           contains: query,
-          mode: 'insensitive' 
-        }
+          mode: 'insensitive'
+        },
+        // Себя и неподтверждённые аккаунты в поиске не показываем
+        isVerified: true,
+        NOT: { id: req.userId }
       },
       select: {
         id: true,
@@ -112,12 +114,12 @@ app.get('/api/friends/list', authMiddleware, async (req, res) => {
       include: {
         user: {
           select: {
-            id: true, username: true, email: true, avatar: true, bio: true, lastSeen: true
+            id: true, username: true, avatar: true, bio: true, lastSeen: true
           }
         },
         friend: {
           select: {
-            id: true, username: true, email: true, avatar: true, bio: true, lastSeen: true
+            id: true, username: true, avatar: true, bio: true, lastSeen: true
           }
         }
       }
@@ -128,7 +130,7 @@ app.get('/api/friends/list', authMiddleware, async (req, res) => {
       return {
         id: friendUser.id,
         username: friendUser.username,
-        email: friendUser.email,
+        // email друзьям не показываем (см. политику конфиденциальности)
         avatar: friendUser.avatar,
         bio: friendUser.bio,
         lastSeen: friendUser.lastSeen
@@ -175,7 +177,7 @@ app.get('/api/users/:userId', authMiddleware, async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { id: targetUserId },
       select: {
-        id: true, username: true, email: true, avatar: true, bio: true, lastSeen: true, createdAt: true, showcaseMovieIds: true
+        id: true, username: true, avatar: true, bio: true, lastSeen: true, createdAt: true, showcaseMovieIds: true
       }
     });
 
@@ -366,10 +368,10 @@ app.get('/api/movies', authMiddleware, async (req, res) => {
 
 app.post('/api/movies', authMiddleware, async (req, res) => {
   try {
-    const { tmdbId, title, posterUrl, status } = req.body;
-    const mediaType = (req.body.mediaType || req.body.type) === 'tv' ? 'tv' : 'movie';
+    const { tmdbId, title, posterUrl, status } = req.body || {};
+    const mediaType = (req.body?.mediaType || req.body?.type) === 'tv' ? 'tv' : 'movie';
 
-    if (!Number.isInteger(tmdbId)) {
+    if (!isPositiveInt(tmdbId)) {
       return res.status(400).json({ error: 'Неверный идентификатор фильма' });
     }
     if (typeof title !== 'string' || title.trim() === '' || title.length > 300) {
@@ -381,8 +383,8 @@ app.post('/api/movies', authMiddleware, async (req, res) => {
 
     // Оценка необязательна: целое число от 1 до 10
     let rating = null;
-    if (typeof req.body.rating === 'number' && Number.isFinite(req.body.rating)) {
-      const parsed = Math.round(req.body.rating);
+    if (typeof req.body?.rating === 'number' && Number.isFinite(req.body?.rating)) {
+      const parsed = Math.round(req.body?.rating);
       if (parsed >= 1 && parsed <= 10) rating = parsed;
     }
 
@@ -401,7 +403,8 @@ app.post('/api/movies', authMiddleware, async (req, res) => {
       data: {
         tmdbId,
         title: title.trim(),
-        posterUrl: typeof posterUrl === 'string' && posterUrl.length <= 500 ? posterUrl : null,
+        // Только картинки TMDB: чужая ссылка в постере могла бы следить за друзьями по IP
+        posterUrl: cleanPosterUrl(posterUrl),
         mediaType,
         status: status || 'WATCHLIST',
         watchedAt: status === 'WATCHED' ? new Date() : null,
@@ -435,7 +438,7 @@ app.delete('/api/movies/:id', authMiddleware, async (req, res) => {
 app.put('/api/movies/:id/status', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status } = req.body || {};
     if (!['WATCHED', 'WATCHLIST'].includes(status)) {
       return res.status(400).json({ error: 'Неверный статус' });
     }
@@ -480,7 +483,7 @@ app.put('/api/movies/:id/meta', authMiddleware, async (req, res) => {
     const data = { ...meta, metaCheckedAt: new Date(), updatedAt: movie.updatedAt };
 
     // Старые записи сохранялись как «фильм», даже если это сериал
-    const nextType = req.body.mediaType;
+    const nextType = req.body?.mediaType;
     if ((nextType === 'tv' || nextType === 'movie') && nextType !== movie.mediaType) {
       const clash = await prisma.userMovie.findFirst({
         where: { userId: req.userId, tmdbId: movie.tmdbId, mediaType: nextType }

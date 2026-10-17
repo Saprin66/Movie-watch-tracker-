@@ -6,6 +6,7 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
+const { cleanPosterUrl, isPositiveInt } = require('../security');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -352,7 +353,7 @@ router.post('/:id/items', async (req, res) => {
 
     const { tmdbId, title, posterUrl } = req.body || {};
     const mediaType = req.body?.mediaType === 'tv' ? 'tv' : 'movie';
-    if (!Number.isInteger(tmdbId)) {
+    if (!isPositiveInt(tmdbId)) {
       return res.status(400).json({ error: 'Неверный идентификатор фильма' });
     }
     if (typeof title !== 'string' || title.trim() === '' || title.length > 300) {
@@ -378,7 +379,7 @@ router.post('/:id/items', async (req, res) => {
         tmdbId,
         mediaType,
         title: title.trim(),
-        posterUrl: typeof posterUrl === 'string' && posterUrl.length <= 500 ? posterUrl : null,
+        posterUrl: cleanPosterUrl(posterUrl),
         releaseYear,
         addedById: req.userId,
       },
