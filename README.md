@@ -119,6 +119,9 @@ npm install
 DATABASE_URL="postgresql://user:password@localhost:5432/movietracker"
 JWT_SECRET="your-super-secret-key"
 PORT=3001
+# Ключ TMDB: сервер сам ходит в TMDB за фильмами и картинками,
+# поэтому сайт работает у пользователей, у которых TMDB недоступен
+TMDB_API_KEY="ваш-ключ-tmdb"
 ```
 
 4. **Примените миграции базы данных**

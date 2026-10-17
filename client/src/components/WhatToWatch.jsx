@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "./Icon";
 import { Chip, Grid, MovieCard, Poster } from "./ui";
 import { BTN_ORANGE, BTN_SOFT, DARK_ICON, EYEBROW, ORANGE_FILTER, PAGE_TITLE, PANEL, SECTION_TITLE } from "./styles";
-import { POSTER, TMDB_API_KEY } from "../config";
+import { POSTER, TMDB_API_KEY, tmdbImage } from "../config";
 import { fetchTmdb } from "../utils/tmdb";
 import {
   keyOf,
@@ -103,7 +103,7 @@ function Providers({ region, onRegionChange, providers, loading, failed }) {
                   >
                     {p.logo_path && (
                       <img
-                        src={`https://image.tmdb.org/t/p/w45${p.logo_path}`}
+                        src={tmdbImage(`https://image.tmdb.org/t/p/w92${p.logo_path}`)}
                         alt=""
                         className="w-7 h-7 rounded-lg"
                       />
