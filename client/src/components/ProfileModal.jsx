@@ -159,7 +159,7 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
                 <Icon n={friendsOpen ? "chevron-up" : "chevron-down"} className="w-5 h-5 opacity-60" />
               </button>
               {friendsOpen && <div className="mt-4 pt-4 border-t border-white/5">
-                {!profile.friends?.length ? <p className="text-sm text-[#8b91b5] py-2">Список друзей пока пуст.</p> : <div className="grid sm:grid-cols-2 gap-2">
+                {!profile.friends?.length ? <p className="text-sm text-[#8b91b5] py-2">Список друзей пока пуст.</p> : <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {profile.friends.map((friend) => <button key={friend.id} onClick={() => { if (onUserClick) onUserClick(friend.id); }} className="flex items-center gap-3 rounded-xl p-3 bg-white/[0.03] hover:bg-white/[0.07] text-left transition-colors">
                     {friend.avatar ? <img src={friend.avatar} alt="" className="w-10 h-10 rounded-xl object-cover" /> : <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ff7a45] to-[#8b5cf6] flex items-center justify-center text-sm font-bold text-white">{friend.username?.[0]?.toUpperCase() || "U"}</div>}
                     <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-white truncate">{friend.username}</span><span className="block text-xs text-[#8b91b5]">Открыть профиль</span></span><Icon n="arrow-up-right" className="w-4 h-4 opacity-50" />

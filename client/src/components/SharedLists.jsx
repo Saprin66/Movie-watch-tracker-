@@ -641,7 +641,7 @@ export default function SharedLists({
             Приглашения
             <span className="font-sans text-xs font-extrabold min-w-[22px] h-[22px] px-2 rounded-full inline-flex items-center justify-center bg-[#ff7a45] text-[#1b0d07]">{invites.length}</span>
           </h2>
-          <div className="grid sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {invites.map((inv) => (
               <InviteCard key={inv.listId} invite={inv} onAccept={() => onAcceptInvite(inv)} onDecline={() => onDeclineInvite(inv)} />
             ))}
@@ -650,7 +650,7 @@ export default function SharedLists({
       )}
 
       {lists === null ? (
-        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {[0, 1, 2].map((i) => <div key={i} className="h-56 rounded-[20px] bg-white/[0.04] animate-pulse" />)}
         </div>
       ) : lists.length === 0 ? (
@@ -663,7 +663,7 @@ export default function SharedLists({
           <button onClick={() => setCreateOpen(true)} className={`mt-6 h-11 px-6 rounded-xl text-sm ${BTN_ORANGE}`}>Создать первый список</button>
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {lists.map((l) => (
             <button
               key={l.id}

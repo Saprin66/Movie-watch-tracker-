@@ -109,7 +109,7 @@ export default function HomeFeed({ onOpenMovie, onBrowse }) {
 
       {featured && (
         <section className="relative overflow-hidden rounded-[24px] border border-white/[0.08] mg-glow-hero">
-          <div className="grid lg:grid-cols-[1.35fr_1fr]">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_1fr]">
             <div className="relative min-h-[220px] sm:min-h-[340px] bg-black/60">
               {trailerKey ? (
                 <iframe

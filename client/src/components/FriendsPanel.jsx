@@ -189,13 +189,13 @@ export default function FriendsPanel({ onUserClick, onRequestsChange, onFriendsC
       <section className="space-y-3.5">
         <h2 className={sectionTitle}>Мои друзья {countPill(friends.length, false)}</h2>
         {loading && friends.length === 0 ? (
-          <div className="grid sm:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {[0, 1].map((i) => <div key={i} className="h-[84px] rounded-[20px] bg-white/[0.04] animate-pulse" />)}
           </div>
         ) : friends.length === 0 ? (
           <p className="bg-[#12152a] border border-white/[0.07] rounded-[20px] text-[#8b91b5] text-sm text-center py-8 px-4">Пока нет друзей. Найди их через поиск ниже.</p>
         ) : (
-          <div className="grid sm:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {friends.map(friend => {
               const lastSeenDate = friend.lastSeen ? new Date(friend.lastSeen) : null;
               const minutesAgo = lastSeenDate ? Math.floor((new Date() - lastSeenDate) / 1000 / 60) : null;
