@@ -6,6 +6,7 @@ const { PrismaClient } = require('@prisma/client');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const listRoutes = require('./routes/lists');
+const pushRoutes = require('./routes/push');
 const { authMiddleware } = require('./middleware/auth');
 const { buildFeed } = require('./feed');
 const { parseMeta } = require('./movieMeta');
@@ -82,6 +83,7 @@ app.use('/api/users', userRoutes);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/lists', listRoutes);
+app.use('/api/push', pushRoutes);
 
 // === ВСЕ МАРШРУТЫ /api/users/* ДОЛЖНЫ БЫТЬ ВЫШЕ app.use('/api/users', userRoutes) ===
 

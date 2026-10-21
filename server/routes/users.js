@@ -2,6 +2,7 @@ const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
 const { isValidAvatar } = require('../security');
+const { notify, usernameOf } = require('../push');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -161,6 +162,12 @@ router.post('/:userId/friend-request', authMiddleware, async (req, res) => {
       data: { userId: req.userId, friendId: req.params.userId, status: 'pending' }
     });
 
+    notify([req.params.userId], {
+      title: 'Новая заявка в друзья',
+      body: `${await usernameOf(req.userId)} хочет добавить вас в друзья`,
+      url: '/notifications',
+    });
+
     res.json({ message: 'Заявка отправлена' });
   } catch (error) {
     console.error('Ошибка:', error);
@@ -188,6 +195,11 @@ router.put('/:userId/friend-request', authMiddleware, async (req, res) => {
       await prisma.friend.update({
         where: { id: friendship.id },
         data: { status: 'accepted' }
+      });
+      notify([req.params.userId], {
+        title: 'Заявка принята',
+        body: `${await usernameOf(req.userId)} теперь у вас в друзьях`,
+        url: `/user/${req.userId}`,
       });
     } else if (action === 'reject') {
       await prisma.friend.delete({ where: { id: friendship.id } });

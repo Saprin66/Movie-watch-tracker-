@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "MovieGrade",
+    "slug": "movie-grade",
+    "scheme": "moviegrade",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0a0c18",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.moviegrade",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "app.moviegrade",
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0c18",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "backgroundColor": "#0a0c18"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#ff7a45"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Нужен доступ к фото, чтобы выбрать аватар профиля.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
+    ]
+  }
+}

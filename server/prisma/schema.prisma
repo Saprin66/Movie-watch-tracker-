@@ -33,6 +33,7 @@ model User {
   ownedLists       SharedList[]       @relation("ownedLists")
   listMemberships  SharedListMember[]
   listItemsAdded   SharedListItem[]   @relation("listItemsAdded")
+  pushTokens       PushToken[]
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 }
@@ -118,4 +119,18 @@ model SharedListItem {
 
   @@unique([listId, tmdbId, mediaType])
   @@index([listId])
+}
+
+// Токен устройства для push-уведомлений в мобильном приложении (Expo Push).
+// Один пользователь может войти с нескольких телефонов.
+model PushToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  platform  String?  // ios | android
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
