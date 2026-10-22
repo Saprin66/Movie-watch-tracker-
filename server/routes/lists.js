@@ -7,6 +7,7 @@ const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
 const { cleanPosterUrl, isPositiveInt } = require('../security');
+const { notify, usernameOf } = require('../push');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -48,6 +49,15 @@ function cleanName(value) {
   const name = value.trim().replace(/\s+/g, ' ');
   if (name.length < 1 || name.length > NAME_MAX) return null;
   return name;
+}
+
+// Push-уведомление о приглашении в список
+async function notifyInvite(userIds, ownerId, listName) {
+  notify(userIds, {
+    title: 'Приглашение в общий список',
+    body: `${await usernameOf(ownerId)} приглашает вас в «${listName}»`,
+    url: '/notifications',
+  });
 }
 
 function shapeList(list, userId) {
@@ -131,6 +141,7 @@ router.post('/', async (req, res) => {
         _count: { select: { items: true } },
       },
     });
+    if (memberIds.length) notifyInvite(memberIds, req.userId, name);
     res.status(201).json(shapeList(list, req.userId));
   } catch (error) {
     console.error('Ошибка создания общего списка:', error);
@@ -311,11 +322,16 @@ router.post('/:id/members', async (req, res) => {
     if (count >= MAX_MEMBERS) {
       return res.status(400).json({ error: `В списке может быть не больше ${MAX_MEMBERS} человек` });
     }
+    const alreadyMember = await prisma.sharedListMember.findUnique({
+      where: { listId_userId: { listId: list.id, userId } },
+      select: { id: true },
+    });
     await prisma.sharedListMember.upsert({
       where: { listId_userId: { listId: list.id, userId } },
       update: {},
       create: { listId: list.id, userId, status: 'pending' },
     });
+    if (!alreadyMember) notifyInvite([userId], req.userId, list.name);
     await prisma.sharedList.update({ where: { id: list.id }, data: { updatedAt: new Date() } });
     res.status(201).json({ success: true });
   } catch (error) {
@@ -385,6 +401,20 @@ router.post('/:id/items', async (req, res) => {
       },
     });
     await prisma.sharedList.update({ where: { id: list.id }, data: { updatedAt: new Date() } });
+
+    // Остальным участникам: в списке новый фильм
+    const others = await prisma.sharedListMember.findMany({
+      where: { listId: list.id, status: 'accepted', userId: { not: req.userId } },
+      select: { userId: true },
+    });
+    if (others.length) {
+      notify(others.map((m) => m.userId), {
+        title: `«${list.name}»: новый фильм`,
+        body: `${await usernameOf(req.userId)} добавляет «${item.title}»`,
+        url: `/list/${list.id}`,
+      });
+    }
+
     res.status(201).json(item);
   } catch (error) {
     console.error('Ошибка добавления в общий список:', error);
