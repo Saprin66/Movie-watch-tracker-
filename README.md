@@ -1,254 +1,286 @@
 <div align="center">
 
-# 🎬 Movie Watch Tracker
+# 🎬 MovieGrade
 
-### Персональный кинотрекер с социальными функциями
+### Киножурнал с друзьями: сайт, iOS и Android
 
-[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
-[![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+Отмечайте фильмы и сериалы, ставьте оценки, пишите отзывы,<br/>
+смотрите, что смотрят друзья, и собирайте общие списки на вечер.
+
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![Node.js](https://img.shields.io/badge/Node.js-20-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![Express](https://img.shields.io/badge/Express-4-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Expo](https://img.shields.io/badge/Expo-SDK_58-000020?style=for-the-badge&logo=expo&logoColor=white)](https://expo.dev/)
+<br/>
+[![Express](https://img.shields.io/badge/Express-5-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![Prisma](https://img.shields.io/badge/Prisma-5-2D3748?style=for-the-badge&logo=prisma&logoColor=white)](https://www.prisma.io/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://neon.tech/)
+[![TMDB](https://img.shields.io/badge/Данные-TMDB-01B4E4?style=for-the-badge&logo=themoviedatabase&logoColor=white)](https://www.themoviedb.org/)
 
-[🚀 Демо](https://movie-watch-tracker.vercel.app) • [📝 Отчёт об ошибках](https://github.com/Saprin66/Movie-watch-tracker-/issues) • [💡 Предложить идею](https://github.com/Saprin66/Movie-watch-tracker-/issues)
+[🌐 Открыть сайт](https://movie-watch-tracker.vercel.app) •
+[📱 Мобильное приложение](mobile/README.md) •
+[🐞 Сообщить об ошибке](https://github.com/Saprin66/Movie-watch-tracker-/issues)
 
 </div>
 
-> 📱 **Мобильное приложение** для iOS и Android находится в папке [`mobile/`](mobile/README.md).
-
 ---
 
-## 📖 О проекте
-
-**Movie Watch Tracker** — это современное веб-приложение для ведения личного киножурнала с социальными функциями. Добавляйте фильмы, отслеживайте, что уже посмотрели, делитесь впечатлениями с друзьями и находите единомышленников.
-
-Проект разработан с использованием современного стека технологий и полностью готов к продакшну: с аутентификацией, адаптивным дизайном и деплоем на облачные платформы.
-
-### ✨ Возможности
-
-- 🔐 **Регистрация и вход** по email с JWT-аутентификацией
-- 🎥 **Каталог фильмов** с поиском и фильтрацией
-- ✅ **Статусы просмотра**: "Просмотрено" / "Планирую посмотреть"
-- 👥 **Социальная система**: добавление друзей, просмотр их профилей
-- 🟢 **Онлайн-статус** — видно, кто из друзей сейчас на сайте
-- 📊 **Статистика профиля**: количество фильмов, друзей, активность
-- ✏️ **Редактирование профиля**: смена никнейма
-- 📱 **Адаптивный дизайн**: отлично работает на мобильных и десктопах
-- 🎨 **Современный UI**: тёмная тема, плавные анимации, градиенты
-
----
-
-## 🖼️ Скриншоты
+## 📱 Как выглядит
 
 <div align="center">
-
-### Главная страница
-
-![Главная страница](https://via.placeholder.com/800x450/171a33/f47c4f?text=Главная+страница)
-
-### Профиль пользователя
-
-![Профиль](https://via.placeholder.com/800x450/171a33/8a4fff?text=Профиль+пользователя)
-
-### Поиск фильмов
-
-![Поиск](https://via.placeholder.com/800x450/171a33/10b981?text=Поиск+фильмов)
-
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/login.jpg" width="180" alt="Вход"/><br/><sub>Вход</sub></td>
+    <td align="center"><img src="docs/screenshots/journal.jpg" width="180" alt="Журнал"/><br/><sub>Мой журнал</sub></td>
+    <td align="center"><img src="docs/screenshots/review.jpg" width="180" alt="Оценка"/><br/><sub>Оценка и отзыв</sub></td>
+    <td align="center"><img src="docs/screenshots/shared-list.jpg" width="180" alt="Общий список"/><br/><sub>Смотрим вместе</sub></td>
+    <td align="center"><img src="docs/screenshots/profile.jpg" width="180" alt="Профиль друга"/><br/><sub>Профиль друга</sub></td>
+  </tr>
+</table>
 </div>
 
-> 💡 _Замените ссылки на реальные скриншоты: загрузите их в папку `screenshots/` и обновите пути_
+---
+
+## ✨ Возможности
+
+| | |
+| --- | --- |
+| 🔐 **Аккаунт** | регистрация по email с кодом подтверждения, вход, сброс пароля, удаление аккаунта |
+| 🎥 **Журнал** | статусы «Смотрел» и «Буду смотреть», поиск, сортировка, фильтры по жанру, году, рейтингу и типу |
+| ⭐ **Оценки и отзывы** | оценка от 1 до 10 и текстовый отзыв к каждому фильму |
+| 🔎 **Каталог TMDB** | поиск фильмов и сериалов, подборки, трейлеры, актёры, где посмотреть онлайн |
+| 🎲 **Что посмотреть** | рекомендации на основе вашего журнала |
+| 👥 **Друзья** | заявки в друзья, профили, онлайн-статус, последние просмотренные фильмы |
+| 📰 **Лента** | что друзья посмотрели и как оценили |
+| 🍿 **Смотрим вместе** | общие списки с друзьями: приглашения, добавление фильмов, отметка «посмотрели» |
+| 🖼️ **Профиль** | аватар, никнейм, «о себе», витрина из трёх любимых фильмов, статистика |
+| 🔔 **Push-уведомления** | в приложении: заявки в друзья, приглашения и новые фильмы в общих списках |
+| 📲 **PWA** | сайт можно установить на телефон как приложение |
 
 ---
 
-## 🛠️ Стек технологий
+## 🧩 Из чего состоит проект
 
-### Frontend
+```
+Movie-watch-tracker-/
+├── client/     🌐 сайт — React + Vite + Tailwind (Vercel)
+├── server/     ⚙️  API — Express + Prisma + PostgreSQL (Render + Neon)
+├── mobile/     📱 приложение iOS/Android — Expo + React Native + NativeWind
+└── docs/       🖼️ скриншоты для README
+```
 
-- **React 18** — библиотека для построения UI
-- **Vite** — быстрый сборщик и dev-сервер
-- **Tailwind CSS** — utility-first CSS фреймворк
-- **React Router** — клиентская маршрутизация
-- **Context API** — управление глобальным состоянием
+```mermaid
+flowchart LR
+    W["🌐 Сайт<br/>client/"] -->|REST + JWT| S["⚙️ API<br/>server/"]
+    M["📱 Приложение<br/>mobile/"] -->|REST + JWT| S
+    S --> DB[("🐘 PostgreSQL")]
+    S -->|push| E["Expo Push Service"] --> M
+    W --> T["🎬 TMDB API"]
+    M --> T
+```
 
-### Backend
-
-- **Node.js + Express** — серверная часть
-- **Prisma ORM** — работа с базой данных
-- **PostgreSQL** — реляционная база данных
-- **JWT** — аутентификация и авторизация
-- **bcrypt** — хеширование паролей
-
-### Инструменты и деплой
-
-- **Git + GitHub** — контроль версий
-- **Vercel** — хостинг фронтенда
-- **Render** — хостинг бэкенда и БД
-- **TMDB API** — данные о фильмах
+Сайт и приложение работают с одним сервером и одной базой, поэтому аккаунт, журнал и друзья у них общие.
+Данные о фильмах (постеры, описания, актёры) берутся напрямую из TMDB.
 
 ---
 
-## 🚀 Установка и запуск
+## 🛠️ Стек
 
-### Требования
+| Часть | Технологии |
+| --- | --- |
+| **Сайт** | React 19, Vite 8, Tailwind CSS 3, vite-plugin-pwa, mammoth (импорт .docx) |
+| **Сервер** | Node.js, Express 5, Prisma 5, PostgreSQL, JWT, bcrypt, Resend (письма), Expo Push |
+| **Приложение** | Expo SDK 58, React Native, Expo Router, NativeWind, TanStack Query, expo-secure-store, expo-notifications |
+| **Хостинг** | Vercel (сайт), Render (сервер), Neon (база), EAS (сборка приложения) |
 
-- Node.js 18+
-- PostgreSQL 14+
-- npm или yarn
+---
 
-### Локальный запуск
+## 🚀 Локальный запуск
 
-1. **Клонируйте репозиторий**
+> Нужен **Node.js 20+**. Для сервера ещё нужна база PostgreSQL: локальная или бесплатная на [Neon](https://neon.tech).
+
+### 1. Клонировать репозиторий
 
 ```bash
 git clone https://github.com/Saprin66/Movie-watch-tracker-.git
-cd movie-tracker
+cd Movie-watch-tracker-
 ```
 
-2. **Установите зависимости для бэкенда**
+### 2. Сервер
 
 ```bash
 cd server
 npm install
 ```
 
-3. **Настройте переменные окружения**
-
-Создайте файл `server/.env`:
+Создайте `server/.env`:
 
 ```env
-DATABASE_URL="postgresql://user:password@localhost:5432/movietracker"
-JWT_SECRET="your-super-secret-key"
+DATABASE_URL="postgresql://user:password@host:5432/dbname"
+JWT_SECRET="длинная-случайная-строка"
+RESEND_API_KEY="re_..."        # для писем с кодом подтверждения
 PORT=3001
+# необязательно:
+# CORS_ORIGINS="http://localhost:5173"
+# EXPO_ACCESS_TOKEN="..."      # если в Expo включена защита push
 ```
-
-4. **Примените миграции базы данных**
 
 ```bash
-npx prisma generate
-npx prisma db push
+npx prisma db push   # создать таблицы
+npm run dev          # http://localhost:3001
 ```
 
-5. **Запустите сервер**
-
-```bash
-npm run dev
-```
-
-6. **В новом терминале — установите и запустите фронтенд**
+### 3. Сайт
 
 ```bash
 cd client
 npm install
-npm run dev
 ```
 
-Приложение будет доступно по адресу: **http://localhost:5173**
+Создайте `client/.env`:
 
----
-
-## 📁 Структура проекта
-
-```
-movie-tracker/
-├── client/                 # Frontend (React + Vite)
-│   ├── src/
-│   │   ├── components/     # UI-компоненты
-│   │   ├── context/        # React Context (AuthContext)
-│   │   ├── pages/          # Страницы приложения
-│   │   ├── App.jsx         # Главный компонент
-│   │   └── main.jsx        # Точка входа
-│   ├── public/             # Статические файлы
-│   └── package.json
-│
-├── server/                 # Backend (Node.js + Express)
-│   ├── prisma/
-│   │   └── schema.prisma   # Схема базы данных
-│   ├── routes/             # API маршруты
-│   │   ├── auth.js         # Аутентификация
-│   │   └── users.js        # Пользователи
-│   ├── middleware/         # Middleware (auth, и т.д.)
-│   ├── index.js            # Точка входа сервера
-│   └── package.json
-│
-└── README.md
+```env
+VITE_API_URL=http://localhost:3001
+VITE_TMDB_API_KEY=ваш_ключ_tmdb
 ```
 
----
+```bash
+npm run dev          # http://localhost:5173
+```
 
-## 🔌 API Endpoints
+Ключ TMDB бесплатный: [themoviedb.org → Настройки → API](https://www.themoviedb.org/settings/api).
 
-### Аутентификация
+### 4. Мобильное приложение
 
-| Метод | Эндпоинт             | Описание                               |
-| ----- | -------------------- | -------------------------------------- |
-| POST  | `/api/auth/register` | Регистрация нового пользователя        |
-| POST  | `/api/auth/login`    | Вход в систему                         |
-| GET   | `/api/auth/me`       | Получение данных текущего пользователя |
+```bash
+cd mobile
+npm install
+cp .env.example .env   # впишите EXPO_PUBLIC_TMDB_API_KEY
+npx expo start
+```
 
-### Пользователи
-
-| Метод | Эндпоинт             | Описание                       |
-| ----- | -------------------- | ------------------------------ |
-| GET   | `/api/users/:id`     | Получение профиля пользователя |
-| GET   | `/api/users/search`  | Поиск пользователей            |
-| GET   | `/api/friends/list`  | Список друзей                  |
-| PUT   | `/api/users/profile` | Обновление профиля             |
-
-### Фильмы
-
-| Метод  | Эндпоинт                 | Описание                         |
-| ------ | ------------------------ | -------------------------------- |
-| GET    | `/api/movies`            | Получить все фильмы пользователя |
-| POST   | `/api/movies`            | Добавить фильм                   |
-| PUT    | `/api/movies/:id/status` | Изменить статус фильма           |
-| DELETE | `/api/movies/:id`        | Удалить фильм                    |
+Отсканируйте QR-код приложением **Expo Go** на телефоне.
+Сборка, push-уведомления и публикация в App Store и Google Play описаны в [mobile/README.md](mobile/README.md).
 
 ---
 
-## 🎯 Планы по развитию
+## 🔌 API
 
-- [ ] 📸 Загрузка аватарок пользователей (через Cloudinary)
-- [ ] ⭐ Система оценок и рецензий к фильмам
-- [ ] 📰 Лента активности друзей
-- [ ] 🎲 Рандомайзер "Что посмотреть сегодня"
-- [ ] 🌍 Интеграция с Letterboxd для импорта
-- [ ] 📧 Email-уведомления о новых друзьях
-- [ ] 🏆 Система достижений и бейджей
+Все запросы, кроме входа и регистрации, требуют заголовок `Authorization: Bearer <token>`.
+
+<details>
+<summary><b>Аккаунт</b> — <code>/api/auth</code></summary>
+
+| Метод | Путь | Что делает |
+| --- | --- | --- |
+| POST | `/api/auth/register` | регистрация, отправляет код на почту |
+| POST | `/api/auth/verify-email` | подтверждение почты кодом |
+| POST | `/api/auth/resend-code` | отправить код ещё раз |
+| POST | `/api/auth/login` | вход, возвращает JWT |
+| POST | `/api/auth/forgot-password` | код для сброса пароля |
+| POST | `/api/auth/reset-password` | новый пароль по коду |
+| GET | `/api/auth/me` | текущий пользователь |
+| PUT | `/api/auth/me` | сменить никнейм |
+| DELETE | `/api/auth/me` | удалить аккаунт |
+
+</details>
+
+<details>
+<summary><b>Фильмы и лента</b> — <code>/api/movies</code>, <code>/api/feed</code></summary>
+
+| Метод | Путь | Что делает |
+| --- | --- | --- |
+| GET | `/api/movies` | мой журнал |
+| POST | `/api/movies` | добавить фильм |
+| PUT | `/api/movies/:id/status` | сменить статус |
+| PUT | `/api/movies/:id/review` | оценка и отзыв |
+| GET / PUT | `/api/movies/:id/meta` | данные фильма (жанры, год и т.д.) |
+| DELETE | `/api/movies/:id` | удалить из журнала |
+| GET | `/api/feed` | лента друзей |
+
+</details>
+
+<details>
+<summary><b>Пользователи и друзья</b> — <code>/api/users</code>, <code>/api/friends</code></summary>
+
+| Метод | Путь | Что делает |
+| --- | --- | --- |
+| GET | `/api/users/search` | поиск людей |
+| GET | `/api/users/:userId` | профиль |
+| GET | `/api/users/:userId/last-watched` | последние просмотренные |
+| PUT | `/api/users/profile` | аватар, «о себе», витрина |
+| POST | `/api/users/:userId/friend-request` | отправить заявку |
+| PUT | `/api/users/:userId/friend-request` | принять или отклонить заявку |
+| GET | `/api/users/friends/requests` | входящие заявки |
+| GET | `/api/friends/list` | мои друзья |
+| DELETE | `/api/friends/:friendId` | удалить из друзей |
+
+</details>
+
+<details>
+<summary><b>Общие списки</b> — <code>/api/lists</code></summary>
+
+| Метод | Путь | Что делает |
+| --- | --- | --- |
+| GET / POST | `/api/lists` | мои списки / создать список |
+| GET | `/api/lists/invites` | приглашения |
+| POST | `/api/lists/:id/accept` · `/decline` · `/leave` | принять, отклонить, выйти |
+| GET / PUT / DELETE | `/api/lists/:id` | открыть, переименовать, удалить |
+| POST / DELETE | `/api/lists/:id/members[/:userId]` | пригласить или убрать участника |
+| POST / PUT / DELETE | `/api/lists/:id/items[/:itemId]` | добавить, отметить, удалить фильм |
+
+</details>
+
+<details>
+<summary><b>Push-уведомления</b> — <code>/api/push</code></summary>
+
+| Метод | Путь | Что делает |
+| --- | --- | --- |
+| POST | `/api/push` | сохранить push-токен устройства |
+| DELETE | `/api/push` | удалить токен (при выходе) |
+
+</details>
 
 ---
 
-## 🤝 Вклад в проект
+## ☁️ Деплой
 
-Проект открыт для предложений и улучшений! Если у вас есть идеи:
+| Что | Где | Как обновляется |
+| --- | --- | --- |
+| Сайт | Vercel | автоматически после пуша в `main` |
+| Сервер | Render | автоматически после пуша в `main`; при старте `prisma db push` обновляет таблицы |
+| База | Neon | — |
+| Приложение | EAS → App Store / Google Play | `eas build` и `eas submit`, см. [mobile/README.md](mobile/README.md) |
 
-1. Форкните репозиторий
-2. Создайте ветку для своей фичи (`git checkout -b feature/AmazingFeature`)
-3. Закоммитьте изменения (`git commit -m 'Add some AmazingFeature'`)
-4. Запушьте в ветку (`git push origin feature/AmazingFeature`)
-5. Откройте Pull Request
+---
+
+## 🗺️ Планы
+
+- [x] Аватарки пользователей
+- [x] Оценки и отзывы
+- [x] Лента активности друзей
+- [x] «Что посмотреть сегодня»
+- [x] Общие списки с друзьями
+- [x] Мобильное приложение для iOS и Android
+- [x] Push-уведомления
+- [ ] Публикация в App Store и Google Play
+- [ ] Импорт из Letterboxd
+- [ ] Достижения и бейджи
 
 ---
 
 ## 📬 Контакты
 
-**Автор:** [Алексей]  
-**Email:** [zopo1234@list.ru]  
-**Telegram:** [@fuf4ny]
+**Автор:** Алексей
+**Email:** zopo1234@list.ru
+**Telegram:** [@fuf4ny](https://t.me/fuf4ny)
 
-Проект создан в рамках обучения Fullstack-разработке.
-
----
-
-## 📄 Лицензия
-
-Этот проект создан в образовательных целях.
+Проект создан в рамках обучения fullstack-разработке.
 
 <div align="center">
 
-**Если проект вам понравился — поставьте ⭐ на GitHub!**
+**Если проект понравился, поставьте ⭐**
 
-Сделано с ❤️ и ☕
+Данные о фильмах предоставлены [TMDB](https://www.themoviedb.org/). Этот продукт использует TMDB API, но не одобрен и не сертифицирован TMDB.
 
 </div>
