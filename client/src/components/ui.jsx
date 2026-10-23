@@ -58,6 +58,8 @@ export function Poster({ src, title, className = "", small = false }) {
 }
 
 // Маленькая круглая кнопка из «жидкого стекла» в углу постера.
+// Без настоящего размытия (mg-glass-btn--flat): на длинном списке сотни размытых
+// слоёв заставляли Safari на iPhone тормозить при прокрутке.
 // active: стекло подкрашивается цветом, когда статус уже выставлен
 export function CornerButton({ icon, label, active, tone = "orange", onClick }) {
   const activeTones = {
@@ -74,7 +76,7 @@ export function CornerButton({ icon, label, active, tone = "orange", onClick }) 
       title={label}
       aria-label={label}
       aria-pressed={active}
-      className={`mg-glass-btn ${active ? activeTones[tone] : ""} relative w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center before:absolute before:-inset-1.5 before:content-['']`}
+      className={`mg-glass-btn mg-glass-btn--flat ${active ? activeTones[tone] : ""} relative w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center before:absolute before:-inset-1.5 before:content-['']`}
     >
       <Icon
         n={icon}
@@ -94,7 +96,7 @@ export function MovieCard({ poster, title, chips, footerLeft, actions, onClick, 
       >
         <Poster src={poster} title={title} />
         {/* С кнопками в углах чипы уезжают вниз постера, чтобы не перекрываться */}
-        <div className={`absolute left-2 right-2 flex flex-wrap gap-1 [&>span]:bg-[#080a16]/80 [&>span]:backdrop-blur-sm [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-[10px] [&>span]:rounded-lg ${hasCorners ? "bottom-2 items-end" : "top-2 items-start"}`}>
+        <div className={`absolute left-2 right-2 flex flex-wrap gap-1 [&>span]:bg-[#080a16]/85 [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-[10px] [&>span]:rounded-lg ${hasCorners ? "bottom-2 items-end" : "top-2 items-start"}`}>
           {chips}
         </div>
         {topLeft && <div className="absolute top-1.5 left-1.5">{topLeft}</div>}

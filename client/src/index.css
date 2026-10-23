@@ -176,8 +176,8 @@ body {
 }
 
 @keyframes mg-tab-enter {
-  from { opacity: 0; transform: translateY(12px); filter: blur(4px); }
-  to { opacity: 1; transform: none; filter: none; }
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -349,4 +349,14 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .mg-premium-btn::after,
   .mg-bar { animation: none; }
+}
+
+/* Кнопки на постерах имитируют стекло без дорогого backdrop-filter:
+   в длинном списке их сотни, и настоящее размытие тормозит прокрутку на iPhone */
+.mg-glass-btn--flat {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.mg-glass-btn--flat:not(.mg-glass-btn--orange):not(.mg-glass-btn--green) {
+  background: linear-gradient(180deg, rgba(40, 44, 70, 0.72), rgba(10, 12, 26, 0.62));
 }
