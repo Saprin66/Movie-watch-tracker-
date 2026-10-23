@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -11,6 +11,7 @@ import { keyOf, mergeRecommendations, pickSeeds } from "../utils/recommendations
 import { Button, Chip, COLORS, MovieCard, Notice, Panel, Poster, ScreenHeader, SectionTitle } from "../components/ui";
 import ChipSelect from "../components/ChipSelect";
 import WatchProviders from "../components/WatchProviders";
+import Roulette from "../components/Roulette";
 
 const KINDS = [
   { id: "all", label: "Всё" },
@@ -19,8 +20,8 @@ const KINDS = [
 ];
 const typeOf = (movie) => (movie.mediaType === "tv" ? "tv" : "movie");
 
-// Случайный фильм из «Буду смотреть»: описание и где посмотреть
-function PickedMovie({ movie, canPickAnother, onAnother }) {
+// Выпавший в рулетке фильм: описание и где посмотреть
+function PickedMovie({ movie, onAnother, onWatched }) {
   const actions = useMovieActions();
   const [busy, setBusy] = useState(false);
   const { data: found, error, refetch } = useQuery({
@@ -61,7 +62,7 @@ function PickedMovie({ movie, canPickAnother, onAnother }) {
         </Text>
       )}
       <View className="flex-row gap-2.5">
-        <Button className="flex-1" size="md" variant="soft" icon="shuffle" title="Другой" disabled={!canPickAnother} onPress={onAnother} />
+        <Button className="flex-1" size="md" variant="soft" icon="shuffle" title="Ещё раз" onPress={onAnother} />
         <Button
           className="flex-1"
           size="md"
@@ -70,8 +71,12 @@ function PickedMovie({ movie, canPickAnother, onAnother }) {
           loading={busy}
           onPress={async () => {
             setBusy(true);
-            await actions.setStatus(movie.id, "WATCHED").catch(() => {});
+            const ok = await actions.setStatus(movie.id, "WATCHED").then(
+              () => true,
+              () => false,
+            );
             setBusy(false);
+            if (ok) onWatched();
           }}
         />
       </View>
@@ -82,7 +87,7 @@ function PickedMovie({ movie, canPickAnother, onAnother }) {
   );
 }
 
-// «Что смотреть»: случайный выбор из своего списка и рекомендации по высоким оценкам
+// «Что смотреть»: рулетка по своему списку и рекомендации по высоким оценкам
 export default function DiscoverScreen() {
   const { data: movies = [], isLoading } = useMovies();
   const [kind, setKind] = useState("all");
@@ -94,17 +99,6 @@ export default function DiscoverScreen() {
     [movies, kind],
   );
   const picked = watchlist.find((m) => m.id === pickedId) || null;
-
-  useEffect(() => {
-    if (!picked && watchlist.length > 0) {
-      setPickedId(watchlist[Math.floor(Math.random() * watchlist.length)].id);
-    }
-  }, [picked, watchlist]);
-
-  const pickAnother = () => {
-    const others = watchlist.filter((m) => m.id !== pickedId);
-    if (others.length) setPickedId(others[Math.floor(Math.random() * others.length)].id);
-  };
 
   // Опорные фильмы выбираются заново по кнопке «Другая подборка»
   const hasWatched = movies.some((m) => m.status === "WATCHED");
@@ -132,14 +126,38 @@ export default function DiscoverScreen() {
       <ScrollView contentContainerClassName="gap-8 pb-10">
         <View className="px-4">
           <Panel className="p-4 gap-5">
-            <SectionTitle>Из вашего списка</SectionTitle>
+            <View>
+              <SectionTitle>Рулетка</SectionTitle>
+              <Text className="mt-1 text-[13px] text-muted">Случайный фильм из «Буду смотреть»</Text>
+            </View>
             <View className="-mx-4">
-              <ChipSelect options={KINDS} value={kind} onChange={setKind} />
+              <ChipSelect
+                options={KINDS}
+                value={kind}
+                onChange={(k) => {
+                  setKind(k);
+                  setPickedId(null);
+                }}
+              />
             </View>
             {isLoading ? (
               <ActivityIndicator color={COLORS.accent} />
-            ) : picked ? (
-              <PickedMovie key={picked.id} movie={picked} canPickAnother={watchlist.length > 1} onAnother={pickAnother} />
+            ) : watchlist.length > 0 ? (
+              // key: при смене фильтра рулетка начинает заново
+              <Roulette
+                key={kind}
+                watchlist={watchlist}
+                winner={picked}
+                onWinner={(m) => setPickedId(m?.id ?? null)}
+                renderWinner={(spinAgain) => (
+                  <PickedMovie
+                    key={picked.id}
+                    movie={picked}
+                    onAnother={spinAgain}
+                    onWatched={() => setPickedId(null)}
+                  />
+                )}
+              />
             ) : (
               <Text className="py-6 text-center text-sm text-muted">
                 В списке «Буду смотреть» пока ничего нет{kind !== "all" ? " для этого фильтра" : ""}. Добавьте фильмы через
