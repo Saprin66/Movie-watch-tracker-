@@ -3,7 +3,6 @@ import Icon from "./Icon";
 import { BTN_SOFT, ORANGE_FILTER, PANEL } from "./styles";
 import {
   DEFAULT_FILTERS,
-  KIND_OPTIONS,
   RATING_OPTIONS,
   countActiveFilters,
   isFiltering,
@@ -81,28 +80,7 @@ export default function MovieFilters({
 
       {open && (
         <div className={`${PANEL} p-4 sm:p-5 space-y-4`}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div role="group" aria-label="Тип" className="min-w-0">
-              <span className="block text-xs font-bold text-[#aeb3d6] mb-2">Тип</span>
-              <div className="flex gap-1 p-1 bg-[#0d1021] border border-white/[0.08] rounded-xl">
-                {KIND_OPTIONS.map((k) => (
-                  <button
-                    key={k.id}
-                    type="button"
-                    onClick={() => set({ kind: k.id })}
-                    aria-pressed={filters.kind === k.id}
-                    className={`flex-1 h-9 px-2 rounded-[9px] text-[13px] font-bold transition-colors ${
-                      filters.kind === k.id
-                        ? "bg-[#1d2140] text-white"
-                        : "text-[#8b91b5] hover:text-white"
-                    }`}
-                  >
-                    {k.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Labeled label="Жанр">
               <select
                 value={filters.genre}

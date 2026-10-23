@@ -178,11 +178,19 @@ export const Row = ({ children }) => (
   </div>
 );
 
-// Стеклянный переключатель подразделов с подсветкой, которая переезжает к выбранному
-export function SubTabs({ items, active, onChange }) {
+// Стеклянный переключатель с подсветкой, которая переезжает к выбранному.
+// className — обёртка, itemClass — ширина кнопок (на компьютере все одинаковые,
+// иначе подсветка не совпадёт с кнопкой). count — тихий счётчик, badge — оранжевый.
+export function SubTabs({
+  items,
+  active,
+  onChange,
+  className = "mb-6 flex justify-center sm:justify-start",
+  itemClass = "sm:w-[150px]",
+}) {
   const index = Math.max(items.findIndex((t) => t.id === active), 0);
   return (
-    <div className="mb-6 flex justify-center sm:justify-start">
+    <div className={className}>
       <div className="mg-glass-nav relative flex w-full sm:w-auto rounded-full p-1" role="tablist">
         <span
           aria-hidden="true"
@@ -201,11 +209,14 @@ export function SubTabs({ items, active, onChange }) {
               role="tab"
               aria-selected={selected}
               onClick={() => onChange(t.id)}
-              className={`relative flex-1 sm:flex-none sm:w-[150px] h-10 px-3 rounded-full inline-flex items-center justify-center gap-1.5 text-sm font-bold transition-colors duration-300 ${
+              className={`relative flex-1 sm:flex-none ${itemClass} h-10 px-3 rounded-full inline-flex items-center justify-center gap-1.5 text-sm font-bold transition-colors duration-300 ${
                 selected ? "text-[#ffb08c]" : "text-[#aeb3d6] hover:text-white"
               }`}
             >
               {t.label}
+              {t.count !== undefined && (
+                <span className="text-xs font-bold opacity-60">{t.count}</span>
+              )}
               {t.badge > 0 && (
                 <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#ff7a45] text-[#1b0d07] text-[10px] font-extrabold leading-none flex items-center justify-center">
                   {t.badge > 9 ? "9+" : t.badge}

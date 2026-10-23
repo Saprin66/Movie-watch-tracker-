@@ -64,8 +64,8 @@ export function filterMovies(list, filters) {
 // Сколько фильтров включено (поиск по названию не считается: он виден сам)
 export function countActiveFilters(filters) {
   const f = { ...DEFAULT_FILTERS, ...filters };
+  // Тип (фильмы/сериалы) выбирается отдельным переключателем и сюда не входит
   return [
-    f.kind !== "all",
     Boolean(f.genre),
     Boolean(f.decade),
     f.rating !== "any",
@@ -73,7 +73,9 @@ export function countActiveFilters(filters) {
 }
 
 export const isFiltering = (filters) =>
-  countActiveFilters(filters) > 0 || normalize(filters.query) !== "";
+  countActiveFilters(filters) > 0 ||
+  normalize(filters.query) !== "" ||
+  (filters.kind || "all") !== "all";
 
 // Жанры и десятилетия, которые реально есть в списке, с количеством записей
 export function collectFacets(list) {

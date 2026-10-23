@@ -22,6 +22,7 @@ import { SORT_OPTIONS, sortMovies } from "./utils/sortMovies";
 import MovieFilters from "./components/MovieFilters";
 import {
   DEFAULT_FILTERS,
+  KIND_OPTIONS,
   collectFacets,
   filterMovies,
   isFiltering,
@@ -1021,18 +1022,6 @@ function MovieTracker() {
                   <h1 className={PAGE_TITLE}>Журнал {user?.username}</h1>
                 </div>
                 <div className="flex gap-2.5">
-                  <label
-                    className={`inline-flex items-center gap-2 h-11 px-4 rounded-xl text-sm cursor-pointer ${BTN_SOFT} ${importing ? "opacity-50 pointer-events-none" : ""}`}
-                  >
-                    <Icon n="download" /> Импорт
-                    <input
-                      type="file"
-                      accept=".txt,.docx"
-                      onChange={handleDocxImport}
-                      disabled={importing}
-                      className="hidden"
-                    />
-                  </label>
                   <button
                     onClick={() => setActiveTab("search")}
                     className={`inline-flex items-center gap-2 h-11 px-5 rounded-xl text-sm ${BTN_ORANGE}`}
@@ -1060,41 +1049,42 @@ function MovieTracker() {
                 </div>
               )}
 
-              <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 border-b border-white/[0.07]">
-                <div className="no-scrollbar flex gap-6 overflow-x-auto">
-                {tabs.map((t) => {
-                  const count = t.id === "watched" ? watchedCount : watchlistCount;
-                  return (
-                  <button
-                    key={t.id}
-                    onClick={() => setMovieFilter(t.id)}
-                    aria-pressed={movieFilter === t.id}
-                    className={`shrink-0 inline-flex items-center gap-2 py-3.5 -mb-px text-sm font-bold border-b-2 transition-colors ${
-                      movieFilter === t.id
-                        ? "text-[#ff935f] border-[#ff7a45]"
-                        : "text-[#8b91b5] border-transparent hover:text-white"
-                    }`}
-                  >
-                    {t.label}
-                    <span className="text-xs px-2 py-px rounded-full bg-white/[0.07] text-[#aeb3d6]">{count}</span>
-                  </button>
-                  );
-                })}
+              <div className="space-y-3">
+                <SubTabs
+                  items={tabs.map((t) => ({
+                    ...t,
+                    count: t.id === "watched" ? watchedCount : watchlistCount,
+                  }))}
+                  active={movieFilter}
+                  onChange={setMovieFilter}
+                  className="flex"
+                  itemClass="sm:w-[190px]"
+                />
+                <div className="flex flex-wrap items-center gap-3">
+                  <SubTabs
+                    items={KIND_OPTIONS}
+                    active={filters.kind}
+                    onChange={(kind) => setFilters({ ...filters, kind })}
+                    className="flex flex-1 sm:flex-none min-w-0"
+                    itemClass="sm:w-[120px]"
+                  />
+                  <label className="mg-glass-chip relative !p-0 sm:!pl-4 sm:!pr-1 w-12 sm:w-auto h-12 !justify-center ml-auto shrink-0 text-[13px] !font-bold text-[#aeb3d6]" title="Сортировка">
+                    <Icon n="arrow-down-up" className="w-[18px] h-[18px] sm:w-4 sm:h-4 sm:opacity-70" />
+                    <span className="sr-only">Сортировка</span>
+                    <select
+                      value={sortMode}
+                      onChange={(e) => changeSort(e.target.value)}
+                      aria-label="Сортировка"
+                      className="absolute inset-0 opacity-0 sm:static sm:opacity-100 h-12 sm:h-10 w-full sm:w-auto bg-transparent pr-2 text-sm font-bold text-white focus:outline-none [&>option]:bg-[#12152a]"
+                    >
+                      {SORT_OPTIONS.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
-                <label className="flex items-center gap-2.5 pb-2 text-[13px] text-[#8b91b5]">
-                  Сортировка
-                  <select
-                    value={sortMode}
-                    onChange={(e) => changeSort(e.target.value)}
-                    className="h-10 bg-[#12152a] border border-white/[0.08] rounded-xl px-3 text-sm font-semibold text-white focus:outline-none focus:border-[#ff7a45]"
-                  >
-                    {SORT_OPTIONS.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
               </div>
 
               <MovieFilters
