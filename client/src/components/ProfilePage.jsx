@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Icon from "./Icon";
 import { Avatar } from "./ui";
+import { computeAchievements } from "../utils/achievements";
 import {
   MONTHS,
   formatHours,
@@ -12,15 +13,43 @@ import {
 
 const FRIENDS_PREVIEW = 5;
 
-// Заглушки: настоящих достижений пока нет
-const ACHIEVEMENTS = [
-  { icon: "clapperboard", name: "Первый фильм" },
-  { icon: "popcorn", name: "Киноман" },
-  { icon: "flame", name: "Марафонец" },
-  { icon: "star", name: "Критик" },
-  { icon: "tv", name: "Сериальщик" },
-  { icon: "users", name: "Душа компании" },
-];
+// Значок достижения: открытые — оранжевое стекло, закрытые — серые с полоской прогресса
+function AchievementBadge({ a, selected, onSelect }) {
+  return (
+    <li className="w-[78px] shrink-0 text-center">
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={selected}
+        aria-label={`${a.name}: ${a.desc}. ${a.unlocked ? "Получено" : `${a.value} из ${a.goal}`}`}
+        className="w-full transition-transform active:scale-95"
+      >
+        <div
+          className={`relative mx-auto w-16 h-16 rounded-full flex items-center justify-center border transition-shadow ${
+            a.unlocked
+              ? "mg-glass-btn--orange border-[#ffb08c]/60 shadow-[0_6px_22px_rgba(255,122,69,0.45)]"
+              : "bg-white/[0.06] border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]"
+          } ${selected ? "ring-2 ring-white/70" : ""}`}
+        >
+          <Icon n={a.icon} className={`w-6 h-6 ${a.unlocked ? "" : "opacity-35"}`} />
+          {!a.unlocked && (
+            <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#12152a] border border-white/15 flex items-center justify-center">
+              <Icon n="lock" className="w-3 h-3 opacity-70" />
+            </span>
+          )}
+        </div>
+        <div className={`mt-2 text-[11px] font-bold leading-tight ${a.unlocked ? "text-white" : "text-[#9aa0c4]"}`}>
+          {a.name}
+        </div>
+        {!a.unlocked && (
+          <div className="mx-auto mt-1.5 h-1 w-12 rounded-full bg-white/10 overflow-hidden">
+            <div className="mg-bar h-full rounded-full bg-[#ff7a45]" style={{ width: `${(a.value / a.goal) * 100}%` }} />
+          </div>
+        )}
+      </button>
+    </li>
+  );
+}
 
 function StatTile({ value, unit, label, loading }) {
   return (
@@ -67,10 +96,19 @@ export default function ProfilePage({
 }) {
   const [friendsExpanded, setFriendsExpanded] = useState(false);
   const [premiumNote, setPremiumNote] = useState(false);
+  const [selectedId, setSelectedId] = useState(null);
   const { runtimes, loading } = useRuntimes(movies);
 
   const watched = movies.filter((m) => m.status === "WATCHED");
   const total = summarize(watched, runtimes);
+  // Пока длительность догружается, часы считаем без неё — значок откроется чуть позже
+  const achievements = computeAchievements({
+    movies,
+    minutes: total.minutes,
+    friendsCount: friends.length,
+  });
+  const unlockedCount = achievements.filter((a) => a.unlocked).length;
+  const selectedAchievement = achievements.find((a) => a.id === selectedId) || null;
   const month = summarize(
     watched.filter((m) => isThisMonth(watchedDate(m))),
     runtimes,
@@ -145,21 +183,28 @@ export default function ProfilePage({
         <section className="mg-glass-panel rounded-[24px] p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="font-display text-[17px] font-semibold text-white">Достижения</h2>
-            <span className="mg-glass-chip !py-1 !px-2.5 !text-[11px]">Скоро</span>
+            <span className="mg-glass-chip mg-glass-chip--orange !py-1 !px-2.5 !text-[11px]">
+              {unlockedCount} из {achievements.length}
+            </span>
           </div>
-          <ul className="no-scrollbar -mx-5 px-5 flex gap-3 overflow-x-auto">
-            {ACHIEVEMENTS.map((a) => (
-              <li key={a.name} className="w-[76px] shrink-0 text-center">
-                <div className="relative mx-auto w-16 h-16 rounded-full flex items-center justify-center bg-white/[0.06] border border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]">
-                  <Icon n={a.icon} className="w-6 h-6 opacity-35" />
-                  <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#12152a] border border-white/15 flex items-center justify-center">
-                    <Icon n="lock" className="w-3 h-3 opacity-70" />
-                  </span>
-                </div>
-                <div className="mt-2 text-[11px] font-bold leading-tight text-[#9aa0c4]">{a.name}</div>
-              </li>
+          <ul className="no-scrollbar -mx-5 px-5 flex gap-3 overflow-x-auto pb-1">
+            {achievements.map((a) => (
+              <AchievementBadge
+                key={a.id}
+                a={a}
+                selected={selectedAchievement?.id === a.id}
+                onSelect={() => setSelectedId((id) => (id === a.id ? null : a.id))}
+              />
             ))}
           </ul>
+          {selectedAchievement && (
+            <p key={selectedAchievement.id} className="mg-page-rise mt-3 text-center text-sm text-[#c4c8e4]">
+              <span className="font-bold text-white">{selectedAchievement.name}.</span> {selectedAchievement.desc}
+              {selectedAchievement.unlocked
+                ? " — получено!"
+                : ` — ${selectedAchievement.value} из ${selectedAchievement.goal}.`}
+            </p>
+          )}
         </section>
 
         {/* Premium: пока без оплаты */}
