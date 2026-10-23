@@ -15,9 +15,6 @@ const STATUS_TABS = [
   { id: "watchlist", label: "Буду смотреть" },
 ];
 
-const formatDate = (value) =>
-  new Date(value).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
-
 // «Мой список»: журнал пользователя с вкладками, поиском, фильтрами и сортировкой
 export default function MyListScreen() {
   const { user } = useAuth();
@@ -42,7 +39,8 @@ export default function MyListScreen() {
   const shown = useMemo(() => sortMovies(filterMovies(byStatus, filters), sortMode), [byStatus, filters, sortMode]);
   const facets = useMemo(() => collectFacets(movies), [movies]);
   const setFilter = (key) => (value) => setFilters((f) => ({ ...f, [key]: value }));
-  const activeCount = countActiveFilters(filters);
+  // «Всё / Фильмы / Сериалы» всегда на виду, поэтому в счётчик фильтров не входит
+  const activeCount = countActiveFilters({ ...filters, kind: "all" });
 
   const header = (
     <View className="gap-5 pb-5">
@@ -67,6 +65,8 @@ export default function MyListScreen() {
         ))}
       </View>
 
+      <ChipSelect options={KIND_OPTIONS} value={filters.kind} onChange={setFilter("kind")} />
+
       <View className="px-4 flex-row gap-2.5">
         <Field
           className="flex-1"
@@ -88,7 +88,6 @@ export default function MyListScreen() {
       {filtersOpen && (
         <View className="gap-3">
           <ChipSelect options={SORT_OPTIONS} value={sortMode} onChange={setSortMode} />
-          <ChipSelect options={KIND_OPTIONS} value={filters.kind} onChange={setFilter("kind")} />
           <ChipSelect options={RATING_OPTIONS} value={filters.rating} onChange={setFilter("rating")} />
           {facets.genres.length > 0 && (
             <ChipSelect
@@ -146,13 +145,18 @@ export default function MyListScreen() {
               poster={movie.posterUrl}
               title={movie.title}
               onPress={() => router.push(`/review/${movie.id}`)}
-              footer={formatDate(movie.status === "WATCHED" && movie.watchedAt ? movie.watchedAt : movie.createdAt)}
+              footer={movie.releaseYear ? String(movie.releaseYear) : movie.mediaType === "tv" ? "Сериал" : "Фильм"}
               chips={
                 <>
                   <Chip solid tone={movie.status === "WATCHED" ? "green" : "blue"}>
                     {movie.status === "WATCHED" ? "Смотрел" : "Буду"}
                   </Chip>
                   {movie.rating ? <Chip solid tone="orange">★ {movie.rating}</Chip> : null}
+                  {movie.mediaType === "tv" && filters.kind !== "tv" ? (
+                    <Chip solid tone="orange">
+                      Сериал
+                    </Chip>
+                  ) : null}
                 </>
               }
             />
