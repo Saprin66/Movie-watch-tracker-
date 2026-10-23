@@ -1066,8 +1066,8 @@ function MovieTracker() {
                       }
                       chips={
                         <>
-                          {movie.releaseYear && <Chip>{movie.releaseYear}</Chip>}
-                          {movie.mediaType === "tv" && (
+                          {/* Год теперь под карточкой, а «Сериал» не нужен, когда и так выбраны сериалы */}
+                          {movie.mediaType === "tv" && filters.kind !== "tv" && (
                             <Chip tone="orange">Сериал</Chip>
                           )}
                           {movie.rating && (
@@ -1099,28 +1099,11 @@ function MovieTracker() {
                         />
                       }
                       footerLeft={
-                        <>
-                          <Icon
-                            n="calendar"
-                            className="w-3.5 h-3.5 opacity-60"
-                          />
-                          {movie.createdAt
-                            ? new Date(
-                                movie.status === "WATCHED" && movie.watchedAt
-                                  ? movie.watchedAt
-                                  : movie.createdAt,
-                              ).toLocaleDateString(
-                                "ru-RU",
-                                {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                },
-                              )
-                            : movie.mediaType === "tv"
-                              ? "Сериал"
-                              : "Фильм"}
-                        </>
+                        movie.releaseYear
+                          ? movie.releaseYear
+                          : movie.mediaType === "tv"
+                            ? "Сериал"
+                            : "Фильм"
                       }
                     />
                   ))}
