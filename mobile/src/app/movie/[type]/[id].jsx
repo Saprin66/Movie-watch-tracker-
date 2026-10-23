@@ -13,6 +13,7 @@ import { pluralize } from "../../../utils/plural";
 import { Avatar, Button, Chip, COLORS, Icon, Notice, Poster } from "../../../components/ui";
 import WatchProviders from "../../../components/WatchProviders";
 import AddToList from "../../../components/AddToList";
+import SeasonsTracker from "../../../components/SeasonsTracker";
 
 function formatRuntime(details) {
   const minutes = details?.runtime || details?.episode_run_time?.[0] || details?.last_episode_to_air?.runtime;
@@ -185,6 +186,21 @@ export default function MovieScreen() {
               title="Трейлер на YouTube"
               onPress={() => Linking.openURL(`https://www.youtube.com/watch?v=${trailer.key}`)}
             />
+          )}
+
+          {isTv && details.seasons?.length > 0 && (
+            <View className="mt-7">
+              {existing ? (
+                <SeasonsTracker entry={existing} details={details} />
+              ) : (
+                <View className="flex-row items-center gap-2.5 rounded-[20px] bg-white/[0.03] border border-white/[0.08] px-4 py-3.5">
+                  <Icon name="list" size={16} color={COLORS.muted} />
+                  <Text className="flex-1 text-sm text-[#c4c8e4]">
+                    Добавьте сериал в «Буду смотреть», чтобы отмечать просмотренные серии.
+                  </Text>
+                </View>
+              )}
+            </View>
           )}
         </View>
 
