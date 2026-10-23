@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import RecentMovies from "./RecentMovies";
 import ConfirmDialog from "./ConfirmDialog";
 import { Poster } from "./ui";
 import { useScrollLock } from "../hooks/useScrollLock";
@@ -168,7 +167,6 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
               </div>}
             </section>
 
-            {profile.recentMovies?.length ? <section className="bg-[#171b38] border border-white/[0.06] rounded-[20px] p-5 sm:p-6"><RecentMovies movies={profile.recentMovies} reviewsHidden={Boolean(profile.reviewsHidden)} /></section> : <div className="text-center py-5 text-[#8b91b5] text-sm">У пользователя пока нет фильмов в журнале</div>}
           </div>
         ) : <div className="p-8 text-center text-[#8b91b5]">Не удалось загрузить профиль</div>}
       </div>

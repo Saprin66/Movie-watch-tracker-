@@ -940,14 +940,6 @@ function MovieTracker() {
 
           <div className="flex-1" />
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("search")}
-            className={`hidden md:inline-flex items-center gap-2 h-11 px-4 rounded-xl text-sm ${BTN_SOFT}`}
-          >
-            <Icon n="plus" className="w-4 h-4" /> Новая запись
-          </button>
-
           <NotificationsBell
             invites={listInvites}
             requests={friendRequests}
@@ -1016,20 +1008,9 @@ function MovieTracker() {
           )}
           {activeTab === "movies" && (
             <div className="space-y-6">
-              <div className="flex items-end justify-between flex-wrap gap-4">
-                <div>
-                  <div className={`${EYEBROW} mb-2.5`}>Мой список</div>
-                  <h1 className={PAGE_TITLE}>Журнал {user?.username}</h1>
-                </div>
-                <div className="flex gap-2.5">
-                  <button
-                    onClick={() => setActiveTab("search")}
-                    className={`inline-flex items-center gap-2 h-11 px-5 rounded-xl text-sm ${BTN_ORANGE}`}
-                  >
-                    <Icon n="plus" className={`w-4 h-4 ${DARK_ICON}`} />
-                    Новая запись
-                  </button>
-                </div>
+              <div>
+                <div className={`${EYEBROW} mb-2.5`}>Мой список</div>
+                <h1 className={PAGE_TITLE}>Журнал {user?.username}</h1>
               </div>
 
               {importing && (
@@ -1111,7 +1092,7 @@ function MovieTracker() {
                     </button>
                   </div>
                 ) : (
-                  <Empty text="Здесь пока пусто. Нажми «Новая запись» и добавь первый фильм." />
+                  <Empty text="Здесь пока пусто. Найди фильм через лупу внизу или раздел «Искать» и добавь его." />
                 )
               ) : (
                 <Grid>
@@ -1599,7 +1580,7 @@ function MovieTracker() {
               </div>
             </div>
           )}
-          <Footer className="mt-12" />
+          {activeTab === "profile-settings" && <Footer className="mt-12" />}
           </div>
         </main>
 
