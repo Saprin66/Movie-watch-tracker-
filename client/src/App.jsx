@@ -75,10 +75,6 @@ function MovieTracker() {
   });
   const [searchMode, setSearchMode] = useState("text");
   const [selectedUserId, setSelectedUserId] = useState(null);
-  const [showcaseMovieIds, setShowcaseMovieIds] = useState([]);
-  const [showcaseLoaded, setShowcaseLoaded] = useState(false);
-  const [savingShowcase, setSavingShowcase] = useState(false);
-  const [showcaseSaveError, setShowcaseSaveError] = useState("");
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [avatarMessage, setAvatarMessage] = useState("");
   const [avatarError, setAvatarError] = useState("");
@@ -203,49 +199,6 @@ function MovieTracker() {
     } catch {
       /* без хранилища просто не запоминаем */
     }
-  };
-
-  useEffect(() => {
-    if (!user?.id || !token) return;
-    let cancelled = false;
-    const loadShowcase = async () => {
-      try {
-        const response = await fetch(`${API_URL}/api/users/${user.id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error("Не удалось загрузить витрину");
-        const data = await response.json();
-        if (!cancelled && Array.isArray(data.showcaseMovieIds)) {
-          setShowcaseMovieIds(data.showcaseMovieIds.slice(0, 3));
-          localStorage.setItem(`movieShowcase:${user.id}`, JSON.stringify(data.showcaseMovieIds.slice(0, 3)));
-        }
-      } catch {
-        try {
-          const saved = JSON.parse(localStorage.getItem(`movieShowcase:${user.id}`) || "[]");
-          if (!cancelled) setShowcaseMovieIds(Array.isArray(saved) ? saved.slice(0, 3) : []);
-        } catch { if (!cancelled) setShowcaseMovieIds([]); }
-      } finally {
-        if (!cancelled) setShowcaseLoaded(true);
-      }
-    };
-    loadShowcase();
-    return () => { cancelled = true; };
-  }, [user?.id, token]);
-
-  useEffect(() => {
-    if (!showcaseLoaded || !user?.id) return;
-    try {
-      localStorage.setItem(`movieShowcase:${user.id}`, JSON.stringify(showcaseMovieIds.slice(0, 3)));
-    } catch {
-      // Если хранилище недоступно, витрина останется активной до перезагрузки.
-    }
-  }, [showcaseMovieIds, showcaseLoaded, user?.id]);
-
-  const toggleShowcaseMovie = (movie) => {
-    const id = String(movie.id);
-    setShowcaseMovieIds((prev) => prev.includes(id)
-      ? prev.filter((item) => item !== id)
-      : prev.length < 3 ? [...prev, id] : prev);
   };
 
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
@@ -1497,24 +1450,6 @@ function MovieTracker() {
                 <button onClick={() => setSelectedUserId(user?.id)} className={`w-full h-11 rounded-xl text-sm ${BTN_SOFT}`}>Редактировать профиль</button>
               </div>
               <div className={`${PANEL} p-5 sm:p-6`}>
-                <h2 className={`flex items-center gap-3 ${SECTION_TITLE} mb-2.5`}><span className="w-[38px] h-[38px] rounded-xl bg-[#ff7a45]/[0.14] flex items-center justify-center shrink-0"><Icon n="clapperboard" className={`w-[18px] h-[18px] ${ORANGE_FILTER}`} /></span>Настройки витрины</h2>
-                <p className="text-sm text-[#8b91b5] mb-4">Выбери до трёх фильмов из журнала. Изменения будут видны в твоём профиле и профиле друзей.</p>
-                {movies.length ? <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
-                  {movies.map((movie) => {
-                    const selected = showcaseMovieIds.includes(String(movie.id));
-                    const disabled = !selected && showcaseMovieIds.length >= 3;
-                    return <button key={movie.id} disabled={disabled} onClick={() => toggleShowcaseMovie(movie)} aria-pressed={selected} className={`text-left rounded-2xl border p-2 transition ${selected ? "border-[#ff7a45] bg-[#ff7a45]/[0.09]" : "border-white/[0.08] bg-white/[0.02] hover:bg-white/5"} disabled:opacity-40`}>
-                      <div className="relative aspect-[2/3] rounded-[10px] overflow-hidden bg-[#1d2140]">
-                        <Poster src={movie.posterUrl} title={movie.title} />
-                        {selected && <span className="absolute top-2 right-2 w-7 h-7 bg-[#ff7a45] rounded-full flex items-center justify-center"><Icon n="check" className={`w-3.5 h-3.5 ${DARK_ICON}`} /></span>}
-                      </div>
-                      <div className="text-xs font-extrabold text-white mt-2.5 px-0.5 line-clamp-2">{movie.title}</div>
-                    </button>;
-                  })}
-                </div> : <p className="text-sm text-[#8b91b5]">Сначала добавь фильмы в журнал.</p>}
-                {showcaseSaveError && <p role="alert" className="mt-4 rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-200">{showcaseSaveError}</p>}
-              </div>
-              <div className={`${PANEL} p-5 sm:p-6`}>
                 <h2 className={`flex items-center gap-3 ${SECTION_TITLE} mb-2.5`}><span className="w-[38px] h-[38px] rounded-xl bg-[#ff7a45]/[0.14] flex items-center justify-center shrink-0"><Icon n="download" className={`w-[18px] h-[18px] ${ORANGE_FILTER}`} /></span>Импорт из файла</h2>
                 <p className="text-sm text-[#8b91b5] mb-5 leading-relaxed">Загрузите .txt или .docx файл со списком фильмов. Каждая строка — название и, если хотите, оценка в конце.</p>
                 <div className="rounded-2xl border-[1.5px] border-dashed border-white/[0.16] p-6 sm:p-7 flex flex-col items-center gap-3 text-center">
@@ -1523,44 +1458,6 @@ function MovieTracker() {
                     {importing ? `Импорт... ${importProgress.current}/${importProgress.total}` : "Выбрать файл"}
                     <input type="file" accept=".txt,.docx" onChange={handleDocxImport} disabled={importing} className="hidden" />
                   </label>
-                </div>
-              </div>
-              <div className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] lg:bottom-6 z-30 rounded-[18px] border border-white/10 bg-[#14172e]/95 p-3 pl-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl sm:p-3.5 sm:pl-6">
-                <div className="flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-extrabold text-white">Витрина фильмов</p>
-                    <p className="text-xs text-[#aeb3d6]">Выбрано {showcaseMovieIds.length} из 3</p>
-                  </div>
-                  <button
-                    disabled={savingShowcase || !token}
-                    onClick={async () => {
-                      setSavingShowcase(true);
-                      setShowcaseSaveError("");
-                      const selectedIds = showcaseMovieIds.slice(0, 3);
-                      try {
-                        const response = await fetch(`${API_URL}/api/users/profile`, {
-                          method: "PUT",
-                          headers: authHeaders,
-                          body: JSON.stringify({ showcaseMovieIds: selectedIds }),
-                        });
-                        const data = await response.json().catch(() => ({}));
-                        if (!response.ok) throw new Error(data.error || `Не удалось сохранить витрину (${response.status})`);
-                        if (data.user && Array.isArray(data.user.showcaseMovieIds)) {
-                          setShowcaseMovieIds(data.user.showcaseMovieIds.slice(0, 3));
-                        }
-                        try { localStorage.setItem(`movieShowcase:${user.id}`, JSON.stringify(selectedIds)); } catch {}
-                        setActiveTab("profile");
-                      } catch (error) {
-                        const message = error instanceof TypeError
-                          ? "Не удалось подключиться к серверу. Проверь, что backend запущен на порту 3001, и попробуй ещё раз."
-                          : (error.message || "Не удалось сохранить витрину");
-                        setShowcaseSaveError(message);
-                      } finally {
-                        setSavingShowcase(false);
-                      }
-                    }}
-                    className={`shrink-0 h-11 rounded-xl px-5 text-sm ${BTN_ORANGE} disabled:cursor-not-allowed disabled:opacity-50`}
-                  >{savingShowcase ? "Сохранение…" : "Сохранить витрину"}</button>
                 </div>
               </div>
               <div className={`${PANEL} p-5 sm:p-6`}>

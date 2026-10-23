@@ -6,9 +6,9 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useAuth } from "../../lib/auth";
 import { useProfile, useApiCall, isOnline } from "../../lib/social";
 import { useConfirmRemoveFriend } from "../../lib/friends";
-import { openMovie, openUser } from "../../lib/nav";
+import { openUser } from "../../lib/nav";
 import { formatTimeAgo } from "../../utils/time";
-import { Avatar, Button, COLORS, Icon, Notice, Panel, Poster, SectionTitle } from "../../components/ui";
+import { Avatar, Button, COLORS, Icon, Notice, Panel, SectionTitle } from "../../components/ui";
 import RecentMovies from "../../components/RecentMovies";
 
 const StatCard = ({ value, label, color }) => (
@@ -21,7 +21,7 @@ const StatCard = ({ value, label, color }) => (
 const monthYear = (value) =>
   value ? new Date(value).toLocaleDateString("ru-RU", { month: "long", year: "numeric" }) : "недавно";
 
-// Профиль пользователя: статистика, витрина, друзья и последние фильмы
+// Профиль пользователя: статистика, друзья и последние фильмы
 export default function UserScreen() {
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
@@ -95,28 +95,6 @@ export default function UserScreen() {
               <StatCard value={profile.watchedCount} label="Просмотрено" color="text-[#58dcaa]" />
               <StatCard value={profile.friendsCount} label="Друзей" color="text-[#86b8ff]" />
             </View>
-
-            <Panel className="p-5 gap-4 bg-[#171b38]">
-              <View>
-                <SectionTitle>Витрина фильмов</SectionTitle>
-                <Text className="text-xs text-muted mt-1">Любимые фильмы пользователя</Text>
-              </View>
-              {profile.showcaseMovies?.length ? (
-                <View className="flex-row gap-3">
-                  {profile.showcaseMovies.map((movie) => (
-                    <Pressable key={movie.id} onPress={() => openMovie(movie)} className="w-[31%]">
-                      <View className="aspect-[2/3] overflow-hidden rounded-[14px] border border-white/10">
-                        <Poster uri={movie.posterUrl} title={movie.title} />
-                      </View>
-                      <Text numberOfLines={2} className="text-xs text-white font-extrabold mt-2">{movie.title}</Text>
-                      {movie.rating != null && <Text className="text-xs font-extrabold text-accent-light mt-1">★ {movie.rating}</Text>}
-                    </Pressable>
-                  ))}
-                </View>
-              ) : (
-                <Text className="text-sm text-muted text-center py-4">Пользователь пока не выбрал фильмы для витрины</Text>
-              )}
-            </Panel>
 
             <Panel className="p-5 bg-[#171b38]">
               <Pressable onPress={() => setFriendsOpen((v) => !v)} className="flex-row items-center gap-3">

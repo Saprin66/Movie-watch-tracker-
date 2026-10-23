@@ -179,7 +179,7 @@ app.get('/api/users/:userId', authMiddleware, async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { id: targetUserId },
       select: {
-        id: true, username: true, avatar: true, bio: true, lastSeen: true, createdAt: true, showcaseMovieIds: true
+        id: true, username: true, avatar: true, bio: true, lastSeen: true, createdAt: true
       }
     });
 
@@ -244,25 +244,16 @@ app.get('/api/users/:userId', authMiddleware, async (req, res) => {
       canSeeReviews ? m : { ...m, comment: null }
     );
 
-    const [showcaseMovies, profileFriends] = await Promise.all([
-      prisma.userMovie.findMany({
-        where: { userId: targetUserId, id: { in: user.showcaseMovieIds || [] } },
-        select: { id: true, tmdbId: true, title: true, posterUrl: true, status: true, rating: true, watchedAt: true, updatedAt: true },
-      }),
-      prisma.friend.findMany({
-        where: { status: 'accepted', OR: [{ userId: targetUserId }, { friendId: targetUserId }] },
-        select: {
-          user: { select: { id: true, username: true, avatar: true, lastSeen: true } },
-          friend: { select: { id: true, username: true, avatar: true, lastSeen: true } },
-        },
-      }),
-    ]);
+    const profileFriends = await prisma.friend.findMany({
+      where: { status: 'accepted', OR: [{ userId: targetUserId }, { friendId: targetUserId }] },
+      select: {
+        user: { select: { id: true, username: true, avatar: true, lastSeen: true } },
+        friend: { select: { id: true, username: true, avatar: true, lastSeen: true } },
+      },
+    });
     const friendsList = profileFriends.map((relation) =>
       relation.user.id === targetUserId ? relation.friend : relation.user
     );
-    const orderedShowcase = (user.showcaseMovieIds || [])
-      .map((id) => showcaseMovies.find((movie) => movie.id === id))
-      .filter(Boolean);
 
     // 3. Отправляем плоский, понятный фронтенду объект
     res.json({
@@ -276,8 +267,6 @@ app.get('/api/users/:userId', authMiddleware, async (req, res) => {
       watchedCount,      // <-- Явные поля
       friendsCount,      // <-- Явные поля
       recentMovies,
-      showcaseMovies: orderedShowcase,
-      showcaseMovieIds: user.showcaseMovieIds || [],
       friends: friendsList,
       reviewsHidden: !canSeeReviews
     });

@@ -131,20 +131,6 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
             </section>
 
             <section className="bg-[#171b38] border border-white/[0.06] rounded-[20px] p-5 sm:p-6">
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <div><h3 className="font-display text-base sm:text-[17px] font-semibold text-white">Витрина фильмов</h3><p className="text-xs text-[#8b91b5] mt-1">Любимые фильмы пользователя</p></div>
-                <Icon n="clapperboard" className="w-5 h-5 opacity-60" />
-              </div>
-              {profile.showcaseMovies?.length ? <div className="grid grid-cols-3 gap-3 sm:gap-4">
-                {profile.showcaseMovies.map((movie) => <div key={movie.id} className="min-w-0">
-                  <div className="w-full aspect-[2/3] overflow-hidden rounded-[14px] border border-white/10 shadow-[0_14px_30px_rgba(0,0,0,0.4)]"><Poster src={movie.posterUrl} title={movie.title || "Фильм"} /></div>
-                  <p className="text-xs sm:text-[13px] text-white font-extrabold mt-2.5 line-clamp-2">{movie.title || "Без названия"}</p>
-                  {movie.rating != null && <p className="text-xs font-extrabold text-[#ff935f] mt-1">★ {movie.rating}</p>}
-                </div>)}
-              </div> : <div className="rounded-lg border border-dashed border-white/10 py-7 text-center"><Icon n="clapperboard" className="w-7 h-7 mx-auto mb-2 opacity-30" /><p className="text-sm text-[#8b91b5]">Пользователь пока не оформил витрину</p></div>}
-            </section>
-
-            <section className="bg-[#171b38] border border-white/[0.06] rounded-[20px] p-5 sm:p-6">
               <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-amber-400/10 flex items-center justify-center"><Icon n="trophy" className="w-5 h-5" /></div><div><h3 className="font-display text-base sm:text-[17px] font-semibold text-white">Достижения</h3><p className="text-xs text-[#8b91b5]">Система достижений в разработке</p></div></div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {["Первый фильм", "Киномарафон", "Кинокритик"].map((label) => <div key={label} className="flex items-center gap-3 rounded-[14px] bg-white/[0.03] border border-white/[0.05] p-3 opacity-75"><div className="w-9 h-9 rounded-lg bg-[#1d2140] flex items-center justify-center"><Icon n="lock-keyhole" className="w-4 h-4" /></div><div><p className="text-[13px] font-extrabold text-white">{label}</p><p className="text-[10px] text-[#8b91b5]">В разработке</p></div></div>)}

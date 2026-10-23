@@ -5,8 +5,7 @@ import { router } from "expo-router";
 import { useAuth } from "../../lib/auth";
 import { useMovies } from "../../lib/movies";
 import { useFriendRequests, useFriends, useProfile } from "../../lib/social";
-import { openReview } from "../../lib/nav";
-import { Avatar, Badge, Button, COLORS, Eyebrow, Icon, Panel, Poster, SectionTitle } from "../../components/ui";
+import { Avatar, Badge, Button, COLORS, Eyebrow, Icon, Panel } from "../../components/ui";
 
 const StatCard = ({ value, label, color }) => (
   <View className="flex-1 rounded-2xl bg-[#080a16]/50 border border-white/[0.06] p-4">
@@ -29,7 +28,7 @@ const MenuRow = ({ icon, title, subtitle, badge, onPress }) => (
   </Pressable>
 );
 
-// «Профиль»: статистика, витрина и переходы к друзьям и настройкам
+// «Профиль»: статистика и переходы к друзьям и настройкам
 export default function ProfileScreen() {
   const { user } = useAuth();
   const { data: movies = [] } = useMovies();
@@ -37,7 +36,6 @@ export default function ProfileScreen() {
   const { data: requests = [] } = useFriendRequests();
   const { data: profile, refetch, isRefetching } = useProfile(user?.id);
   const watched = movies.filter((m) => m.status === "WATCHED").length;
-  const showcase = (profile?.showcaseMovieIds || []).map((id) => movies.find((m) => m.id === id)).filter(Boolean);
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-bg">
@@ -64,31 +62,6 @@ export default function ProfileScreen() {
             <StatCard value={watched} label="Смотрел" color="text-[#58dcaa]" />
             <StatCard value={friends.length} label="Друзей" color="text-[#86b8ff]" />
           </View>
-        </Panel>
-
-        <Panel className="p-5 gap-4">
-          <View>
-            <SectionTitle>Витрина фильмов</SectionTitle>
-            <Text className="text-sm text-muted mt-1">Три фильма, которые лучше всего тебя представляют.</Text>
-          </View>
-          {showcase.length ? (
-            <View className="flex-row gap-3">
-              {showcase.map((movie) => (
-                <Pressable key={movie.id} onPress={() => openReview(movie.id)} className="w-[31%]">
-                  <View className="aspect-[2/3] overflow-hidden rounded-2xl border border-white/10 bg-card">
-                    <Poster uri={movie.posterUrl} title={movie.title} />
-                  </View>
-                  <Text numberOfLines={1} className="text-sm font-extrabold text-white mt-2.5">{movie.title}</Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : (
-            <View className="rounded-2xl border border-dashed border-white/[0.12] items-center py-8 px-4">
-              <Icon name="film" size={28} color={COLORS.accent} />
-              <Text className="text-sm text-[#c9cce6] mt-3">Витрина пока пуста</Text>
-              <Text className="text-xs text-muted mt-1 text-center">Выбрать до трёх фильмов можно в настройках профиля.</Text>
-            </View>
-          )}
         </Panel>
 
         <Panel>

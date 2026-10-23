@@ -24,6 +24,8 @@ model User {
   resetRequestedAt  DateTime?
   passwordChangedAt DateTime?   // старые токены после смены пароля недействительны
   bio              String?
+  // Витрина фильмов удалена из приложения. Колонку не убираем из схемы: prisma db push
+  // при запуске сервера отказался бы удалять её с данными. Удалить вручную при миграции.
   showcaseMovieIds String[]    @default([])
   lastSeen     DateTime    @default(now()) 
   avatar           String?

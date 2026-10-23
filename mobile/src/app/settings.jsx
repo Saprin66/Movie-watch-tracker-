@@ -3,11 +3,10 @@ import { Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useAuth } from "../lib/auth";
-import { useMovies } from "../lib/movies";
 import { useApiCall, useProfile } from "../lib/social";
 import { pickAvatar } from "../lib/avatar";
 import { POLICY_URL } from "../lib/config";
-import { Avatar, Button, COLORS, Field, Icon, Notice, Panel, Poster, ScreenHeader, SectionTitle } from "../components/ui";
+import { Avatar, Button, COLORS, Field, Icon, Notice, Panel, ScreenHeader, SectionTitle } from "../components/ui";
 import PushSettings from "../components/PushSettings";
 
 // Блок настроек: иконка, заголовок, пояснение и содержимое
@@ -29,24 +28,21 @@ function Section({ icon, title, text, children, danger }) {
 // Сообщение об успехе или ошибке под действием
 const Result = ({ value }) => (value ? <Notice error={value.error}>{value.text}</Notice> : null);
 
-// «Настройки профиля»: аватар, ник, о себе, витрина, уведомления, выход и удаление аккаунта
+// «Настройки профиля»: аватар, ник, о себе, уведомления, выход и удаление аккаунта
 export default function SettingsScreen() {
   const { user, refreshUser, logout, deleteAccount } = useAuth();
   const { data: profile } = useProfile(user?.id);
-  const { data: movies = [] } = useMovies();
   const call = useApiCall();
 
   const [busy, setBusy] = useState(null);
   const [results, setResults] = useState({});
   const [username, setUsername] = useState(user?.username || "");
   const [bio, setBio] = useState("");
-  const [showcase, setShowcase] = useState([]);
   const [password, setPassword] = useState("");
 
   useEffect(() => {
     if (profile) {
       setBio(profile.bio || "");
-      setShowcase(profile.showcaseMovieIds || []);
     }
   }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -81,9 +77,6 @@ export default function SettingsScreen() {
       },
       "Аватар удалён.",
     );
-
-  const toggleShowcase = (id) =>
-    setShowcase((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : ids.length < 3 ? [...ids, id] : ids));
 
   const confirmDelete = () =>
     Alert.alert(
@@ -153,53 +146,6 @@ export default function SettingsScreen() {
               }
             />
             <Result value={results.bio} />
-          </Section>
-
-          <Section
-            icon="film"
-            title="Витрина фильмов"
-            text={`Выбери до трёх фильмов из журнала. Их видят друзья в твоём профиле. Выбрано ${showcase.length} из 3.`}
-          >
-            {movies.length ? (
-              <View className="flex-row flex-wrap gap-2.5">
-                {movies.map((movie) => {
-                  const selected = showcase.includes(movie.id);
-                  const disabled = !selected && showcase.length >= 3;
-                  return (
-                    <Pressable
-                      key={movie.id}
-                      disabled={disabled}
-                      onPress={() => toggleShowcase(movie.id)}
-                      className={`w-[22.5%] ${disabled ? "opacity-40" : ""}`}
-                    >
-                      <View className={`aspect-[2/3] overflow-hidden rounded-[10px] border-2 ${selected ? "border-accent" : "border-transparent"}`}>
-                        <Poster uri={movie.posterUrl} title={movie.title} small />
-                        {selected && (
-                          <View className="absolute top-1 right-1 w-6 h-6 rounded-full bg-accent items-center justify-center">
-                            <Icon name="check" size={14} color={COLORS.onAccent} />
-                          </View>
-                        )}
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            ) : (
-              <Text className="text-sm text-muted">Сначала добавь фильмы в журнал.</Text>
-            )}
-            <Button
-              size="md"
-              title="Сохранить витрину"
-              loading={busy === "showcase"}
-              onPress={() =>
-                run(
-                  "showcase",
-                  () => call("/api/users/profile", { method: "PUT", body: { showcaseMovieIds: showcase } }, [["profile"]]),
-                  "Витрина сохранена",
-                )
-              }
-            />
-            <Result value={results.showcase} />
           </Section>
 
           <PushSettings />
