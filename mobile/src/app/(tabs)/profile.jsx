@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -5,7 +6,9 @@ import { router } from "expo-router";
 import { useAuth } from "../../lib/auth";
 import { useMovies } from "../../lib/movies";
 import { useFriendRequests, useFriends, useProfile } from "../../lib/social";
-import { Avatar, Badge, Button, COLORS, Eyebrow, Icon, Panel } from "../../components/ui";
+import { useWatchMinutes } from "../../lib/watchTime";
+import { computeAchievements } from "../../utils/achievements";
+import { Avatar, Badge, Button, Chip, COLORS, Eyebrow, Icon, Panel } from "../../components/ui";
 
 const StatCard = ({ value, label, color }) => (
   <View className="flex-1 rounded-2xl bg-[#080a16]/50 border border-white/[0.06] p-4">
@@ -27,6 +30,67 @@ const MenuRow = ({ icon, title, subtitle, badge, onPress }) => (
     <Icon name="chevron-right" size={18} color={COLORS.muted} />
   </Pressable>
 );
+
+// Значок достижения: открытые — оранжевые, закрытые — серые с замком и полоской прогресса
+const AchievementBadge = ({ a, selected, onPress }) => (
+  <Pressable onPress={onPress} className="w-[78px] items-center active:opacity-80">
+    <View
+      className={`w-16 h-16 rounded-full items-center justify-center border-2 ${
+        a.unlocked ? "bg-accent" : "bg-white/[0.06]"
+      } ${selected ? "border-white" : a.unlocked ? "border-[#ffb08c]" : "border-white/[0.12]"}`}
+    >
+      <Icon name={a.icon} size={24} color={a.unlocked ? COLORS.onAccent : "rgba(233,235,247,0.35)"} />
+      {!a.unlocked && (
+        <View className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-panel border border-white/15 items-center justify-center">
+          <Icon name="lock" size={11} color={COLORS.muted} />
+        </View>
+      )}
+    </View>
+    <Text className={`mt-2 text-[11px] font-bold text-center leading-tight ${a.unlocked ? "text-white" : "text-[#9aa0c4]"}`}>
+      {a.name}
+    </Text>
+    {!a.unlocked && (
+      <View className="mt-1.5 h-1 w-12 rounded-full bg-white/10 overflow-hidden">
+        <View className="h-full rounded-full bg-accent" style={{ width: `${(a.value / a.goal) * 100}%` }} />
+      </View>
+    )}
+  </Pressable>
+);
+
+function Achievements({ movies, friendsCount }) {
+  const { minutes } = useWatchMinutes(movies);
+  const [selectedId, setSelectedId] = useState(null);
+  const achievements = computeAchievements({ movies, minutes, friendsCount });
+  const unlocked = achievements.filter((a) => a.unlocked).length;
+  const selected = achievements.find((a) => a.id === selectedId);
+
+  return (
+    <Panel className="py-5 gap-4">
+      <View className="px-5 flex-row items-center justify-between">
+        <Text className="text-[17px] font-semibold text-white">Достижения</Text>
+        <Chip tone="orange">
+          {unlocked} из {achievements.length}
+        </Chip>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3 px-5">
+        {achievements.map((a) => (
+          <AchievementBadge
+            key={a.id}
+            a={a}
+            selected={selected?.id === a.id}
+            onPress={() => setSelectedId((id) => (id === a.id ? null : a.id))}
+          />
+        ))}
+      </ScrollView>
+      {selected && (
+        <Text className="px-5 text-center text-sm text-[#c4c8e4]">
+          <Text className="font-bold text-white">{selected.name}.</Text> {selected.desc}
+          {selected.unlocked ? " — получено!" : ` — ${selected.value} из ${selected.goal}.`}
+        </Text>
+      )}
+    </Panel>
+  );
+}
 
 // «Профиль»: статистика и переходы к друзьям и настройкам
 export default function ProfileScreen() {
@@ -64,6 +128,8 @@ export default function ProfileScreen() {
           </View>
         </Panel>
 
+        <Achievements movies={movies} friendsCount={friends.length} />
+
         <Panel>
           <MenuRow
             icon="users"
@@ -75,7 +141,7 @@ export default function ProfileScreen() {
           <View className="h-px bg-white/[0.06] mx-4" />
           <MenuRow icon="activity" title="Лента друзей" subtitle="Что друзья смотрят и как оценивают" onPress={() => router.push("/feed")} />
           <View className="h-px bg-white/[0.06] mx-4" />
-          <MenuRow icon="star" title="Что смотреть" subtitle="Случайный выбор и рекомендации" onPress={() => router.push("/discover")} />
+          <MenuRow icon="star" title="Что смотреть" subtitle="Рулетка и рекомендации" onPress={() => router.push("/discover")} />
         </Panel>
       </ScrollView>
     </SafeAreaView>
