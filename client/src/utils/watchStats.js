@@ -2,11 +2,24 @@ import { useEffect, useState } from "react";
 import { fetchTmdb } from "./tmdb";
 
 // Длительность в журнале не хранится: берём её из TMDB и кэшируем в браузере.
-// Для сериала считаем весь сериал: число серий × длина серии.
+// Для сериала без отмеченных серий считаем весь сериал: число серий × длина серии.
+// Если серии отмечены, точное время приходит с сервера (episodeMinutes).
 const CACHE_KEY = "mg-runtime-v1";
 const PARALLEL = 4;
 
 const keyOf = (m) => `${m.mediaType === "tv" ? "tv" : "movie"}-${m.tmdbId}`;
+
+// Сериал, у которого отмечены отдельные серии
+export const hasEpisodes = (m) => m.mediaType === "tv" && m.episodesWatched > 0;
+
+// Записи, которые дают время просмотра: просмотренное и начатые сериалы
+export const timeEntries = (movies) =>
+  movies.filter((m) => m.status === "WATCHED" || hasEpisodes(m));
+
+function minutesOf(m, runtimes) {
+  if (hasEpisodes(m)) return m.episodeMinutes || 0;
+  return m.status === "WATCHED" ? runtimes[keyOf(m)] || 0 : 0;
+}
 
 function readCache() {
   try {
@@ -36,7 +49,7 @@ export function useRuntimes(movies) {
   const [runtimes, setRuntimes] = useState(readCache);
 
   const missingKey = movies
-    .filter((m) => m.status === "WATCHED" && m.tmdbId && runtimes[keyOf(m)] === undefined)
+    .filter((m) => m.status === "WATCHED" && !hasEpisodes(m) && m.tmdbId && runtimes[keyOf(m)] === undefined)
     .map(keyOf)
     .join(",");
 
@@ -83,13 +96,14 @@ export const watchedDate = (m) => (m.watchedAt ? new Date(m.watchedAt) : null);
 export const isThisMonth = (date, now = new Date()) =>
   !!date && date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
 
-// Сводка по просмотренным: минуты, фильмы, сериалы
-export function summarize(watched, runtimes) {
+// Сводка: минуты по всем записям, а фильмы и сериалы — только досмотренные
+export function summarize(entries, runtimes) {
   let minutes = 0;
   let films = 0;
   let series = 0;
-  for (const m of watched) {
-    minutes += runtimes[keyOf(m)] || 0;
+  for (const m of entries) {
+    minutes += minutesOf(m, runtimes);
+    if (m.status !== "WATCHED") continue;
     if (m.mediaType === "tv") series += 1;
     else films += 1;
   }

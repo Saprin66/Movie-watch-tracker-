@@ -7,6 +7,7 @@ import {
   formatHours,
   isThisMonth,
   summarize,
+  timeEntries,
   useRuntimes,
   watchedDate,
 } from "../utils/watchStats";
@@ -100,7 +101,7 @@ export default function ProfilePage({
   const { runtimes, loading } = useRuntimes(movies);
 
   const watched = movies.filter((m) => m.status === "WATCHED");
-  const total = summarize(watched, runtimes);
+  const total = summarize(timeEntries(movies), runtimes);
   // Пока длительность догружается, часы считаем без неё — значок откроется чуть позже
   const achievements = computeAchievements({
     movies,

@@ -7,6 +7,7 @@ import { fetchTmdb } from "../utils/tmdb";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { useBackClose } from "../hooks/useBackClose";
 import WatchProviders from "./WatchProviders";
+import SeasonsTracker from "./SeasonsTracker";
 import { useAuth } from "../context/AuthContext";
 import { itemFromTmdb, listsRequest } from "../utils/listsApi";
 
@@ -135,6 +136,7 @@ export default function MovieDetailsModal({
   onAdd,
   onOpenReview,
   onOpenPerson,
+  onEpisodesChanged,
   historyKey = "details",
 }) {
   useScrollLock();
@@ -387,6 +389,21 @@ export default function MovieDetailsModal({
                 </dl>
               )}
             </section>
+
+            {isTv && details?.seasons?.length > 0 &&
+              (existing ? (
+                <SeasonsTracker
+                  entry={existing}
+                  tmdbId={movie.id}
+                  details={details}
+                  onChanged={onEpisodesChanged}
+                />
+              ) : (
+                <p className="mg-glass-panel rounded-[24px] px-5 py-4 text-sm text-[#c4c8e4]">
+                  <Icon n="list-checks" className="w-4 h-4 inline -mt-0.5 mr-1.5 opacity-70" />
+                  Добавьте сериал в «Буду смотреть», чтобы отмечать просмотренные серии.
+                </p>
+              ))}
 
             <WatchProviders results={details?.["watch/providers"]?.results} loading={loading} />
 

@@ -69,10 +69,25 @@ model UserMovie {
   metaCheckedAt DateTime?  // когда год и жанры были заполнены
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episodes  EpisodeWatch[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+}
+
+// Просмотренные серии сериала из журнала
+model EpisodeWatch {
+  id          String    @id @default(uuid())
+  userMovieId String
+  userMovie   UserMovie @relation(fields: [userMovieId], references: [id], onDelete: Cascade)
+  season      Int
+  episode     Int
+  runtime     Int?      // длительность серии в минутах на момент отметки (для статистики)
+  watchedAt   DateTime  @default(now())
+
+  @@unique([userMovieId, season, episode])
+  @@index([userMovieId])
 }
 
 // Общий список «смотрим вместе»: владелец и друзья-участники добавляют фильмы

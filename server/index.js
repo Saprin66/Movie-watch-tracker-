@@ -346,11 +346,26 @@ app.use('/api/users', userRoutes);
 // Фильмы
 app.get('/api/movies', authMiddleware, async (req, res) => {
   try {
-    const movies = await prisma.userMovie.findMany({
-      where: { userId: req.userId },
-      orderBy: { createdAt: 'desc' }
-    });
-    res.json(movies);
+    const [movies, episodeStats] = await Promise.all([
+      prisma.userMovie.findMany({
+        where: { userId: req.userId },
+        orderBy: { createdAt: 'desc' }
+      }),
+      // Сколько серий отмечено у каждого сериала и сколько минут они заняли
+      prisma.episodeWatch.groupBy({
+        by: ['userMovieId'],
+        where: { userMovie: { userId: req.userId } },
+        _count: { _all: true },
+        _sum: { runtime: true }
+      })
+    ]);
+    const statsById = new Map(episodeStats.map((e) => [e.userMovieId, e]));
+    res.json(movies.map((m) => {
+      const stat = statsById.get(m.id);
+      return stat
+        ? { ...m, episodesWatched: stat._count._all, episodeMinutes: stat._sum.runtime || 0 }
+        : m;
+    }));
   } catch (error) {
     console.error('Ошибка получения фильмов:', error);
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
@@ -410,6 +425,73 @@ app.post('/api/movies', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Ошибка добавления фильма:', error);
     res.status(500).json({ error: 'Не удалось добавить фильм' });
+  }
+});
+
+// Серии сериала из своего журнала: какие отмечены просмотренными
+app.get('/api/movies/:id/episodes', authMiddleware, async (req, res) => {
+  try {
+    const movie = await prisma.userMovie.findFirst({ where: { id: req.params.id, userId: req.userId } });
+    if (!movie) return res.status(404).json({ error: 'Сериал не найден' });
+    const episodes = await prisma.episodeWatch.findMany({
+      where: { userMovieId: movie.id },
+      orderBy: [{ season: 'asc' }, { episode: 'asc' }],
+      select: { season: true, episode: true, runtime: true, watchedAt: true }
+    });
+    res.json(episodes);
+  } catch (error) {
+    console.error('Ошибка загрузки серий:', error);
+    res.status(500).json({ error: 'Не удалось загрузить серии' });
+  }
+});
+
+// Отметить серии просмотренными (watched: true) или снять отметку (watched: false)
+app.put('/api/movies/:id/episodes', authMiddleware, async (req, res) => {
+  try {
+    const { episodes, watched } = req.body || {};
+    const validEpisode = (e) =>
+      e && Number.isInteger(e.season) && e.season >= 0 && e.season <= 500 &&
+      Number.isInteger(e.episode) && e.episode >= 1 && e.episode <= 5000 &&
+      (e.runtime === undefined || e.runtime === null || (Number.isInteger(e.runtime) && e.runtime >= 0 && e.runtime <= 1000));
+    if (!Array.isArray(episodes) || episodes.length === 0 || episodes.length > 500 || !episodes.every(validEpisode)) {
+      return res.status(400).json({ error: 'Неверный список серий' });
+    }
+    if (typeof watched !== 'boolean') {
+      return res.status(400).json({ error: 'Не указано, отметить или снять отметку' });
+    }
+
+    const movie = await prisma.userMovie.findFirst({ where: { id: req.params.id, userId: req.userId } });
+    if (!movie) return res.status(404).json({ error: 'Сериал не найден' });
+    if (movie.mediaType !== 'tv') return res.status(400).json({ error: 'Серии есть только у сериалов' });
+
+    if (watched) {
+      await prisma.episodeWatch.createMany({
+        data: episodes.map((e) => ({
+          userMovieId: movie.id,
+          season: e.season,
+          episode: e.episode,
+          runtime: e.runtime ?? null
+        })),
+        skipDuplicates: true
+      });
+    } else {
+      await prisma.episodeWatch.deleteMany({
+        where: {
+          userMovieId: movie.id,
+          OR: episodes.map((e) => ({ season: e.season, episode: e.episode }))
+        }
+      });
+    }
+
+    const updated = await prisma.episodeWatch.findMany({
+      where: { userMovieId: movie.id },
+      orderBy: [{ season: 'asc' }, { episode: 'asc' }],
+      select: { season: true, episode: true, runtime: true, watchedAt: true }
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error('Ошибка отметки серий:', error);
+    res.status(500).json({ error: 'Не удалось сохранить серии' });
   }
 });
 

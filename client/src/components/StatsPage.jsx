@@ -5,6 +5,7 @@ import {
   MONTHS,
   formatHours,
   summarize,
+  timeEntries,
   topGenres,
   useRuntimes,
   watchedDate,
@@ -137,7 +138,7 @@ function WatchCalendar({ watched, onOpenMovie }) {
 export default function StatsPage({ movies, onBack, onOpenMovie }) {
   const { runtimes, loading } = useRuntimes(movies);
   const watched = movies.filter((m) => m.status === "WATCHED");
-  const total = summarize(watched, runtimes);
+  const total = summarize(timeEntries(movies), runtimes);
   const hours = formatHours(total.minutes);
   const rated = watched.filter((m) => m.rating);
   const avgRating = rated.length

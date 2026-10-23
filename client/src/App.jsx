@@ -774,6 +774,7 @@ function MovieTracker() {
       onClose={onClose}
       onOpenReview={setReviewMovieId}
       onOpenPerson={openPerson}
+      onEpisodesChanged={fetchMovies}
       onAdd={async (status, details) => {
         const created = await addMovie({
           tmdbId: movie.id,
