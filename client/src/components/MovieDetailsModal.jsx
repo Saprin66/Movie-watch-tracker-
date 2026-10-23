@@ -256,16 +256,17 @@ export default function MovieDetailsModal({
       aria-label={title}
       className={`fixed inset-0 z-50 bg-[#080a16] overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"}`}
     >
-      {/* Фон: размытый постер */}
-      <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+      {/* Фон: постер сверху, слегка размыт, чтобы не спорить с постером по центру,
+          и плавно уходит в тёмный фон к описанию */}
+      <div className="absolute inset-x-0 top-0 h-[78vh] overflow-hidden" aria-hidden="true">
         {posterSrc && (
           <img
             src={posterSrc}
             alt=""
-            className="mg-page-bg absolute inset-0 w-full h-full object-cover scale-125 blur-[40px] opacity-60"
+            className="mg-page-bg absolute inset-0 w-full h-full object-cover object-center blur-[6px]"
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#080a16]/30 via-[#080a16]/70 to-[#080a16]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#080a16]/45 via-[#080a16]/55 via-45% to-[#080a16]" />
       </div>
 
       <div className="relative h-full overflow-y-auto scroll-contain">
