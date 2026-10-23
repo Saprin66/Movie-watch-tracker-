@@ -6,11 +6,12 @@ import { POSTER_LARGE, PROFILE } from "../config";
 import { fetchTmdb } from "../utils/tmdb";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { useBackClose } from "../hooks/useBackClose";
+import WatchProviders from "./WatchProviders";
 import { useAuth } from "../context/AuthContext";
 import { itemFromTmdb, listsRequest } from "../utils/listsApi";
 
 const DETAILS_PARAMS =
-  "&language=ru-RU&append_to_response=credits,videos,release_dates,content_ratings&include_video_language=ru,en,null";
+  "&language=ru-RU&append_to_response=credits,videos,release_dates,content_ratings,watch/providers&include_video_language=ru,en,null";
 
 const pluralSeasons = (n) => {
   const m10 = n % 10;
@@ -362,6 +363,8 @@ export default function MovieDetailsModal({
                 </dl>
               )}
             </section>
+
+            <WatchProviders results={details?.["watch/providers"]?.results} loading={loading} />
 
             {cast.length > 0 && (
               <section className="mg-glass-panel rounded-[24px] p-5 sm:p-7">
