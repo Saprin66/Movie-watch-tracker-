@@ -6,6 +6,8 @@ export const LEAVE_MS = 260;
 // Полноэкранная страница поверх приложения добавляет запись в историю браузера:
 // системная кнопка/жест «Назад» закрывает её, а не уводит с сайта.
 // key отличает страницы друг от друга (например, «details» и «review»).
+// Страницы могут лежать стопкой: каждая помнит свою глубину (mgDepth) и закрывается,
+// только когда «назад» ушёл ниже неё, — нижние страницы при этом остаются.
 export function useBackClose(key, onClose) {
   const [leaving, setLeaving] = useState(false);
 
@@ -16,13 +18,19 @@ export function useBackClose(key, onClose) {
   }, [onClose]);
 
   useEffect(() => {
-    if (window.history.state?.mgPage !== key) {
-      window.history.pushState({ ...window.history.state, mgPage: key }, "");
+    const state = window.history.state;
+    let depth;
+    if (state?.mgPage === key) {
+      // Запись уже есть: повторный запуск эффекта или её передали через handOver
+      depth = state.mgDepth ?? 1;
+    } else {
+      depth = (state?.mgDepth ?? 0) + 1;
+      window.history.pushState({ ...state, mgPage: key, mgDepth: depth }, "");
     }
     let timer;
     const onPop = () => {
-      // Запись этой страницы всё ещё текущая — «назад» был не про неё
-      if (window.history.state?.mgPage === key) return;
+      // «Назад» снял страницу выше этой — эта остаётся
+      if ((window.history.state?.mgDepth ?? 0) >= depth) return;
       setLeaving(true);
       timer = setTimeout(() => onCloseRef.current(), LEAVE_MS);
     };

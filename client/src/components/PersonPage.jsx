@@ -22,6 +22,9 @@ const ROLE_TABS = [
   { id: "Producer", label: "Продюсер", jobs: ["Producer", "Executive Producer"] },
 ];
 
+// Появления «в роли себя» (ток-шоу, документалки) — не роли, в фильмографию не берём
+const SELF_ROLE = /^(self|himself|herself|themselves|сам|сама)\b/i;
+
 const yearOf = (item) => (item.release_date || item.first_air_date || "").slice(0, 4);
 const typeOf = (item) => (item.media_type === "tv" ? "tv" : "movie");
 
@@ -62,6 +65,7 @@ function filmography(credits, tab) {
   const byKey = new Map();
   for (const item of source) {
     if (item.media_type !== "movie" && item.media_type !== "tv") continue;
+    if (tab.id === "cast" && SELF_ROLE.test(item.character || "")) continue;
     const key = `${item.media_type}-${item.id}`;
     const prev = byKey.get(key);
     // У сериалов одна роль может быть записана несколько раз — склеиваем
@@ -121,9 +125,8 @@ export default function PersonPage({ person, movies, onClose, onOpenMovie, histo
     (t) => t.items.length > 0,
   );
   // По умолчанию — основная профессия человека
-  const defaultTab =
-    tabs.find((t) => (data?.known_for_department === "Directing" ? t.id === "Director" : t.id === "cast"))?.id ||
-    tabs[0]?.id;
+  const mainTab = { Directing: "Director", Writing: "Writer", Production: "Producer" }[data?.known_for_department] || "cast";
+  const defaultTab = tabs.find((t) => t.id === mainTab)?.id || tabs[0]?.id;
   const activeTab = tabs.find((t) => t.id === (tabId || defaultTab));
 
   const allKeys = new Set(tabs.flatMap((t) => t.items.map((i) => `${i.media_type}-${i.id}`)));
@@ -240,14 +243,16 @@ export default function PersonPage({ person, movies, onClose, onOpenMovie, histo
             {activeTab && (
               <section>
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="font-display text-[19px] font-semibold text-white">Фильмография</h2>
+                  <h2 className="font-display text-[19px] font-semibold text-white">
+                    Фильмография <span className="text-[#9aa0c4]">· {activeTab.items.length}</span>
+                  </h2>
                   {tabs.length > 1 && (
                     <SubTabs
-                      items={tabs.map((t) => ({ id: t.id, label: t.label, count: t.items.length }))}
+                      items={tabs.map((t) => ({ id: t.id, label: t.label }))}
                       active={activeTab.id}
                       onChange={setTabId}
                       className="flex w-full sm:w-auto"
-                      itemClass="sm:w-[150px]"
+                      itemClass="sm:w-[130px] !px-1.5 text-[13px] sm:text-sm"
                     />
                   )}
                 </div>
@@ -275,7 +280,8 @@ export default function PersonPage({ person, movies, onClose, onOpenMovie, histo
                         footerLeft={
                           <span className="truncate">
                             {year || "Скоро"}
-                            {item.character ? ` · ${item.character}` : item.job && activeTab.id !== "cast" ? ` · ${item.job}` : ""}
+                            {/* Должность и так видна по вкладке — показываем только роль */}
+                            {activeTab.id === "cast" && item.character ? ` · ${item.character}` : ""}
                           </span>
                         }
                         onClick={() =>

@@ -186,10 +186,12 @@ export default function SeasonsTracker({ entry, tmdbId, details, onChanged }) {
         <div className="mb-4 flex items-center gap-3 rounded-2xl bg-white/[0.06] border border-white/[0.1] p-3 pl-4">
           <div className="min-w-0 flex-1">
             <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#ff935f]">Следующая серия</div>
-            <div className="mt-0.5 truncate text-sm font-bold text-white">
+            <div className="mt-0.5 text-sm font-bold text-white">
               Сезон {next.season}, серия {next.episode}
-              {nextEpisodeData?.name ? ` · ${nextEpisodeData.name}` : ""}
             </div>
+            {nextEpisodeData?.name && (
+              <div className="truncate text-xs text-[#aeb3d6]">{nextEpisodeData.name}</div>
+            )}
           </div>
           <button
             type="button"
