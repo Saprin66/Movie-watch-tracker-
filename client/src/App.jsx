@@ -10,6 +10,7 @@ import ProfileModal from "./components/ProfileModal";
 import ReviewModal from "./components/ReviewModal";
 import ConfirmDialog from "./components/ConfirmDialog";
 import MovieDetailsModal from "./components/MovieDetailsModal";
+import PersonPage from "./components/PersonPage";
 import ProfilePage from "./components/ProfilePage";
 import StatsPage from "./components/StatsPage";
 import FriendsFeed from "./components/FriendsFeed";
@@ -89,6 +90,7 @@ function MovieTracker() {
   });
   const [importResult, setImportResult] = useState(null);
   const [selectedMovie, setSelectedMovie] = useState(null);
+  const [pageStack, setPageStack] = useState([]);
   const [lastWatchedData, setLastWatchedData] = useState({});
   const [reviewMovieId, setReviewMovieId] = useState(null);
   const [openListId, setOpenListId] = useState(null);
@@ -754,6 +756,38 @@ function MovieTracker() {
   };
 
   const reviewMovie = movies.find((m) => m.id === reviewMovieId) || null;
+
+  const openPerson = (person) =>
+    setPageStack((stack) => [...stack, { kind: "person", person }]);
+
+  // Страница фильма из TMDB: основная (historyKey «details») или открытая поверх других
+  const renderMovieDetails = (movie, historyKey, onClose) => (
+    <MovieDetailsModal
+      key={`${historyKey}-${movie.media_type || "movie"}-${movie.id}`}
+      movie={movie}
+      historyKey={historyKey}
+      existing={movies.find(
+        (m) =>
+          m.tmdbId === movie.id &&
+          m.mediaType === (movie.media_type === "tv" ? "tv" : "movie"),
+      )}
+      onClose={onClose}
+      onOpenReview={setReviewMovieId}
+      onOpenPerson={openPerson}
+      onAdd={async (status, details) => {
+        const created = await addMovie({
+          tmdbId: movie.id,
+          title: movie.title || movie.name,
+          posterUrl: movie.poster_path ? `${POSTER}${movie.poster_path}` : null,
+          status,
+          mediaType: movie.media_type === "tv" ? "tv" : "movie",
+          ...metaFromTmdb(details || movie),
+        });
+        // «Смотрел» сразу открывает оценку, как и кнопка на карточке
+        if (status === "WATCHED" && created?.id) setReviewMovieId(created.id);
+      }}
+    />
+  );
 
   const byStatus = movies.filter((m) =>
     movieFilter === "watchlist" ? m.status === "WATCHLIST" : m.status === "WATCHED",
@@ -1628,33 +1662,29 @@ function MovieTracker() {
         />
       )}
 
-      {selectedMovie && (
-        <MovieDetailsModal
-          key={`${selectedMovie.media_type || "movie"}-${selectedMovie.id}`}
-          movie={selectedMovie}
-          existing={movies.find(
-            (m) =>
-              m.tmdbId === selectedMovie.id &&
-              m.mediaType === (selectedMovie.media_type === "tv" ? "tv" : "movie"),
-          )}
-          onClose={() => setSelectedMovie(null)}
-          onOpenReview={setReviewMovieId}
-          onAdd={async (status, details) => {
-            const created = await addMovie({
-              tmdbId: selectedMovie.id,
-              title: selectedMovie.title || selectedMovie.name,
-              posterUrl: selectedMovie.poster_path
-                ? `${POSTER}${selectedMovie.poster_path}`
-                : null,
-              status,
-              mediaType: selectedMovie.media_type === "tv" ? "tv" : "movie",
-              ...metaFromTmdb(details || selectedMovie),
-            });
-            // «Смотрел» сразу открывает оценку, как и кнопка на карточке
-            if (status === "WATCHED" && created?.id) setReviewMovieId(created.id);
-          }}
-        />
-      )}
+      {selectedMovie && renderMovieDetails(selectedMovie, "details", () => {
+        setSelectedMovie(null);
+        setPageStack([]);
+      })}
+
+      {/* Страницы, открытые поверх фильма: актёр, затем его фильм и так далее.
+          «Назад» снимает только верхнюю */}
+      {pageStack.map((page, index) => {
+        const historyKey = `stack-${index}`;
+        const closePage = () => setPageStack((stack) => stack.slice(0, index));
+        return page.kind === "person" ? (
+          <PersonPage
+            key={`${historyKey}-person-${page.person.id}`}
+            person={page.person}
+            movies={movies}
+            historyKey={historyKey}
+            onClose={closePage}
+            onOpenMovie={(movie) => setPageStack((stack) => [...stack, { kind: "movie", movie }])}
+          />
+        ) : (
+          renderMovieDetails(page.movie, historyKey, closePage)
+        );
+      })}
 
       {toastInvite && (
         <InviteToast

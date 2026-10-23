@@ -87,9 +87,15 @@ function Fact({ label, children }) {
   );
 }
 
-function CastMember({ person }) {
+function CastMember({ person, onOpen }) {
   return (
     <li className="w-[84px] shrink-0 text-center">
+      <button
+        type="button"
+        onClick={() => onOpen(person)}
+        aria-label={`${person.name}: фильмография`}
+        className="w-full rounded-2xl transition-transform active:scale-95"
+      >
       {person.profile_path ? (
         <img
           src={`${PROFILE}${person.profile_path}`}
@@ -110,6 +116,7 @@ function CastMember({ person }) {
           {person.character}
         </div>
       )}
+      </button>
     </li>
   );
 }
@@ -119,19 +126,22 @@ const SECTION_LABEL =
 
 // Страница фильма или сериала из TMDB, открывается поверх приложения на весь экран.
 // movie: результат поиска TMDB. existing: запись пользователя, если фильм уже в журнале.
-// onAdd(status, details) вызывается при добавлении, onOpenReview: открыть отзыв из журнала.
+// onAdd(status, details) вызывается при добавлении, onOpenReview: открыть отзыв из журнала,
+// onOpenPerson: страница актёра или режиссёра. historyKey различает страницы в стопке.
 export default function MovieDetailsModal({
   movie,
   existing,
   onClose,
   onAdd,
   onOpenReview,
+  onOpenPerson,
+  historyKey = "details",
 }) {
   useScrollLock();
 
   const type = movie.media_type === "tv" ? "tv" : "movie";
   const [state, setState] = useState({ loading: true, details: null });
-  const { leaving, close, handOver } = useBackClose("details", onClose);
+  const { leaving, close, handOver } = useBackClose(historyKey, onClose);
 
   useEffect(() => {
     let cancelled = false;
@@ -177,8 +187,8 @@ export default function MovieDetailsModal({
 
   const crew = details?.credits?.crew || [];
   const directors = isTv
-    ? (details?.created_by || []).map((p) => p.name)
-    : crew.filter((c) => c.job === "Director").map((c) => c.name);
+    ? details?.created_by || []
+    : crew.filter((c) => c.job === "Director");
   const cast = (details?.credits?.cast || []).slice(0, 12);
 
   const trailer = (details?.videos?.results || []).find(
@@ -359,7 +369,21 @@ export default function MovieDetailsModal({
 
               {directors.length > 0 && (
                 <dl className="mt-6">
-                  <Fact label={isTv ? "Создатели" : "Режиссёр"}>{directors.join(", ")}</Fact>
+                  <Fact label={isTv ? "Создатели" : "Режиссёр"}>
+                    <span className="flex flex-wrap gap-1.5">
+                      {directors.map((p) => (
+                        <button
+                          key={p.credit_id || p.id}
+                          type="button"
+                          onClick={() => onOpenPerson(p)}
+                          className="mg-glass-chip !py-1 !px-3 transition-transform active:scale-95"
+                        >
+                          {p.name}
+                          <Icon n="chevron-right" className="w-3.5 h-3.5 opacity-60" />
+                        </button>
+                      ))}
+                    </span>
+                  </Fact>
                 </dl>
               )}
             </section>
@@ -371,7 +395,7 @@ export default function MovieDetailsModal({
                 <h2 className={SECTION_LABEL}>В ролях</h2>
                 <ul className="no-scrollbar flex gap-3.5 overflow-x-auto scroll-contain pb-1 -mx-5 px-5 sm:-mx-7 sm:px-7">
                   {cast.map((person) => (
-                    <CastMember key={person.credit_id || person.id} person={person} />
+                    <CastMember key={person.credit_id || person.id} person={person} onOpen={onOpenPerson} />
                   ))}
                 </ul>
               </section>
