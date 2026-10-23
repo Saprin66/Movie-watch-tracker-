@@ -9,6 +9,8 @@ import FriendsPanel from "./components/FriendsPanel";
 import ProfileModal from "./components/ProfileModal";
 import ReviewModal from "./components/ReviewModal";
 import MovieDetailsModal from "./components/MovieDetailsModal";
+import ProfilePage from "./components/ProfilePage";
+import StatsPage from "./components/StatsPage";
 import FriendsFeed from "./components/FriendsFeed";
 import HomeFeed from "./components/HomeFeed";
 import WhatToWatch from "./components/WhatToWatch";
@@ -23,13 +25,17 @@ import {
 import { metaFromTmdb } from "./utils/genres";
 import { useMetaBackfill } from "./hooks/useMetaBackfill";
 import Icon from "./components/Icon";
-import { Chip, MovieCard, Grid, Empty, Avatar } from "./components/ui";
+import { Chip, MovieCard, CornerButton, Grid, Empty, Avatar, Logo, Poster } from "./components/ui";
 import {
   ORANGE_FILTER,
   BTN_ORANGE,
   BTN_SOFT,
   BTN_RED,
   PANEL,
+  DARK_ICON,
+  EYEBROW,
+  PAGE_TITLE,
+  SECTION_TITLE,
 } from "./components/styles";
 import { API_URL, TMDB_API_KEY, TMDB, POSTER } from "./config";
 
@@ -53,7 +59,14 @@ function MovieTracker() {
   const [catalogTotalPages, setCatalogTotalPages] = useState(1);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState("");
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  // На телефоне фильтры свёрнуты, чтобы сразу были видны результаты поиска
+  const [filtersOpen, setFiltersOpen] = useState(() => {
+    try {
+      return window.matchMedia("(min-width: 1024px)").matches;
+    } catch {
+      return true;
+    }
+  });
   const [searchMode, setSearchMode] = useState("text");
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [showcaseMovieIds, setShowcaseMovieIds] = useState([]);
@@ -64,10 +77,9 @@ function MovieTracker() {
   const [avatarMessage, setAvatarMessage] = useState("");
   const [avatarError, setAvatarError] = useState("");
   const avatarInputRef = useRef(null);
-  const [profileFriendsOpen, setProfileFriendsOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const avatarMenuRef = useRef(null);
-  const [movieFilter, setMovieFilter] = useState("all");
+  const [movieFilter, setMovieFilter] = useState("watched");
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({
     current: 0,
@@ -371,17 +383,49 @@ function MovieTracker() {
     }
   };
 
+  // Возвращает созданную запись (или null), чтобы можно было сразу открыть отзыв
   const addMovie = async (movie) => {
     try {
-      await fetch(`${API_URL}/api/movies`, {
+      const res = await fetch(`${API_URL}/api/movies`, {
         method: "POST",
         headers: authHeaders,
         body: JSON.stringify(movie),
       });
+      const created = res.ok ? await res.json().catch(() => null) : null;
       await fetchMovies();
+      return created;
     } catch (error) {
       console.error("Ошибка добавления:", error);
+      return null;
     }
+  };
+
+  // Запись из результата TMDB для добавления в журнал
+  const tmdbToEntry = (movie, status) => ({
+    tmdbId: movie.id,
+    title: movie.title || movie.name,
+    posterUrl: movie.poster_path ? `${POSTER}${movie.poster_path}` : null,
+    status,
+    mediaType: movie.media_type === "tv" ? "tv" : "movie",
+    ...metaFromTmdb(movie),
+  });
+
+  // Кнопка «Посмотреть» на карточке поиска: добавить в список / убрать из него
+  const toggleWatchlist = async (movie, existing) => {
+    if (!existing) await addMovie(tmdbToEntry(movie, "WATCHLIST"));
+    else if (existing.status === "WATCHLIST") await deleteMovie(existing.id);
+    else await updateMovieStatus(existing.id, "WATCHLIST");
+  };
+
+  // Кнопка «Просмотрено»: отметить и сразу открыть оценку
+  const markWatchedAndRate = async (movie, existing) => {
+    if (!existing) {
+      const created = await addMovie(tmdbToEntry(movie, "WATCHED"));
+      if (created?.id) setReviewMovieId(created.id);
+      return;
+    }
+    if (existing.status !== "WATCHED") await updateMovieStatus(existing.id, "WATCHED");
+    setReviewMovieId(existing.id);
   };
 
   const deleteMovie = async (id) => {
@@ -394,13 +438,6 @@ function MovieTracker() {
     } catch (error) {
       console.error("Ошибка удаления:", error);
     }
-  };
-
-  const deleteMovieByTmdbId = async (tmdbId, mediaType) => {
-    const movieToDelete = movies.find(
-      (m) => m.tmdbId === tmdbId && m.mediaType === mediaType,
-    );
-    if (movieToDelete) await deleteMovie(movieToDelete.id);
   };
 
   const updateMovieStatus = async (id, status) => {
@@ -683,11 +720,9 @@ function MovieTracker() {
 
   const reviewMovie = movies.find((m) => m.id === reviewMovieId) || null;
 
-  const byStatus = movies.filter((m) => {
-    if (movieFilter === "watchlist") return m.status === "WATCHLIST";
-    if (movieFilter === "watched") return m.status === "WATCHED";
-    return true;
-  });
+  const byStatus = movies.filter((m) =>
+    movieFilter === "watchlist" ? m.status === "WATCHLIST" : m.status === "WATCHED",
+  );
   const filteredMovies = sortMovies(filterMovies(byStatus, filters), sortMode);
 
   const watchlistCount = movies.filter((m) => m.status === "WATCHLIST").length;
@@ -700,7 +735,7 @@ function MovieTracker() {
 
   const navItems = [
     { id: "home", label: "Главная", short: "Главная", icon: "house" },
-    { id: "movies", label: "Мой список", icon: "layout-dashboard" },
+    { id: "movies", label: "Мой список", short: "Список", icon: "layout-dashboard" },
     {
       id: "discover",
       label: "Что смотреть",
@@ -718,22 +753,101 @@ function MovieTracker() {
     { id: "profile", label: "Профиль", icon: "user-round" },
   ];
 
+  const mobileNavItems = navItems.filter((item) => item.id !== "profile");
+  const mobileNavIndex = mobileNavItems.findIndex((item) => item.id === activeTab);
+
   const tabs = [
-    { id: "all", label: "Все" },
     { id: "watched", label: "Просмотрено" },
     { id: "watchlist", label: "Буду смотреть" },
   ];
 
+  const statItems = [
+    { v: movies.length, l: "Всего", c: "text-white" },
+    { v: watchedCount, l: "Смотрел", c: "text-[#58dcaa]" },
+    { v: watchlistCount, l: "В планах", c: "text-[#86b8ff]" },
+  ];
+
   return (
-    <div className="min-h-app bg-[#0f1226] bg-[radial-gradient(ellipse_at_top_left,rgba(244,124,79,0.12),transparent_50%)] text-[#c9cce6]">
-      <header className="sticky top-0 z-40 bg-[#131631]/95 backdrop-blur border-b border-white/5 safe-top safe-x">
-        <div className="flex items-center gap-2 sm:gap-4 px-3 sm:px-4 lg:px-6 h-16">
-          <div className="flex items-center gap-2 lg:w-52 shrink-0">
-            <Icon n="clapperboard" className={`w-7 h-7 ${ORANGE_FILTER}`} />
-            <span className="hidden sm:block text-lg font-bold text-white">
-              Movie<span className="text-[#f47c4f]">Grade</span>
-            </span>
+    <div className="min-h-app bg-[#0a0c18] text-[#c4c8e4]">
+      <div className="flex">
+        <aside className="hidden lg:flex w-64 shrink-0 sticky top-0 h-[100dvh] flex-col gap-6 overflow-y-auto border-r border-white/[0.06] bg-[#0d1021] px-[18px] py-6">
+          <button
+            type="button"
+            onClick={() => setActiveTab("home")}
+            className="px-1.5 text-left"
+            aria-label="На главную"
+          >
+            <Logo />
+          </button>
+
+          <div className={`${PANEL} p-4 space-y-3.5`}>
+            <button
+              type="button"
+              onClick={() => setActiveTab("profile")}
+              className="w-full flex items-center gap-3 text-left"
+            >
+              <Avatar name={user?.username} avatar={user?.avatar} size="w-12 h-12" text="text-lg" />
+              <span className="min-w-0">
+                <span className="block font-extrabold text-white truncate">{user?.username}</span>
+                <span className="block text-xs text-[#8b91b5] truncate">{user?.email}</span>
+              </span>
+            </button>
+            <div className="grid grid-cols-3 gap-1.5 text-center">
+              {statItems.map((s) => (
+                <div key={s.l}>
+                  <div className={`font-display text-lg font-semibold ${s.c}`}>{s.v}</div>
+                  <div className="text-[11px] text-[#8b91b5] mt-0.5">{s.l}</div>
+                </div>
+              ))}
+            </div>
           </div>
+
+          <nav className="space-y-1" aria-label="Разделы">
+            {navItems.map((item) => {
+              const active =
+                activeTab === item.id ||
+                (item.id === "profile" && activeTab.startsWith("profile-"));
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  aria-current={active ? "page" : undefined}
+                  className={`w-full min-h-[44px] flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-semibold transition-colors ${
+                    active
+                      ? "bg-[#ff7a45]/[0.14] text-[#ff935f]"
+                      : "text-[#9aa0c6] hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <Icon
+                    n={item.icon}
+                    className={`w-[18px] h-[18px] ${active ? ORANGE_FILTER : "opacity-70"}`}
+                  />
+                  {item.label}
+                  {item.badge > 0 && (
+                    <span
+                      className="ml-auto min-w-[22px] h-[22px] px-1.5 rounded-full bg-[#ff7a45] text-[#1b0d07] text-xs font-extrabold flex items-center justify-center"
+                      aria-label={`Новых заявок: ${item.badge}`}
+                    >
+                      {item.badge > 99 ? "99+" : item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
+        <div className="flex-1 min-w-0 flex flex-col">
+      <header className="sticky top-0 z-40 bg-[#0a0c18]/90 backdrop-blur-xl border-b border-white/[0.06] safe-top safe-x">
+        <div className="flex items-center gap-2.5 sm:gap-3 px-4 lg:px-8 h-[72px]">
+          <button
+            type="button"
+            onClick={() => setActiveTab("home")}
+            className="lg:hidden shrink-0"
+            aria-label="На главную"
+          >
+            <Logo showText={false} />
+          </button>
 
           <form
             onSubmit={(e) => {
@@ -743,82 +857,85 @@ function MovieTracker() {
             }}
             className="relative flex-1 min-w-0 max-w-xl flex gap-2"
           >
-            <div className="relative flex-1">
+            <div className="relative flex-1 min-w-0">
               <Icon
                 n="search"
-                className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50 w-4 h-4"
+                className={`absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] ${activeTab === "search" && searchQuery ? ORANGE_FILTER : "opacity-50"}`}
               />
               <input
-                type="search" /* 🔑 ГЛАВНОЕ: показывает кнопку с лупой на мобильных */
+                type="search" /* показывает кнопку с лупой на клавиатуре телефона */
                 inputMode="search"
                 autoComplete="off"
-                placeholder="Поиск фильмов"
+                placeholder="Поиск фильмов и сериалов"
+                aria-label="Поиск фильмов и сериалов"
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
                   if (activeTab !== "search") setActiveTab("search");
                   searchMoviesDebounced(e.target.value);
                 }}
-                className="w-full min-w-0 bg-[#1c2040] border border-white/5 rounded-lg pl-10 pr-3 py-2.5 text-base sm:text-sm text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#f47c4f]/60 focus:ring-1 focus:ring-[#f47c4f]/30 transition-all"
+                className="w-full min-w-0 h-12 bg-[#12152a] border border-white/[0.08] rounded-2xl pl-11 pr-3 text-base sm:text-sm text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45] focus:ring-[3px] focus:ring-[#ff7a45]/20 transition"
               />
             </div>
 
-            {/* 🔑 Видимая кнопка для удобного нажатия пальцем на телефоне */}
             <button
               type="submit"
-              className="bg-[#f47c4f] hover:bg-[#f47c4f]/90 active:scale-95 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 shrink-0 shadow-lg shadow-[#f47c4f]/20"
+              aria-label="Найти"
+              className={`h-12 px-3.5 sm:px-5 rounded-2xl text-sm flex items-center gap-2 shrink-0 active:scale-95 ${BTN_ORANGE}`}
             >
-              <Icon n="search" className="w-4 h-4 sm:hidden" />{" "}
-              {/* Иконка только на телефонах */}
-              <span className="hidden sm:inline">Найти</span>{" "}
-              {/* Текст на планшетах и ПК */}
+              <Icon n="search" className={`w-5 h-5 sm:hidden ${DARK_ICON}`} />
+              <span className="hidden sm:inline">Найти</span>
             </button>
           </form>
 
-          {/* Распорка только на широких экранах: на телефоне всё место отдано поиску */}
           <div className="hidden sm:block flex-1" />
 
-          <div className="relative flex items-center gap-3 shrink-0" ref={avatarMenuRef}>
+          <button
+            type="button"
+            onClick={() => setActiveTab("search")}
+            className={`hidden md:inline-flex items-center gap-2 h-11 px-4 rounded-xl text-sm ${BTN_SOFT}`}
+          >
+            <Icon n="plus" className="w-4 h-4" /> Новая запись
+          </button>
+
+          <div className="relative flex items-center shrink-0" ref={avatarMenuRef}>
             <button
               type="button"
               onClick={() => setAvatarMenuOpen((open) => !open)}
               aria-label="Открыть меню аккаунта"
               aria-haspopup="menu"
               aria-expanded={avatarMenuOpen}
-              className="rounded-full outline-none ring-offset-2 ring-offset-[#131631] focus-visible:ring-2 focus-visible:ring-[#f47c4f]"
+              className="relative rounded-full outline-none ring-offset-2 ring-offset-[#0a0c18] focus-visible:ring-2 focus-visible:ring-[#ff7a45]"
             >
-              <Avatar name={user?.username} avatar={user?.avatar} />
+              <Avatar name={user?.username} avatar={user?.avatar} size="w-11 h-11" />
+              {requestsCount > 0 && (
+                <span className="lg:hidden absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-[#ff7a45] border-2 border-[#0a0c18]" />
+              )}
             </button>
-            <div className="hidden sm:block leading-tight">
-              <button
-                type="button"
-                onClick={() => setAvatarMenuOpen((open) => !open)}
-                className="text-sm font-semibold text-white hover:text-[#f47c4f] transition-colors"
-              >
-                {user?.username}
-              </button>
-              <div className="text-xs text-[#8a90b8]">Мой аккаунт</div>
-            </div>
             {avatarMenuOpen && (
-              <div role="menu" aria-label="Меню аккаунта" className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-60 overflow-hidden rounded-2xl border border-white/10 bg-[#171a33] p-2 shadow-2xl shadow-black/40">
-                <div className="flex items-center gap-3 border-b border-white/10 px-3 py-3 mb-1">
+              <div role="menu" aria-label="Меню аккаунта" className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-64 overflow-hidden rounded-2xl border border-white/10 bg-[#12152a] p-2 shadow-2xl shadow-black/50">
+                <div className="flex items-center gap-3 border-b border-white/[0.08] px-3 py-3 mb-1">
                   <Avatar name={user?.username} avatar={user?.avatar} size="w-11 h-11" text="text-base" />
                   <div className="min-w-0">
-                    <div className="font-semibold text-white truncate">{user?.username}</div>
-                    <div className="text-xs text-[#8a90b8] truncate">{user?.email}</div>
+                    <div className="font-extrabold text-white truncate">{user?.username}</div>
+                    <div className="text-xs text-[#8b91b5] truncate">{user?.email}</div>
                   </div>
                 </div>
-                <button role="menuitem" onClick={() => { setActiveTab("profile"); setAvatarMenuOpen(false); }} className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[#c9cce6] hover:bg-white/[0.06] hover:text-white text-left transition-colors">
+                <button role="menuitem" onClick={() => { setActiveTab("profile"); setAvatarMenuOpen(false); }} className="w-full min-h-[44px] flex items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[#c4c8e4] hover:bg-white/[0.06] hover:text-white text-left transition-colors">
                   <Icon n="user-round" className="w-4 h-4" /> Профиль
                 </button>
-                <button role="menuitem" onClick={() => { setActiveTab("profile-settings"); setAvatarMenuOpen(false); }} className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[#c9cce6] hover:bg-white/[0.06] hover:text-white text-left transition-colors">
+                <button role="menuitem" onClick={() => { setActiveTab("friends"); setAvatarMenuOpen(false); }} className="lg:hidden w-full min-h-[44px] flex items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[#c4c8e4] hover:bg-white/[0.06] hover:text-white text-left transition-colors">
+                  <Icon n="users" className="w-4 h-4" /> Друзья
+                  {requestsCount > 0 && <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-[#ff7a45] text-[#1b0d07] text-[11px] font-extrabold flex items-center justify-center">{requestsCount}</span>}
+                </button>
+                <button role="menuitem" onClick={() => { setActiveTab("profile-settings"); setAvatarMenuOpen(false); }} className="w-full min-h-[44px] flex items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[#c4c8e4] hover:bg-white/[0.06] hover:text-white text-left transition-colors">
                   <Icon n="settings" className="w-4 h-4" /> Настройки профиля
                 </button>
-                <a role="menuitem" href={`mailto:${CONTACT_EMAIL}`} onClick={() => setAvatarMenuOpen(false)} className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[#c9cce6] hover:bg-white/[0.06] hover:text-white transition-colors">
+                <a role="menuitem" href={`mailto:${CONTACT_EMAIL}`} onClick={() => setAvatarMenuOpen(false)} className="w-full min-h-[44px] flex items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[#c4c8e4] hover:bg-white/[0.06] hover:text-white transition-colors">
                   <Icon n="life-buoy" className="w-4 h-4" /> Поддержка
                 </a>
-                <div className="my-1 border-t border-white/10" />
-                <button role="menuitem" onClick={() => { setAvatarMenuOpen(false); logout(); }} className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-red-300 hover:bg-red-500/10 text-left transition-colors">
+                <div className="my-1 border-t border-white/[0.08]" />
+                <button role="menuitem" onClick={() => { setAvatarMenuOpen(false); logout(); }} className="w-full min-h-[44px] flex items-center gap-3 rounded-xl px-3 text-sm font-semibold text-red-300 hover:bg-red-500/10 text-left transition-colors">
                   <Icon n="log-out" className="w-4 h-4" /> Выйти из аккаунта
                 </button>
               </div>
@@ -827,66 +944,10 @@ function MovieTracker() {
         </div>
       </header>
 
-      <div className="flex">
-        <aside className="hidden lg:block w-64 shrink-0 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto border-r border-white/5 bg-[#101328] p-5">
-          <h2 className="text-xl font-semibold text-white mb-4">
-            Журнал {user?.username}
-          </h2>
-          <div className="flex items-center gap-3 mb-5">
-            <Avatar name={user?.username} avatar={user?.avatar} size="w-14 h-14" text="text-xl" />
-            <div className="min-w-0">
-              <div className="font-semibold text-white truncate">
-                {user?.username}
-              </div>
-              <div className="text-xs text-[#8a90b8] truncate">
-                {user?.email}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 divide-x divide-white/5 bg-[#171a33] rounded-xl py-3 mb-6 text-center">
-            {[
-              { v: movies.length, l: "Всего" },
-              { v: watchedCount, l: "Просмотрено" },
-              { v: watchlistCount, l: "Посмотреть" },
-            ].map((s) => (
-              <div key={s.l}>
-                <div className="text-lg font-semibold text-white">{s.v}</div>
-                <div className="text-[10px] text-[#8a90b8]">{s.l}</div>
-              </div>
-            ))}
-          </div>
-
-          <nav className="space-y-1">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                  activeTab === item.id
-                    ? "bg-[#1f2347] text-[#f47c4f]"
-                    : "text-[#9aa0c8] hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                <Icon
-                  n={item.icon}
-                  className={`w-[18px] h-[18px] ${activeTab === item.id ? ORANGE_FILTER : "opacity-70"}`}
-                />
-                {item.label}
-                {item.badge > 0 && (
-                  <span
-                    className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-[#f47c4f] text-[#1a1020] text-[11px] font-bold flex items-center justify-center"
-                    aria-label={`Новых заявок: ${item.badge}`}
-                  >
-                    {item.badge > 99 ? "99+" : item.badge}
-                  </span>
-                )}
-              </button>
-            ))}
-          </nav>
-        </aside>
-
-        <main className="flex-1 min-w-0 px-4 lg:px-8 py-6 pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-8">
+      <div className="flex flex-1">
+        <main className="flex-1 min-w-0 px-4 lg:px-8 py-6 lg:py-8 pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
+          {/* key пересоздаёт обёртку при смене вкладки, чтобы проиграть анимацию входа */}
+          <div key={activeTab} className="mg-tab-enter">
           {activeTab === "home" && (
             <HomeFeed
               onOpenMovie={setSelectedMovie}
@@ -894,14 +955,15 @@ function MovieTracker() {
             />
           )}
           {activeTab === "movies" && (
-            <div className="space-y-5">
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <h2 className="text-3xl font-semibold text-white">
-                  Журнал {user?.username}
-                </h2>
-                <div className="flex gap-2">
+            <div className="space-y-6">
+              <div className="flex items-end justify-between flex-wrap gap-4">
+                <div>
+                  <div className={`${EYEBROW} mb-2.5`}>Мой список</div>
+                  <h1 className={PAGE_TITLE}>Журнал {user?.username}</h1>
+                </div>
+                <div className="flex gap-2.5">
                   <label
-                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm cursor-pointer ${BTN_SOFT}`}
+                    className={`inline-flex items-center gap-2 h-11 px-4 rounded-xl text-sm cursor-pointer ${BTN_SOFT} ${importing ? "opacity-50 pointer-events-none" : ""}`}
                   >
                     <Icon n="download" /> Импорт
                     <input
@@ -914,25 +976,23 @@ function MovieTracker() {
                   </label>
                   <button
                     onClick={() => setActiveTab("search")}
-                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm ${BTN_ORANGE}`}
+                    className={`inline-flex items-center gap-2 h-11 px-5 rounded-xl text-sm ${BTN_ORANGE}`}
                   >
-                    <Icon
-                      n="plus"
-                      className="w-4 h-4 [filter:brightness(0.1)]"
-                    />{" "}
+                    <Icon n="plus" className={`w-4 h-4 ${DARK_ICON}`} />
                     Новая запись
                   </button>
                 </div>
               </div>
 
               {importing && (
-                <div className={`${PANEL} p-3`}>
-                  <div className="text-sm mb-2">
-                    Импорт: {importProgress.current} из {importProgress.total}
+                <div className={`${PANEL} p-4`}>
+                  <div className="flex justify-between text-sm mb-2.5">
+                    <span className="font-bold text-white">Импорт фильмов</span>
+                    <span className="text-[#8b91b5]">{importProgress.current} из {importProgress.total}</span>
                   </div>
-                  <div className="h-1.5 bg-[#0f1226] rounded">
+                  <div className="h-2 bg-[#0a0c18] rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-[#f47c4f] rounded transition-all"
+                      className="h-full bg-[#ff7a45] rounded-full transition-all"
                       style={{
                         width: `${importProgress.total ? (importProgress.current / importProgress.total) * 100 : 0}%`,
                       }}
@@ -941,28 +1001,33 @@ function MovieTracker() {
                 </div>
               )}
 
-              <div className="flex flex-wrap items-end justify-between gap-x-6 border-b border-white/5">
-                <div className="flex gap-6">
-                {tabs.map((t) => (
+              <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 border-b border-white/[0.07]">
+                <div className="no-scrollbar flex gap-6 overflow-x-auto">
+                {tabs.map((t) => {
+                  const count = t.id === "watched" ? watchedCount : watchlistCount;
+                  return (
                   <button
                     key={t.id}
                     onClick={() => setMovieFilter(t.id)}
-                    className={`pb-3 -mb-px text-sm border-b-2 transition-colors ${
+                    aria-pressed={movieFilter === t.id}
+                    className={`shrink-0 inline-flex items-center gap-2 py-3.5 -mb-px text-sm font-bold border-b-2 transition-colors ${
                       movieFilter === t.id
-                        ? "text-[#f47c4f] border-[#f47c4f]"
-                        : "text-[#8a90b8] border-transparent hover:text-white"
+                        ? "text-[#ff935f] border-[#ff7a45]"
+                        : "text-[#8b91b5] border-transparent hover:text-white"
                     }`}
                   >
                     {t.label}
+                    <span className="text-xs px-2 py-px rounded-full bg-white/[0.07] text-[#aeb3d6]">{count}</span>
                   </button>
-                ))}
+                  );
+                })}
                 </div>
-                <label className="flex items-center gap-2 pb-2 text-xs text-[#8a90b8]">
+                <label className="flex items-center gap-2.5 pb-2 text-[13px] text-[#8b91b5]">
                   Сортировка
                   <select
                     value={sortMode}
                     onChange={(e) => changeSort(e.target.value)}
-                    className="bg-[#1c2040] border border-white/5 rounded-lg px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-[#f47c4f]/60"
+                    className="h-10 bg-[#12152a] border border-white/[0.08] rounded-xl px-3 text-sm font-semibold text-white focus:outline-none focus:border-[#ff7a45]"
                   >
                     {SORT_OPTIONS.map((o) => (
                       <option key={o.id} value={o.id}>
@@ -985,13 +1050,13 @@ function MovieTracker() {
               {filteredMovies.length === 0 ? (
                 isFiltering(filters) && byStatus.length > 0 ? (
                   <div className={`${PANEL} text-center py-14 px-6`}>
-                    <p className="text-[#c9cce6] mb-4">
+                    <p className="text-[#c4c8e4] mb-4">
                       По этим условиям ничего не нашлось.
                     </p>
                     <button
                       type="button"
                       onClick={() => setFilters({ ...DEFAULT_FILTERS })}
-                      className={`px-5 py-2.5 rounded-lg text-sm ${BTN_SOFT}`}
+                      className={`h-11 px-5 rounded-xl text-sm ${BTN_SOFT}`}
                     >
                       Сбросить фильтры
                     </button>
@@ -1006,16 +1071,19 @@ function MovieTracker() {
                       key={movie.id}
                       poster={movie.posterUrl}
                       title={movie.title}
-                      onClick={() => setReviewMovieId(movie.id)}
+                      onClick={() =>
+                        movie.tmdbId
+                          ? setSelectedMovie({
+                              id: movie.tmdbId,
+                              media_type: movie.mediaType,
+                              title: movie.title,
+                              posterUrl: movie.posterUrl,
+                            })
+                          : setReviewMovieId(movie.id)
+                      }
                       chips={
                         <>
-                          <Chip
-                            tone={movie.status === "WATCHED" ? "green" : "blue"}
-                          >
-                            {movie.status === "WATCHED"
-                              ? "Просмотрено"
-                              : "Буду смотреть"}
-                          </Chip>
+                          {movie.releaseYear && <Chip>{movie.releaseYear}</Chip>}
                           {movie.mediaType === "tv" && (
                             <Chip tone="orange">Сериал</Chip>
                           )}
@@ -1029,6 +1097,23 @@ function MovieTracker() {
                             </Chip>
                           )}
                         </>
+                      }
+                      topLeft={
+                        <CornerButton
+                          icon="eye"
+                          label={movie.status === "WATCHLIST" ? "Убрать из «Буду смотреть»" : "Буду смотреть"}
+                          active={movie.status === "WATCHLIST"}
+                          onClick={() => toggleWatchlist(null, movie)}
+                        />
+                      }
+                      topRight={
+                        <CornerButton
+                          icon="check"
+                          tone="green"
+                          label={movie.status === "WATCHED" ? "Изменить оценку" : "Просмотрено"}
+                          active={movie.status === "WATCHED"}
+                          onClick={() => markWatchedAndRate(null, movie)}
+                        />
                       }
                       footerLeft={
                         <>
@@ -1054,49 +1139,6 @@ function MovieTracker() {
                               : "Фильм"}
                         </>
                       }
-                      actions={
-                        <>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateMovieStatus(
-                                movie.id,
-                                movie.status === "WATCHLIST"
-                                  ? "WATCHED"
-                                  : "WATCHLIST",
-                              );
-                            }}
-                            title={
-                              movie.status === "WATCHLIST"
-                                ? "Отметить просмотренным"
-                                : "Вернуть в список"
-                            }
-                            className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] ${BTN_SOFT}`}
-                          >
-                            <Icon
-                              n={
-                                movie.status === "WATCHLIST"
-                                  ? "check"
-                                  : "bookmark"
-                              }
-                              className="w-3.5 h-3.5"
-                            />
-                            {movie.status === "WATCHLIST"
-                              ? "Готово"
-                              : "В список"}
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteMovie(movie.id);
-                            }}
-                            title="Удалить"
-                            className={`px-1.5 rounded-md ${BTN_RED}`}
-                          >
-                            <Icon n="trash-2" className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      }
                     />
                   ))}
                 </Grid>
@@ -1105,79 +1147,84 @@ function MovieTracker() {
           )}
 
           {activeTab === "search" && (
-            <div className="space-y-5">
+            <div className="space-y-6">
               <div>
-                <h2 className="text-3xl font-semibold text-white">Открыть новое</h2>
-                <p className="text-sm text-[#8a90b8]">Ищи по названию или подбери фильмы и сериалы по параметрам TMDB</p>
+                <div className={`${EYEBROW} mb-2.5`}>Каталог TMDB</div>
+                <h1 className={PAGE_TITLE}>Открыть новое</h1>
+                <p className="mt-2.5 text-sm text-[#8b91b5]">Ищи по названию или подбери фильмы и сериалы по параметрам</p>
               </div>
 
-              <section className="rounded-2xl border border-white/10 bg-[#171b37]/90 p-4 sm:p-5 space-y-4">
+              <section className={`${PANEL} p-4 sm:p-6 space-y-5`}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-lg font-semibold text-white">Подбор по фильтрам</h3>
-                    <p className="text-xs text-[#8a90b8]">Фильтры применяются к каталогу TMDB, а не только к загруженным карточкам</p>
+                    <h2 className={SECTION_TITLE}>Подбор по фильтрам</h2>
+                    <p className="mt-1.5 text-[13px] text-[#8b91b5]">Фильтры применяются ко всему каталогу TMDB, а не только к загруженным карточкам</p>
                   </div>
-                  <button type="button" onClick={() => setFiltersOpen((v) => !v)} className="rounded-lg border border-white/10 px-3 py-2 text-sm text-white hover:border-[#f47c4f]/60">
+                  <button type="button" onClick={() => setFiltersOpen((v) => !v)} aria-expanded={filtersOpen} className={`h-10 px-4 rounded-xl text-sm ${BTN_SOFT}`}>
                     {filtersOpen ? "Свернуть" : "Показать фильтры"}
                   </button>
                 </div>
                 {filtersOpen && <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <label className="text-xs text-[#a5aacb] space-y-1.5">Тип контента
-                      <select value={catalogType} onChange={(e) => { setCatalogType(e.target.value); setSelectedGenres([]); }} className="w-full rounded-lg bg-[#0f1226] border border-white/10 p-2.5 text-sm text-white">
-                        <option value="movie">Фильмы</option><option value="tv">Сериалы</option>
-                      </select>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+                    <div className="text-xs font-bold text-[#aeb3d6] space-y-2">
+                      <span className="block">Тип контента</span>
+                      <div className="flex gap-1 p-[3px] rounded-xl bg-[#0d1021] border border-white/[0.08]" role="group" aria-label="Тип контента">
+                        {[{ v: "movie", l: "Фильмы" }, { v: "tv", l: "Сериалы" }].map((o) => (
+                          <button key={o.v} type="button" aria-pressed={catalogType === o.v} onClick={() => { setCatalogType(o.v); setSelectedGenres([]); }} className={`flex-1 h-9 rounded-[9px] text-[13px] font-bold transition-colors ${catalogType === o.v ? "bg-[#1d2140] text-white" : "text-[#8b91b5] hover:text-white"}`}>{o.l}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <label className="text-xs font-bold text-[#aeb3d6] space-y-2 block">Год от
+                      <input type="number" min="1900" max="2026" placeholder="Например, 2000" value={yearFrom} onChange={(e) => setYearFrom(e.target.value)} className="w-full h-11 rounded-xl bg-[#0d1021] border border-white/[0.09] px-3.5 text-sm font-medium text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45]" />
                     </label>
-                    <label className="text-xs text-[#a5aacb] space-y-1.5">Год от
-                      <input type="number" min="1900" max="2026" placeholder="Например, 2000" value={yearFrom} onChange={(e) => setYearFrom(e.target.value)} className="w-full rounded-lg bg-[#0f1226] border border-white/10 p-2.5 text-sm text-white" />
+                    <label className="text-xs font-bold text-[#aeb3d6] space-y-2 block">Год до
+                      <input type="number" min="1900" max="2026" placeholder="Например, 2026" value={yearTo} onChange={(e) => setYearTo(e.target.value)} className="w-full h-11 rounded-xl bg-[#0d1021] border border-white/[0.09] px-3.5 text-sm font-medium text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45]" />
                     </label>
-                    <label className="text-xs text-[#a5aacb] space-y-1.5">Год до
-                      <input type="number" min="1900" max="2026" placeholder="Например, 2026" value={yearTo} onChange={(e) => setYearTo(e.target.value)} className="w-full rounded-lg bg-[#0f1226] border border-white/10 p-2.5 text-sm text-white" />
-                    </label>
-                    <label className="text-xs text-[#a5aacb] space-y-1.5">Минимальный рейтинг
-                      <select value={minRating} onChange={(e) => setMinRating(e.target.value)} className="w-full rounded-lg bg-[#0f1226] border border-white/10 p-2.5 text-sm text-white">
+                    <label className="text-xs font-bold text-[#aeb3d6] space-y-2 block">Минимальный рейтинг
+                      <select value={minRating} onChange={(e) => setMinRating(e.target.value)} className="w-full h-11 rounded-xl bg-[#0d1021] border border-white/[0.09] px-3 text-sm font-medium text-white focus:outline-none focus:border-[#ff7a45]">
                         <option value="0">Любой рейтинг</option><option value="5">От 5.0</option><option value="6">От 6.0</option><option value="7">От 7.0</option><option value="7.5">От 7.5</option><option value="8">От 8.0</option><option value="8.5">От 8.5</option>
                       </select>
                     </label>
                   </div>
-                  <label className="block text-xs text-[#a5aacb] space-y-2">Жанры <span className="text-[#73799f]">(можно выбрать несколько)</span>
+                  <div className="text-xs font-bold text-[#aeb3d6] space-y-2.5">
+                    <span className="block">Жанры <span className="font-medium text-[#6f759e]">можно выбрать несколько</span></span>
                     <div className="flex flex-wrap gap-2">
                       {catalogGenres.map((genre) => {
                         const active = selectedGenres.includes(genre.id);
-                        return <button type="button" key={genre.id} onClick={() => setSelectedGenres((prev) => active ? prev.filter((id) => id !== genre.id) : [...prev, genre.id])} className={`rounded-full border px-3 py-1.5 text-sm transition ${active ? "border-[#f47c4f] bg-[#f47c4f]/15 text-[#ff9b75]" : "border-white/10 bg-[#0f1226] text-[#a5aacb] hover:border-white/30"}`}>{genre.name}</button>;
+                        return <button type="button" key={genre.id} aria-pressed={active} onClick={() => setSelectedGenres((prev) => active ? prev.filter((id) => id !== genre.id) : [...prev, genre.id])} className={`min-h-[38px] rounded-full border px-4 text-[13px] font-bold transition ${active ? "border-[#ff7a45] bg-[#ff7a45]/15 text-[#ffa27d]" : "border-white/10 bg-[#0d1021] text-[#aeb3d6] hover:border-white/30"}`}>{genre.name}</button>;
                       })}
                     </div>
-                  </label>
+                  </div>
                   <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
-                    <label className="text-xs text-[#a5aacb] space-y-1.5 flex-1">Сортировка
-                      <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="w-full rounded-lg bg-[#0f1226] border border-white/10 p-2.5 text-sm text-white">
+                    <label className="text-xs font-bold text-[#aeb3d6] space-y-2 flex-1 block">Сортировка
+                      <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="w-full h-11 rounded-xl bg-[#0d1021] border border-white/[0.09] px-3 text-sm font-medium text-white focus:outline-none focus:border-[#ff7a45]">
                         <option value="popularity.desc">Сначала популярные</option><option value="vote_average.desc">По рейтингу</option><option value={catalogType === "tv" ? "first_air_date.desc" : "primary_release_date.desc"}>Сначала новые</option><option value="vote_count.desc">По количеству оценок</option>
                       </select>
                     </label>
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => { resetCatalogFilters(); }} className="rounded-lg border border-white/10 px-4 py-2.5 text-sm text-[#a5aacb] hover:text-white">Сбросить</button>
-                      <button type="button" disabled={catalogLoading} onClick={() => discoverMovies(1)} className="rounded-lg bg-[#f47c4f] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#ff9065] disabled:opacity-50">{catalogLoading ? "Ищем…" : "Подобрать"}</button>
+                      <button type="button" onClick={() => { resetCatalogFilters(); }} className={`flex-1 sm:flex-none h-11 px-5 rounded-xl text-sm ${BTN_SOFT}`}>Сбросить</button>
+                      <button type="button" disabled={catalogLoading} onClick={() => discoverMovies(1)} className={`flex-1 sm:flex-none h-11 px-6 rounded-xl text-sm disabled:opacity-50 ${BTN_ORANGE}`}>{catalogLoading ? "Ищем…" : "Подобрать"}</button>
                     </div>
                   </div>
                 </>}
               </section>
-              {catalogError && <p role="alert" className="rounded-lg border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{catalogError}</p>}
-              {catalogLoading && <p className="py-4 text-center text-sm text-[#a5aacb]">Загружаем результаты из TMDB…</p>}
+              {catalogError && <p role="alert" className="rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{catalogError}</p>}
+              {catalogLoading && <p className="py-4 text-center text-sm text-[#aeb3d6]">Загружаем результаты из TMDB…</p>}
 
               {searchResults.length > 0 ? (
                 <>
                   {!searchQuery.trim() && searchMode !== "filters" && (
-                    <h3 className="flex items-center gap-2 text-lg text-[#f47c4f]">
-                      <Icon n="flame" className={`w-5 h-5 ${ORANGE_FILTER}`} />{" "}
+                    <h2 className={`flex items-center gap-2.5 ${SECTION_TITLE}`}>
+                      <Icon n="flame" className={`w-5 h-5 ${ORANGE_FILTER}`} />
                       Сейчас популярно
-                    </h3>
+                    </h2>
                   )}
                   <Grid>
                     {searchResults.map((movie) => {
                       const mediaType = movie.media_type === "tv" ? "tv" : "movie";
-                      const isAdded = addedMovieIds.has(
-                        `${mediaType}-${movie.id}`,
-                      );
+                      const existing = addedMovieIds.has(`${mediaType}-${movie.id}`)
+                        ? movies.find((m) => m.tmdbId === movie.id && m.mediaType === mediaType)
+                        : null;
                       const title = movie.title || movie.name;
                       const year = (
                         movie.release_date ||
@@ -1196,8 +1243,30 @@ function MovieTracker() {
                           chips={
                             <>
                               {year && <Chip>{year}</Chip>}
-                              {isAdded && <Chip tone="green">В журнале</Chip>}
+                              {existing?.rating && (
+                                <Chip tone="orange">
+                                  <Icon n="star" className={`w-3 h-3 inline -mt-0.5 mr-0.5 ${ORANGE_FILTER}`} />
+                                  {existing.rating}
+                                </Chip>
+                              )}
                             </>
+                          }
+                          topLeft={
+                            <CornerButton
+                              icon="eye"
+                              label={existing?.status === "WATCHLIST" ? "Убрать из «Буду смотреть»" : "Буду смотреть"}
+                              active={existing?.status === "WATCHLIST"}
+                              onClick={() => toggleWatchlist(movie, existing)}
+                            />
+                          }
+                          topRight={
+                            <CornerButton
+                              icon="check"
+                              tone="green"
+                              label={existing?.status === "WATCHED" ? "Изменить оценку" : "Просмотрено"}
+                              active={existing?.status === "WATCHED"}
+                              onClick={() => markWatchedAndRate(movie, existing)}
+                            />
                           }
                           footerLeft={
                             movie.vote_average ? (
@@ -1211,19 +1280,6 @@ function MovieTracker() {
                             ) : null
                           }
                           onClick={() => setSelectedMovie(movie)}
-                          actions={
-                            isAdded ? (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteMovieByTmdbId(movie.id, mediaType);
-                                }}
-                                className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] ${BTN_RED}`}
-                              >
-                                <Icon n="x" className="w-3.5 h-3.5" /> Убрать
-                              </button>
-                            ) : null
-                          }
                         />
                       );
                     })}
@@ -1244,9 +1300,9 @@ function MovieTracker() {
               )}
               {searchMode === "filters" && searchResults.length > 0 && (
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                  <button type="button" disabled={catalogPage <= 1 || catalogLoading} onClick={() => discoverMovies(catalogPage - 1)} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white disabled:opacity-40">← Назад</button>
-                  <span className="text-sm text-[#8a90b8]">Страница {catalogPage} из {catalogTotalPages}</span>
-                  <button type="button" disabled={catalogPage >= catalogTotalPages || catalogLoading} onClick={() => discoverMovies(catalogPage + 1)} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white disabled:opacity-40">Вперёд →</button>
+                  <button type="button" disabled={catalogPage <= 1 || catalogLoading} onClick={() => discoverMovies(catalogPage - 1)} className={`h-11 px-5 rounded-xl text-sm disabled:opacity-40 ${BTN_SOFT}`}>← Назад</button>
+                  <span className="text-sm text-[#8b91b5]">Страница {catalogPage} из {catalogTotalPages}</span>
+                  <button type="button" disabled={catalogPage >= catalogTotalPages || catalogLoading} onClick={() => discoverMovies(catalogPage + 1)} className={`h-11 px-5 rounded-xl text-sm disabled:opacity-40 ${BTN_SOFT}`}>Вперёд →</button>
                 </div>
               )}
             </div>
@@ -1270,9 +1326,8 @@ function MovieTracker() {
 
           {activeTab === "friends" && (
             <div className="max-w-3xl">
-              <h2 className="text-3xl font-semibold text-white mb-6">
-                Сообщество
-              </h2>
+              <div className={`${EYEBROW} mb-2.5`}>Люди</div>
+              <h1 className={`${PAGE_TITLE} mb-7`}>Сообщество</h1>
               <FriendsPanel
                 onUserClick={setSelectedUserId}
                 onRequestsChange={setRequestsCount}
@@ -1281,106 +1336,66 @@ function MovieTracker() {
           )}
 
           {activeTab === "profile" && (
-            <div className="max-w-5xl space-y-6">
-              <div className={`${PANEL} relative overflow-hidden p-6 sm:p-8`}>
-                <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-r from-[#f47c4f]/25 via-[#8a4fff]/15 to-transparent pointer-events-none" />
-                <div className="relative flex flex-col sm:flex-row sm:items-end gap-5">
-                  <div className="flex flex-col items-center gap-2 shrink-0">
-                    <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] p-[3px] shadow-xl shadow-black/20">
-                      {user?.avatar ? <img src={user.avatar} alt="Аватар профиля" className="w-full h-full rounded-[13px] object-cover" /> : <div className="w-full h-full rounded-[13px] bg-[#171a33] flex items-center justify-center text-4xl font-bold text-white">{user?.username?.[0]?.toUpperCase() || "U"}</div>}
-                    </div>
-                    <input
-                      ref={avatarInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleAvatarChange}
-                      className="hidden"
-                      aria-label="Выбрать фотографию профиля"
-                    />
-                    <button type="button" disabled={avatarSaving} onClick={() => { setAvatarMessage(""); setAvatarError(""); avatarInputRef.current?.click(); }} className={`text-xs px-3 py-1.5 rounded-lg ${BTN_SOFT} disabled:opacity-50`}>
-                      {avatarSaving ? "Сохранение…" : "Изменить фото"}
-                    </button>
-                    {avatarMessage && <p role="status" className="text-xs text-emerald-300">{avatarMessage}</p>}
-                    {avatarError && <p role="alert" className="max-w-[180px] text-xs text-red-300 text-center">{avatarError}</p>}
-                  </div>
-                  <div className="flex-1 min-w-0 pb-1">
-                    <div className="text-xs uppercase tracking-[0.2em] text-[#f47c4f] font-semibold mb-2">Кинопрофиль</div>
-                    <h2 className="text-3xl sm:text-4xl font-bold text-white truncate">{user?.username || "Киноман"}</h2>
-                    <p className="text-sm text-[#8a90b8] mt-1">{user?.email}</p>
-                  </div>
-                  <button onClick={() => setActiveTab("profile-settings")} className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl ${BTN_SOFT}`}>
-                    <Icon n="settings" className="w-4 h-4" /> Настройки профиля
-                  </button>
-                </div>
-                <div className="grid grid-cols-3 gap-3 mt-7">
-                  {[{ v: movies.length, l: "В журнале" }, { v: watchedCount, l: "Просмотрено" }, { v: friends.length, l: "Друзей" }].map((stat) => (
-                    <div key={stat.l} className="rounded-xl bg-black/20 border border-white/5 p-4">
-                      <div className="text-2xl sm:text-3xl font-bold text-white">{stat.v}</div>
-                      <div className="text-xs text-[#8a90b8] mt-1">{stat.l}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarChange}
+                className="hidden"
+                aria-label="Выбрать фотографию профиля"
+              />
+              <ProfilePage
+                user={user}
+                movies={movies}
+                friends={friends}
+                avatarSaving={avatarSaving}
+                avatarMessage={avatarMessage}
+                avatarError={avatarError}
+                onPickAvatar={() => {
+                  setAvatarMessage("");
+                  setAvatarError("");
+                  avatarInputRef.current?.click();
+                }}
+                onOpenSettings={() => setActiveTab("profile-settings")}
+                onOpenStats={() => setActiveTab("profile-stats")}
+                onOpenFriend={setSelectedUserId}
+                onManageFriends={() => setActiveTab("friends")}
+              />
+            </>
+          )}
 
-              <section className={`${PANEL} p-5 sm:p-6`}>
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-                  <div>
-                    <h3 className="text-xl font-bold text-white">Витрина фильмов</h3>
-                    <p className="text-sm text-[#8a90b8] mt-1">Три фильма, которые лучше всего тебя представляют.</p>
-                  </div>
-                  <button onClick={() => setActiveTab("profile-settings")} className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${BTN_SOFT}`}>
-                    <Icon n="settings-2" className="w-4 h-4" /> Настройки витрины
-                  </button>
-                </div>
-                {showcaseMovieIds.map((id) => movies.find((movie) => String(movie.id) === id)).filter(Boolean).length ? (
-                  <div className="grid grid-cols-3 gap-3 sm:gap-5">
-                    {showcaseMovieIds.map((id) => movies.find((movie) => String(movie.id) === id)).filter(Boolean).map((movie) => (
-                      <button key={movie.id} onClick={() => setSelectedMovie(movie)} className="group text-left min-w-0">
-                        <div className="aspect-[2/3] overflow-hidden rounded-xl bg-[#262b55] border border-white/10">
-                          {movie.posterUrl ? <img src={movie.posterUrl} alt={movie.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" /> : <div className="h-full flex items-center justify-center"><Icon n="film" className="w-8 h-8 opacity-40" /></div>}
-                        </div>
-                        <div className="text-sm font-semibold text-white mt-2 truncate">{movie.title}</div>
-                        <div className="text-xs text-[#8a90b8]">{movie.year || "Из журнала"}</div>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-dashed border-white/10 text-center py-8 px-4">
-                    <Icon n="clapperboard" className="w-8 h-8 mx-auto text-[#f47c4f] mb-2" />
-                    <p className="text-sm text-[#c9cce6]">Витрина пока пуста</p>
-                    <p className="text-xs text-[#8a90b8] mt-1">Нажми «Настройки витрины», чтобы выбрать до трёх фильмов.</p>
-                  </div>
-                )}
-              </section>
-
-              <section className={`${PANEL} p-5 sm:p-6`}>
-                <button onClick={() => setProfileFriendsOpen((open) => !open)} className="w-full flex items-center gap-3 text-left">
-                  <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center"><Icon n="users" className="w-5 h-5 text-sky-300" /></div>
-                  <div className="flex-1"><h3 className="text-lg font-bold text-white">Друзья</h3><p className="text-xs text-[#8a90b8]">{friends.length} в твоём круге · нажми, чтобы {profileFriendsOpen ? "скрыть список" : "посмотреть список"}</p></div>
-                  <Icon n={profileFriendsOpen ? "chevron-up" : "chevron-down"} className="w-5 h-5 text-[#8a90b8]" />
-                </button>
-                {profileFriendsOpen && <div className="mt-4 pt-4 border-t border-white/5">
-                  {friends.length === 0 ? <p className="text-sm text-[#8a90b8] py-3">Пока друзей нет. Их можно найти во вкладке «Друзья».</p> : <div className="grid sm:grid-cols-2 gap-2">{friends.map((friend) => <button key={friend.id} onClick={() => setSelectedUserId(friend.id)} className="flex items-center gap-3 rounded-xl p-3 bg-white/[0.03] hover:bg-white/[0.07] text-left transition-colors"><Avatar name={friend.username} avatar={friend.avatar} /><span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-white truncate">{friend.username}</span><span className="block text-xs text-[#8a90b8]">Открыть профиль</span></span><Icon n="arrow-up-right" className="w-4 h-4 text-[#8a90b8]" /></button>)}</div>}
-                  <button onClick={() => setActiveTab("friends")} className="mt-3 text-sm text-[#f47c4f] hover:text-[#ffad8d]">Управлять друзьями →</button>
-                </div>}
-              </section>
-            </div>
+          {activeTab === "profile-stats" && (
+            <StatsPage
+              movies={movies}
+              onBack={() => setActiveTab("profile")}
+              onOpenMovie={(movie) =>
+                movie.tmdbId
+                  ? setSelectedMovie({
+                      id: movie.tmdbId,
+                      media_type: movie.mediaType,
+                      title: movie.title,
+                      posterUrl: movie.posterUrl,
+                    })
+                  : setReviewMovieId(movie.id)
+              }
+            />
           )}
 
           {activeTab === "profile-settings" && (
-            <div className="max-w-2xl space-y-4 pb-28">
-              <button onClick={() => setActiveTab("profile")} className="inline-flex items-center gap-2 text-sm text-[#8a90b8] hover:text-white"><Icon n="arrow-left" className="w-4 h-4" /> Назад в профиль</button>
-              <div><h2 className="text-3xl font-semibold text-white">Настройки профиля</h2><p className="text-sm text-[#8a90b8] mt-1">Управление аккаунтом и данными журнала.</p></div>
-              <div className={`${PANEL} p-5`}>
-                <h3 className="flex items-center gap-2 text-lg text-white mb-1"><Icon n="image" className="w-5 h-5" /> Аватар профиля</h3>
-                <p className="text-sm text-[#8a90b8] mb-4">Загрузи изображение с устройства. Оно будет автоматически обрезано по размеру и сжато.</p>
+            <div className="max-w-3xl space-y-5 pb-28">
+              <button onClick={() => setActiveTab("profile")} className="inline-flex items-center gap-2 min-h-[44px] text-sm font-bold text-[#8b91b5] hover:text-white"><Icon n="arrow-left" className="w-4 h-4" /> Назад в профиль</button>
+              <div><h1 className={PAGE_TITLE}>Настройки профиля</h1><p className="text-sm text-[#8b91b5] mt-2.5">Управление аккаунтом и данными журнала.</p></div>
+              <div className={`${PANEL} p-5 sm:p-6`}>
+                <h2 className={`flex items-center gap-3 ${SECTION_TITLE} mb-2.5`}><span className="w-[38px] h-[38px] rounded-xl bg-[#ff7a45]/[0.14] flex items-center justify-center shrink-0"><Icon n="image" className={`w-[18px] h-[18px] ${ORANGE_FILTER}`} /></span>Аватар профиля</h2>
+                <p className="text-sm text-[#8b91b5] mb-5 leading-relaxed">Загрузи изображение с устройства. Оно будет автоматически обрезано по размеру и сжато.</p>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className="w-20 h-20 shrink-0 rounded-2xl overflow-hidden border border-white/10 bg-[#171a33] flex items-center justify-center">
-                    {user?.avatar ? <img src={user.avatar} alt="Текущий аватар" className="w-full h-full object-cover" /> : <span className="text-3xl font-bold text-white">{user?.username?.[0]?.toUpperCase() || "U"}</span>}
+                  <div className="w-[88px] h-[88px] shrink-0 rounded-3xl overflow-hidden bg-gradient-to-br from-[#ff7a45] to-[#8b5cf6] flex items-center justify-center">
+                    {user?.avatar ? <img src={user.avatar} alt="Текущий аватар" className="w-full h-full object-cover" /> : <span className="font-display text-4xl font-bold text-white">{user?.username?.[0]?.toUpperCase() || "U"}</span>}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
-                    <button type="button" disabled={avatarSaving} onClick={() => avatarInputRef.current?.click()} className={`px-4 py-2.5 rounded-xl font-medium disabled:opacity-50 ${BTN_ORANGE}`}>
+                    <button type="button" disabled={avatarSaving} onClick={() => avatarInputRef.current?.click()} className={`h-11 px-5 rounded-xl text-sm disabled:opacity-50 ${BTN_ORANGE}`}>
                       {avatarSaving ? "Сохранение…" : "Выбрать изображение"}
                     </button>
                     {user?.avatar && <button type="button" disabled={avatarSaving} onClick={async () => {
@@ -1391,49 +1406,52 @@ function MovieTracker() {
                         setAvatarMessage("Аватар удалён.");
                       } catch (error) { setAvatarError(error.message || "Не удалось удалить аватар."); }
                       finally { setAvatarSaving(false); }
-                    }} className={`px-4 py-2.5 rounded-xl ${BTN_SOFT} disabled:opacity-50`}>Удалить аватар</button>}
+                    }} className={`h-11 px-5 rounded-xl text-sm ${BTN_SOFT} disabled:opacity-50`}>Удалить аватар</button>}
                   </div>
                 </div>
                 {avatarMessage && <p role="status" className="mt-3 text-sm text-emerald-300">{avatarMessage}</p>}
                 {avatarError && <p role="alert" className="mt-3 rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-200">{avatarError}</p>}
-                <p className="text-xs text-[#8a90b8] mt-3">Поддерживаются изображения JPG, PNG, WebP и другие форматы, которые открывает браузер. Исходный файл — до 10 МБ.</p>
+                <p className="text-xs text-[#8b91b5] mt-3">Поддерживаются изображения JPG, PNG, WebP и другие форматы, которые открывает браузер. Исходный файл — до 10 МБ.</p>
               </div>
-              <div className={`${PANEL} p-5`}>
-                <h3 className="flex items-center gap-2 text-lg text-white mb-1"><Icon n="user-round-pen" className="w-5 h-5" /> Личные данные</h3>
-                <p className="text-sm text-[#8a90b8] mb-4">Измени никнейм и данные профиля.</p>
-                <button onClick={() => setSelectedUserId(user?.id)} className={`w-full py-2.5 rounded-lg font-medium ${BTN_SOFT}`}>Редактировать профиль</button>
+              <div className={`${PANEL} p-5 sm:p-6`}>
+                <h2 className={`flex items-center gap-3 ${SECTION_TITLE} mb-2.5`}><span className="w-[38px] h-[38px] rounded-xl bg-[#ff7a45]/[0.14] flex items-center justify-center shrink-0"><Icon n="user-round-pen" className={`w-[18px] h-[18px] ${ORANGE_FILTER}`} /></span>Личные данные</h2>
+                <p className="text-sm text-[#8b91b5] mb-4">Измени никнейм и данные профиля.</p>
+                <button onClick={() => setSelectedUserId(user?.id)} className={`w-full h-11 rounded-xl text-sm ${BTN_SOFT}`}>Редактировать профиль</button>
               </div>
-              <div className={`${PANEL} p-5`}>
-                <h3 className="flex items-center gap-2 text-lg text-white mb-1"><Icon n="clapperboard" className="w-5 h-5" /> Настройки витрины</h3>
-                <p className="text-sm text-[#8a90b8] mb-4">Выбери до трёх фильмов из журнала. Изменения будут видны в твоём профиле и профиле друзей.</p>
-                {movies.length ? <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className={`${PANEL} p-5 sm:p-6`}>
+                <h2 className={`flex items-center gap-3 ${SECTION_TITLE} mb-2.5`}><span className="w-[38px] h-[38px] rounded-xl bg-[#ff7a45]/[0.14] flex items-center justify-center shrink-0"><Icon n="clapperboard" className={`w-[18px] h-[18px] ${ORANGE_FILTER}`} /></span>Настройки витрины</h2>
+                <p className="text-sm text-[#8b91b5] mb-4">Выбери до трёх фильмов из журнала. Изменения будут видны в твоём профиле и профиле друзей.</p>
+                {movies.length ? <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
                   {movies.map((movie) => {
                     const selected = showcaseMovieIds.includes(String(movie.id));
                     const disabled = !selected && showcaseMovieIds.length >= 3;
-                    return <button key={movie.id} disabled={disabled} onClick={() => toggleShowcaseMovie(movie)} className={`text-left rounded-xl border p-2 transition ${selected ? "border-[#f47c4f] bg-[#f47c4f]/10" : "border-white/10 bg-black/10 hover:bg-white/5"} disabled:opacity-40`}>
-                      <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#262b55]">
-                        {movie.posterUrl ? <img src={movie.posterUrl} alt={movie.title} className="w-full h-full object-cover" /> : <div className="h-full flex items-center justify-center"><Icon n="film" /></div>}
-                        {selected && <span className="absolute top-2 right-2 bg-[#f47c4f] rounded-full p-1"><Icon n="check" className="w-3 h-3" /></span>}
+                    return <button key={movie.id} disabled={disabled} onClick={() => toggleShowcaseMovie(movie)} aria-pressed={selected} className={`text-left rounded-2xl border p-2 transition ${selected ? "border-[#ff7a45] bg-[#ff7a45]/[0.09]" : "border-white/[0.08] bg-white/[0.02] hover:bg-white/5"} disabled:opacity-40`}>
+                      <div className="relative aspect-[2/3] rounded-[10px] overflow-hidden bg-[#1d2140]">
+                        <Poster src={movie.posterUrl} title={movie.title} />
+                        {selected && <span className="absolute top-2 right-2 w-7 h-7 bg-[#ff7a45] rounded-full flex items-center justify-center"><Icon n="check" className={`w-3.5 h-3.5 ${DARK_ICON}`} /></span>}
                       </div>
-                      <div className="text-xs font-semibold text-white mt-2 line-clamp-2">{movie.title}</div>
+                      <div className="text-xs font-extrabold text-white mt-2.5 px-0.5 line-clamp-2">{movie.title}</div>
                     </button>;
                   })}
-                </div> : <p className="text-sm text-[#8a90b8]">Сначала добавь фильмы в журнал.</p>}
+                </div> : <p className="text-sm text-[#8b91b5]">Сначала добавь фильмы в журнал.</p>}
                 {showcaseSaveError && <p role="alert" className="mt-4 rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-200">{showcaseSaveError}</p>}
               </div>
-              <div className={`${PANEL} p-5`}>
-                <h3 className="flex items-center gap-2 text-lg text-white mb-1"><Icon n="download" className="w-5 h-5" /> Импорт из файла</h3>
-                <p className="text-sm text-[#8a90b8] mb-4">Загрузите .txt или .docx файл со списком фильмов</p>
-                <label className={`block w-full text-center py-2.5 rounded-lg cursor-pointer ${importing ? "bg-[#262b55] text-[#8a90b8] cursor-not-allowed" : BTN_ORANGE}`}>
-                  {importing ? `Импорт... ${importProgress.current}/${importProgress.total}` : "Выбрать файл"}
-                  <input type="file" accept=".txt,.docx" onChange={handleDocxImport} disabled={importing} className="hidden" />
-                </label>
+              <div className={`${PANEL} p-5 sm:p-6`}>
+                <h2 className={`flex items-center gap-3 ${SECTION_TITLE} mb-2.5`}><span className="w-[38px] h-[38px] rounded-xl bg-[#ff7a45]/[0.14] flex items-center justify-center shrink-0"><Icon n="download" className={`w-[18px] h-[18px] ${ORANGE_FILTER}`} /></span>Импорт из файла</h2>
+                <p className="text-sm text-[#8b91b5] mb-5 leading-relaxed">Загрузите .txt или .docx файл со списком фильмов. Каждая строка — название и, если хотите, оценка в конце.</p>
+                <div className="rounded-2xl border-[1.5px] border-dashed border-white/[0.16] p-6 sm:p-7 flex flex-col items-center gap-3 text-center">
+                  <Icon n="file-up" className={`w-7 h-7 ${ORANGE_FILTER}`} />
+                  <label className={`inline-flex items-center justify-center h-11 px-6 rounded-xl text-sm cursor-pointer ${importing ? "bg-[#1d2140] text-[#8b91b5] cursor-not-allowed font-bold" : BTN_ORANGE}`}>
+                    {importing ? `Импорт... ${importProgress.current}/${importProgress.total}` : "Выбрать файл"}
+                    <input type="file" accept=".txt,.docx" onChange={handleDocxImport} disabled={importing} className="hidden" />
+                  </label>
+                </div>
               </div>
-              <div className="fixed bottom-4 left-1/2 z-40 w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 rounded-2xl border border-white/10 bg-[#171a36]/95 p-3 shadow-2xl backdrop-blur-xl sm:bottom-6 sm:p-4">
+              <div className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] lg:bottom-6 z-30 rounded-[18px] border border-white/10 bg-[#14172e]/95 p-3 pl-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl sm:p-3.5 sm:pl-6">
                 <div className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-white">Витрина фильмов</p>
-                    <p className="text-xs text-[#a2a7c8]">Выбрано {showcaseMovieIds.length} из 3</p>
+                    <p className="text-sm font-extrabold text-white">Витрина фильмов</p>
+                    <p className="text-xs text-[#aeb3d6]">Выбрано {showcaseMovieIds.length} из 3</p>
                   </div>
                   <button
                     disabled={savingShowcase || !token}
@@ -1463,164 +1481,160 @@ function MovieTracker() {
                         setSavingShowcase(false);
                       }
                     }}
-                    className={`shrink-0 rounded-xl px-5 py-3 font-semibold ${BTN_ORANGE} disabled:cursor-not-allowed disabled:opacity-50`}
+                    className={`shrink-0 h-11 rounded-xl px-5 text-sm ${BTN_ORANGE} disabled:cursor-not-allowed disabled:opacity-50`}
                   >{savingShowcase ? "Сохранение…" : "Сохранить витрину"}</button>
                 </div>
               </div>
-              <div className={`${PANEL} p-5`}>
-                <h3 className="text-lg font-semibold text-white mb-1">Сессия</h3><p className="text-sm text-[#8a90b8] mb-4">Выйти из текущего аккаунта на этом устройстве.</p>
-                <button onClick={logout} className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-medium ${BTN_RED}`}><Icon n="log-out" /> Выйти из аккаунта</button>
+              <div className={`${PANEL} p-5 sm:p-6`}>
+                <h2 className={`${SECTION_TITLE} mb-2`}>Сессия</h2><p className="text-sm text-[#8b91b5] mb-5">Выйти из текущего аккаунта на этом устройстве.</p>
+                <button onClick={logout} className={`w-full h-11 flex items-center justify-center gap-2 rounded-xl text-sm ${BTN_RED}`}><Icon n="log-out" /> Выйти из аккаунта</button>
               </div>
             </div>
           )}
           <Footer className="mt-12" />
+          </div>
         </main>
 
-        <aside className="hidden xl:block w-72 shrink-0 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto border-l border-white/5 bg-[#101328] p-5">
-          <h3 className="text-lg font-semibold text-white mb-4">Друзья</h3>
+        {["home", "movies", "feed"].includes(activeTab) && (
+        <aside className="hidden xl:flex w-[300px] shrink-0 sticky top-[72px] h-[calc(100dvh-72px)] flex-col gap-4 overflow-y-auto py-8 pr-8">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-base font-semibold text-white">Друзья</h3>
+            <button onClick={() => setActiveTab("friends")} className="text-[13px] font-bold text-[#ff935f] hover:text-[#ffb08a]">
+              Все
+            </button>
+          </div>
 
           {friends.length === 0 ? (
-            <p className="text-sm text-[#8a90b8] text-center py-4">
+            <p className={`${PANEL} text-sm text-[#8b91b5] text-center py-6 px-4`}>
               Пока никого. Найди друзей во вкладке «Друзья».
             </p>
           ) : (
-            <div className="space-y-3">
-              {friends.map((f) => {
-                // Расчет времени онлайн
-                const lastSeenDate = f.lastSeen ? new Date(f.lastSeen) : null;
-                const minutesAgo = lastSeenDate
-                  ? Math.floor((new Date() - lastSeenDate) / 1000 / 60)
-                  : null;
-                const isOnline = minutesAgo !== null && minutesAgo < 5;
+            friends.map((f) => {
+              const lastSeenDate = f.lastSeen ? new Date(f.lastSeen) : null;
+              const minutesAgo = lastSeenDate
+                ? Math.floor((new Date() - lastSeenDate) / 1000 / 60)
+                : null;
+              const isOnline = minutesAgo !== null && minutesAgo < 5;
 
-                const formatLastSeen = () => {
-                  if (!lastSeenDate) return "Не в сети";
-                  if (minutesAgo < 1) return "Только что";
-                  if (minutesAgo < 60) return `${minutesAgo} мин назад`;
-                  const hours = Math.floor(minutesAgo / 60);
-                  if (hours < 24) return `${hours} ч назад`;
-                  const days = Math.floor(hours / 24);
-                  return `${days} дн назад`;
-                };
+              const formatLastSeen = () => {
+                if (!lastSeenDate) return "Не в сети";
+                if (minutesAgo < 1) return "Только что";
+                if (minutesAgo < 60) return `${minutesAgo} мин назад`;
+                const hours = Math.floor(minutesAgo / 60);
+                if (hours < 24) return `${hours} ч назад`;
+                const days = Math.floor(hours / 24);
+                return `${days} дн назад`;
+              };
 
-                // Получаем данные о последнем фильме (если они есть в стейте lastWatchedData)
-                const lastMovie = lastWatchedData[f.id];
+              const lastMovie = lastWatchedData[f.id];
 
-                return (
-                  <button
-                    key={f.id}
-                    onClick={() => f.id && setSelectedUserId(f.id)}
-                    className="w-full flex items-start gap-3 text-left hover:bg-white/5 rounded-lg p-2 -m-2 transition-colors group"
-                  >
-                    {/* Аватар с индикатором онлайна */}
-                    <div className="relative shrink-0 mt-1">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#f47c4f] to-[#8a4fff] flex items-center justify-center font-bold text-sm text-white shadow-lg overflow-hidden">
-                        {f.avatar ? <img src={f.avatar} alt="" className="w-full h-full object-cover" /> : (f.username?.[0]?.toUpperCase() || "U")}
-                      </div>
-                      <div
-                        className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#101328] transition-colors ${
-                          isOnline
-                            ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
-                            : "bg-gray-500"
-                        }`}
-                      ></div>
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => f.id && setSelectedUserId(f.id)}
+                  className={`${PANEL} w-full flex items-start gap-3 p-3.5 text-left transition-colors hover:border-[#ff7a45]/40 group`}
+                >
+                  <div className="relative shrink-0">
+                    <Avatar name={f.username} avatar={f.avatar} />
+                    <span
+                      className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#12152a] ${
+                        isOnline ? "bg-[#4fd6a0]" : "bg-[#565c80]"
+                      }`}
+                    />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-extrabold text-white truncate group-hover:text-[#ff935f] transition-colors">
+                      {f.username}
+                    </div>
+                    <div className={`text-xs mt-0.5 ${isOnline ? "text-[#58dcaa] font-semibold" : "text-[#7b81a6]"}`}>
+                      {isOnline ? "Онлайн" : formatLastSeen()}
                     </div>
 
-                    {/* Информация о друге */}
-                    <div className="flex-1 min-w-0 pt-0.5">
-                      <div className="text-sm font-semibold text-white truncate group-hover:text-[#f47c4f] transition-colors">
-                        {f.username}
-                      </div>
-                      <div
-                        className={`text-[11px] font-medium ${isOnline ? "text-emerald-400" : "text-[#6f759e]"}`}
-                      >
-                        {isOnline ? "Онлайн" : formatLastSeen()}
-                      </div>
-
-                      {/* Последний просмотренный фильм */}
-                      {lastMovie && (
-                        <div className="mt-1.5 flex items-center gap-2 bg-[#1c2040] rounded-md p-1.5 border border-white/5">
-                          {lastMovie.posterUrl ? (
-                            <img
-                              src={lastMovie.posterUrl}
-                              alt=""
-                              className="w-6 h-9 object-cover rounded-sm shrink-0"
-                            />
-                          ) : (
-                            <div className="w-6 h-9 bg-[#262b55] rounded-sm shrink-0 flex items-center justify-center">
-                              <Icon n="film" className="w-3 h-3 opacity-50" />
+                    {lastMovie && (
+                      <div className="mt-2.5 flex items-center gap-2.5 rounded-xl bg-white/[0.04] p-2">
+                        <div className="w-7 h-[42px] rounded-[5px] overflow-hidden shrink-0">
+                          <Poster src={lastMovie.posterUrl} title={lastMovie.title} small />
+                        </div>
+                        <div className="min-w-0 flex-1 leading-tight">
+                          <div className="text-[11px] text-[#8b91b5]">Смотрел</div>
+                          <div className="text-xs font-bold text-[#e9ebf7] truncate" title={lastMovie.title}>
+                            {lastMovie.title}
+                          </div>
+                          {lastMovie.rating && (
+                            <div className="text-xs font-extrabold text-[#ff935f]">
+                              {lastMovie.rating}/10
                             </div>
                           )}
-                          <div className="min-w-0 flex-1 leading-tight">
-                            <div className="text-[10px] text-[#6f759e]">
-                              Смотрел
-                            </div>
-                            <div
-                              className="text-[11px] text-[#c9cce6] truncate"
-                              title={lastMovie.title}
-                            >
-                              {lastMovie.title}
-                            </div>
-                            {lastMovie.rating && (
-                              <div className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-[#f47c4f]">
-                                <Icon
-                                  n="star"
-                                  className={`w-3 h-3 ${ORANGE_FILTER}`}
-                                />
-                                {lastMovie.rating}/10
-                              </div>
-                            )}
-                          </div>
                         </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                      </div>
+                    )}
+                  </div>
+                </button>
+              );
+            })
           )}
 
-          {/* Кнопка поиска друзей */}
-          <div className="mt-8 pt-5 border-t border-white/5">
-            <button
-              onClick={() => setActiveTab("friends")}
-              className="w-full flex items-center gap-2 bg-[#1c2040] hover:bg-[#262b55] rounded-lg px-3 py-2.5 text-sm text-[#6f759e] hover:text-white text-left transition-colors"
-            >
-              <Icon n="search" className="w-4 h-4 opacity-50" />
-              Поиск и добавление
-            </button>
-          </div>
+          <button
+            onClick={() => setActiveTab("friends")}
+            className={`w-full min-h-[44px] flex items-center gap-2 rounded-xl px-4 text-sm ${BTN_SOFT} !text-[#8b91b5] hover:!text-white`}
+          >
+            <Icon n="search" className="w-4 h-4 opacity-60" />
+            Поиск и добавление
+          </button>
         </aside>
+        )}
+      </div>
+        </div>
       </div>
 
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#131631] border-t border-white/5 flex justify-around pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] safe-x">
-        {navItems.filter((item) => item.id !== "profile").map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setActiveTab(item.id)}
-            className="flex-1 min-w-0 flex flex-col items-center gap-1 px-1 py-1"
-          >
-            <span className="relative">
-              <Icon
-                n={item.icon}
-                className={`w-5 h-5 ${activeTab === item.id ? ORANGE_FILTER : "opacity-60"}`}
-              />
-              {item.badge > 0 && (
-                <span
-                  className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-[#f47c4f] text-[#1a1020] text-[10px] font-bold leading-none flex items-center justify-center"
-                  aria-label={`Новых заявок: ${item.badge}`}
-                >
-                  {item.badge > 9 ? "9+" : item.badge}
+      <nav
+        aria-label="Разделы"
+        className="mg-glass-nav lg:hidden fixed z-40 left-3 right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] mx-auto max-w-[480px] rounded-full p-1.5"
+      >
+        <div className="relative flex">
+          {/* Подсветка активной вкладки плавно переезжает между пунктами */}
+          <span
+            aria-hidden="true"
+            className="mg-glass-pill absolute inset-y-0 left-0 rounded-full"
+            style={{
+              width: `${100 / mobileNavItems.length}%`,
+              transform: `translateX(${Math.max(mobileNavIndex, 0) * 100}%)`,
+              opacity: mobileNavIndex < 0 ? 0 : 1,
+            }}
+          />
+          {mobileNavItems.map((item) => {
+            const active = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                aria-current={active ? "page" : undefined}
+                className="relative flex-1 min-w-0 min-h-[52px] flex flex-col items-center justify-center gap-1 px-1 rounded-full active:scale-90 transition-transform duration-200"
+              >
+                <span key={active ? "on" : "off"} className={`relative ${active ? "mg-nav-pop" : ""}`}>
+                  <Icon
+                    n={item.icon}
+                    className={`w-[22px] h-[22px] transition-opacity duration-300 ${active ? ORANGE_FILTER : "opacity-60"}`}
+                  />
+                  {item.badge > 0 && (
+                    <span
+                      className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-[#ff7a45] text-[#1b0d07] text-[10px] font-extrabold leading-none flex items-center justify-center"
+                      aria-label={`Новых заявок: ${item.badge}`}
+                    >
+                      {item.badge > 9 ? "9+" : item.badge}
+                    </span>
+                  )}
                 </span>
-              )}
-            </span>
-            <span
-              className={`max-w-full truncate text-[10px] ${activeTab === item.id ? "text-[#f47c4f]" : "text-[#8a90b8]"}`}
-            >
-              {item.short ?? item.label}
-            </span>
-          </button>
-        ))}
+                <span
+                  className={`max-w-full truncate text-[10px] font-bold transition-colors duration-300 ${active ? "text-[#ff935f]" : "text-[#aeb3d6]/70"}`}
+                >
+                  {item.short ?? item.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </nav>
 
       {selectedUserId && (
@@ -1643,8 +1657,8 @@ function MovieTracker() {
           )}
           onClose={() => setSelectedMovie(null)}
           onOpenReview={setReviewMovieId}
-          onAdd={(status, details) =>
-            addMovie({
+          onAdd={async (status, details) => {
+            const created = await addMovie({
               tmdbId: selectedMovie.id,
               title: selectedMovie.title || selectedMovie.name,
               posterUrl: selectedMovie.poster_path
@@ -1653,8 +1667,10 @@ function MovieTracker() {
               status,
               mediaType: selectedMovie.media_type === "tv" ? "tv" : "movie",
               ...metaFromTmdb(details || selectedMovie),
-            })
-          }
+            });
+            // «Смотрел» сразу открывает оценку, как и кнопка на карточке
+            if (status === "WATCHED" && created?.id) setReviewMovieId(created.id);
+          }}
         />
       )}
 
@@ -1678,15 +1694,15 @@ function MovieTracker() {
       )}
 
       {importResult && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#171a33] border border-white/10 rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6">
+        <div className="fixed inset-0 bg-[#04050c]/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#12152a] border border-white/10 rounded-[24px] max-w-lg w-full max-h-[80vh] overflow-y-auto p-6 sm:p-7 shadow-[0_40px_120px_rgba(0,0,0,0.7)]">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-2xl font-semibold text-white">
+              <h3 className="font-display text-xl font-semibold text-white">
                 Результаты импорта
               </h3>
               <button
                 onClick={() => setImportResult(null)}
-                className="p-1.5 hover:bg-white/10 rounded-md"
+                aria-label="Закрыть" className="w-11 h-11 flex items-center justify-center bg-white/[0.07] hover:bg-white/[0.12] rounded-full"
               >
                 <Icon n="x" className="w-5 h-5" />
               </button>
@@ -1712,12 +1728,12 @@ function MovieTracker() {
               ].map((s) => (
                 <div
                   key={s.label}
-                  className="bg-[#1c2040] rounded-xl p-3 text-center"
+                  className="bg-[#171b38] rounded-2xl p-4 text-center"
                 >
-                  <div className={`text-3xl font-semibold ${s.color}`}>
+                  <div className={`font-display text-3xl font-bold ${s.color}`}>
                     {s.n}
                   </div>
-                  <div className="text-xs text-[#8a90b8]">{s.label}</div>
+                  <div className="text-xs text-[#8b91b5]">{s.label}</div>
                 </div>
               ))}
             </div>
@@ -1725,7 +1741,7 @@ function MovieTracker() {
             {importResult.failed.length > 0 && (
               <div className="mb-5">
                 <h4 className="text-sm text-red-300 mb-2">Не найдено:</h4>
-                <div className="bg-[#0f1226] rounded-lg p-3 max-h-32 overflow-y-auto space-y-1">
+                <div className="bg-[#0a0c18] rounded-lg p-3 max-h-32 overflow-y-auto space-y-1">
                   {importResult.failed.map((m, i) => (
                     <div key={i} className="text-xs truncate">
                       {m.title}
@@ -1737,7 +1753,7 @@ function MovieTracker() {
 
             <button
               onClick={() => setImportResult(null)}
-              className={`w-full py-2.5 rounded-lg ${BTN_ORANGE}`}
+              className={`w-full h-12 rounded-xl text-sm ${BTN_ORANGE}`}
             >
               Понятно
             </button>

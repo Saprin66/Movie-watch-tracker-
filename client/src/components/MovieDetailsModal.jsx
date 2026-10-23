@@ -1,13 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
-import { Chip } from "./ui";
-import { BTN_ORANGE, BTN_SOFT, ORANGE_FILTER } from "./styles";
-import { BACKDROP, POSTER_LARGE, PROFILE } from "../config";
+import { Poster } from "./ui";
+import { DARK_ICON, ORANGE_FILTER } from "./styles";
+import { POSTER_LARGE, PROFILE } from "../config";
 import { fetchTmdb } from "../utils/tmdb";
 import { useScrollLock } from "../hooks/useScrollLock";
 
 const DETAILS_PARAMS =
-  "&language=ru-RU&append_to_response=credits,videos&include_video_language=ru,en,null";
+  "&language=ru-RU&append_to_response=credits,videos,release_dates,content_ratings&include_video_language=ru,en,null";
+
+// Длительность анимации закрытия страницы, мс (совпадает с .mg-page-leave в index.css)
+const LEAVE_MS = 260;
 
 const pluralSeasons = (n) => {
   const m10 = n % 10;
@@ -29,12 +32,45 @@ function formatRuntime(details) {
   return details?.runtime ? `${minutes} мин` : `${minutes} мин / серия`;
 }
 
+// Американские рейтинги переводим в привычный формат «16+»
+const US_TO_AGE = {
+  G: "0+", PG: "6+", "PG-13": "12+", R: "18+", "NC-17": "18+",
+  "TV-Y": "0+", "TV-Y7": "6+", "TV-G": "0+", "TV-PG": "12+", "TV-14": "16+", "TV-MA": "18+",
+};
+
+function ageRating(details, isTv) {
+  if (!details) return null;
+  const pick = (country) => {
+    if (isTv) {
+      return (details.content_ratings?.results || []).find((r) => r.iso_3166_1 === country)
+        ?.rating;
+    }
+    const entry = (details.release_dates?.results || []).find((r) => r.iso_3166_1 === country);
+    return entry?.release_dates?.find((d) => d.certification)?.certification;
+  };
+  const ru = pick("RU");
+  if (ru) return /^\d+$/.test(ru) ? `${ru}+` : ru;
+  const us = pick("US");
+  return us ? US_TO_AGE[us] || us : null;
+}
+
+// Год выхода, а для ещё не вышедших — дата премьеры
+function releaseLabel(dateStr) {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return null;
+  if (date > new Date()) {
+    return `Премьера ${date.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}`;
+  }
+  return String(date.getFullYear());
+}
+
 function Skeleton() {
   return (
     <div className="space-y-2.5 animate-pulse" aria-hidden="true">
-      <div className="h-3 rounded bg-white/5 w-full" />
-      <div className="h-3 rounded bg-white/5 w-11/12" />
-      <div className="h-3 rounded bg-white/5 w-9/12" />
+      <div className="h-3 rounded bg-white/10 w-full" />
+      <div className="h-3 rounded bg-white/10 w-11/12" />
+      <div className="h-3 rounded bg-white/10 w-9/12" />
     </div>
   );
 }
@@ -42,34 +78,34 @@ function Skeleton() {
 function Fact({ label, children }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[11px] uppercase tracking-wide text-[#6f759e]">
+      <dt className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4] mb-1.5">
         {label}
       </dt>
-      <dd className="text-sm text-[#c9cce6] break-words">{children}</dd>
+      <dd className="text-[15px] font-bold text-white break-words">{children}</dd>
     </div>
   );
 }
 
 function CastMember({ person }) {
   return (
-    <li className="w-[72px] shrink-0 text-center">
+    <li className="w-[84px] shrink-0 text-center">
       {person.profile_path ? (
         <img
           src={`${PROFILE}${person.profile_path}`}
           alt=""
           loading="lazy"
-          className="w-14 h-14 mx-auto rounded-full object-cover border border-white/10"
+          className="w-[68px] h-[68px] mx-auto rounded-full object-cover border-2 border-white/20"
         />
       ) : (
-        <div className="w-14 h-14 mx-auto rounded-full bg-[#262b55] flex items-center justify-center text-sm font-semibold text-[#8a90b8]">
+        <div className="w-[68px] h-[68px] mx-auto rounded-full bg-gradient-to-br from-[#ff7a45]/70 to-[#8b5cf6]/70 border-2 border-white/20 flex items-center justify-center text-lg font-extrabold text-white">
           {person.name?.[0] || "?"}
         </div>
       )}
-      <div className="mt-1.5 text-[11px] leading-tight text-white line-clamp-2">
+      <div className="mt-2.5 text-xs font-bold leading-tight text-[#e9ebf7] line-clamp-2">
         {person.name}
       </div>
       {person.character && (
-        <div className="text-[10px] leading-tight text-[#6f759e] line-clamp-2">
+        <div className="mt-0.5 text-[11px] leading-tight text-[#9aa0c4] line-clamp-2">
           {person.character}
         </div>
       )}
@@ -77,7 +113,10 @@ function CastMember({ person }) {
   );
 }
 
-// Карточка фильма или сериала из TMDB.
+const SECTION_LABEL =
+  "text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4] mb-3";
+
+// Страница фильма или сериала из TMDB, открывается поверх приложения на весь экран.
 // movie: результат поиска TMDB. existing: запись пользователя, если фильм уже в журнале.
 // onAdd(status, details) вызывается при добавлении, onOpenReview: открыть отзыв из журнала.
 export default function MovieDetailsModal({
@@ -91,6 +130,13 @@ export default function MovieDetailsModal({
 
   const type = movie.media_type === "tv" ? "tv" : "movie";
   const [state, setState] = useState({ loading: true, details: null });
+  const [leaving, setLeaving] = useState(false);
+
+  // Свежий onClose без переподписки на события
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,13 +156,36 @@ export default function MovieDetailsModal({
     };
   }, [movie.id, type]);
 
+  // Страница добавляет запись в историю: системная кнопка/жест «Назад» закрывает её,
+  // а не уводит с сайта
+  useEffect(() => {
+    if (!window.history.state?.mgDetails) {
+      window.history.pushState({ ...window.history.state, mgDetails: true }, "");
+    }
+    let timer;
+    const onPop = () => {
+      setLeaving(true);
+      timer = setTimeout(() => onCloseRef.current(), LEAVE_MS);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      clearTimeout(timer);
+    };
+  }, []);
+
+  const close = () => {
+    if (window.history.state?.mgDetails) window.history.back();
+    else onClose();
+  };
+
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  });
 
   const { loading, details } = state;
   const isTv = type === "tv";
@@ -125,12 +194,13 @@ export default function MovieDetailsModal({
   const data = details || movie;
   const title = data.title || data.name || movie.title || movie.name;
   const originalTitle = data.original_title || data.original_name;
-  const year = (data.release_date || data.first_air_date || "").slice(0, 4);
   const posterPath = data.poster_path || movie.poster_path;
-  const backdropPath = data.backdrop_path || movie.backdrop_path;
+  const posterSrc = posterPath ? `${POSTER_LARGE}${posterPath}` : movie.posterUrl || null;
   const overview = data.overview || movie.overview;
   const rating = data.vote_average ? Number(data.vote_average).toFixed(1) : null;
   const runtime = formatRuntime(details);
+  const age = ageRating(details, isTv);
+  const release = releaseLabel(data.release_date || data.first_air_date);
   const genres = details?.genres || [];
 
   const crew = details?.credits?.crew || [];
@@ -145,175 +215,155 @@ export default function MovieDetailsModal({
 
   const handleAdd = (status) => {
     onAdd(status, details);
-    onClose();
+    close();
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/80 backdrop-blur-sm"
-      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className={`fixed inset-0 z-50 bg-[#080a16] overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"}`}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="relative w-full sm:max-w-3xl max-h-[92dvh] sm:max-h-[90vh] flex flex-col bg-[#171a33] border border-white/10 rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl shadow-black/60"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Закрыть"
-          className="absolute top-3 right-3 z-20 p-2 bg-black/55 hover:bg-black/75 rounded-full transition-colors"
-        >
-          <Icon n="x" className="w-5 h-5" />
-        </button>
+      {/* Фон: размытый постер */}
+      <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+        {posterSrc && (
+          <img
+            src={posterSrc}
+            alt=""
+            className="mg-page-bg absolute inset-0 w-full h-full object-cover scale-125 blur-[40px] opacity-60"
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#080a16]/30 via-[#080a16]/70 to-[#080a16]" />
+      </div>
 
-        <div className="flex-1 overflow-y-auto scroll-contain">
-          {/* Верхняя картинка */}
-          <div
-            className={`relative bg-[#1c2040] ${backdropPath ? "h-44 sm:h-72" : "h-28 sm:h-36"}`}
+      <div className="relative h-full overflow-y-auto scroll-contain">
+        {/* Верхняя панель */}
+        <div className="sticky top-0 z-20 flex items-center justify-between px-4 sm:px-8 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3">
+          <button
+            type="button"
+            onClick={close}
+            aria-label="Назад"
+            className="mg-glass-btn w-11 h-11 rounded-full flex items-center justify-center"
           >
-            {backdropPath ? (
-              <img
-                src={`${BACKDROP}${backdropPath}`}
-                alt=""
-                className="w-full h-full object-cover object-top"
-              />
-            ) : (
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(244,124,79,0.25),transparent_65%)]" />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#171a33] via-[#171a33]/40 to-transparent" />
-          </div>
+            <Icon n="arrow-left" className="w-5 h-5" />
+          </button>
+          {trailer && (
+            <a
+              href={`https://www.youtube.com/watch?v=${trailer.key}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mg-glass-btn mg-glass-btn--wide h-11 px-4 rounded-full inline-flex items-center gap-2 text-sm font-bold text-white"
+            >
+              <Icon n="play" className="w-4 h-4" /> Трейлер
+            </a>
+          )}
+        </div>
 
-          <div className="relative px-4 sm:px-8 pb-6 -mt-16 sm:-mt-24">
-            {/* Постер и заголовок */}
-            <div className="flex items-end gap-4 sm:gap-6">
-              {posterPath ? (
-                <img
-                  src={`${POSTER_LARGE}${posterPath}`}
-                  alt={title}
-                  className="w-28 sm:w-44 aspect-[2/3] self-end object-cover rounded-xl shadow-2xl shadow-black/60 ring-1 ring-white/10 shrink-0"
-                />
-              ) : (
-                <div className="w-28 sm:w-44 aspect-[2/3] bg-[#262b55] rounded-xl ring-1 ring-white/10 shrink-0 flex items-center justify-center">
-                  <Icon n="film" className="w-8 h-8 opacity-30" />
+        <div className="px-4 sm:px-8 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
+          {/* Постер и главное по центру */}
+          <div className="flex flex-col items-center text-center">
+            <div className="mg-page-poster w-[190px] sm:w-[240px] aspect-[2/3] overflow-hidden rounded-[22px] border border-white/20 shadow-[0_30px_80px_rgba(0,0,0,0.65)]">
+              <Poster src={posterSrc} title={title} />
+            </div>
+
+            <div className="mg-page-rise mt-6 max-w-[760px]" style={{ animationDelay: "80ms" }}>
+              <h1 className="font-display text-[26px] sm:text-[38px] font-bold text-white leading-[1.1] break-words">
+                {title}
+              </h1>
+              {originalTitle && originalTitle !== title && (
+                <div className="mt-2 text-[13px] sm:text-sm text-[#b8bddb] break-words">
+                  {originalTitle}
                 </div>
               )}
+            </div>
 
-              <div className="min-w-0 flex-1 pb-1">
-                <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                  {isTv && <Chip tone="orange">Сериал</Chip>}
-                  {year && <Chip>{year}</Chip>}
-                  {runtime && <Chip>{runtime}</Chip>}
-                  {isTv && details?.number_of_seasons > 0 && (
-                    <Chip>
-                      {details.number_of_seasons}{" "}
-                      {pluralSeasons(details.number_of_seasons)}
-                    </Chip>
-                  )}
-                </div>
-
-                <h2 className="text-xl sm:text-3xl font-bold text-white leading-tight break-words">
-                  {title}
-                </h2>
-                {originalTitle && originalTitle !== title && (
-                  <div className="mt-0.5 text-xs sm:text-sm text-[#8a90b8] break-words">
-                    {originalTitle}
-                  </div>
-                )}
-
-                {rating && (
-                  <div className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f47c4f]/15 text-[#f47c4f]">
-                    <Icon n="star" className={`w-4 h-4 ${ORANGE_FILTER}`} />
-                    <span className="text-base font-bold leading-none">
-                      {rating}
-                    </span>
-                    <span className="text-[11px] opacity-70">TMDB</span>
-                  </div>
-                )}
-              </div>
+            <div
+              className="mg-page-rise mt-5 flex flex-wrap items-center justify-center gap-2"
+              style={{ animationDelay: "140ms" }}
+            >
+              {rating && (
+                <span className="mg-glass-chip mg-glass-chip--orange">
+                  <Icon n="star" className={`w-4 h-4 ${ORANGE_FILTER}`} />
+                  {rating}
+                </span>
+              )}
+              {age && <span className="mg-glass-chip">{age}</span>}
+              {runtime && (
+                <span className="mg-glass-chip">
+                  <Icon n="clock" className="w-3.5 h-3.5 opacity-80" />
+                  {runtime}
+                </span>
+              )}
+              {release && (
+                <span className="mg-glass-chip">
+                  <Icon n="calendar" className="w-3.5 h-3.5 opacity-80" />
+                  {release}
+                </span>
+              )}
+              {isTv && details?.number_of_seasons > 0 && (
+                <span className="mg-glass-chip">
+                  {details.number_of_seasons} {pluralSeasons(details.number_of_seasons)}
+                </span>
+              )}
             </div>
 
             {existing && (
-              <div className="mt-5 flex flex-wrap items-center gap-2 text-sm">
-                <Chip tone={existing.status === "WATCHED" ? "green" : "blue"}>
-                  {existing.status === "WATCHED"
-                    ? "В журнале: просмотрено"
-                    : "В журнале: буду смотреть"}
-                </Chip>
-                {existing.rating && (
-                  <span className="text-[#f47c4f]">
-                    Ваша оценка: {existing.rating}/10
-                  </span>
-                )}
+              <div
+                className="mg-page-rise mt-4 flex flex-wrap items-center justify-center gap-2 text-sm"
+                style={{ animationDelay: "180ms" }}
+              >
+                <span
+                  className={`mg-glass-chip ${existing.status === "WATCHED" ? "mg-glass-chip--green" : "mg-glass-chip--orange"}`}
+                >
+                  {existing.status === "WATCHED" ? "Просмотрено" : "Буду смотреть"}
+                  {existing.rating && ` · ваша оценка ${existing.rating}/10`}
+                </span>
               </div>
             )}
+          </div>
 
-            {details?.tagline && (
-              <p className="mt-5 text-sm italic text-[#8a90b8]">
-                «{details.tagline}»
-              </p>
-            )}
-
-            {genres.length > 0 && (
-              <div className="mt-4 flex flex-wrap gap-1.5">
-                {genres.map((g) => (
-                  <span
-                    key={g.id}
-                    className="text-xs text-[#9aa0c8] bg-white/5 px-2.5 py-1 rounded-full"
-                  >
-                    {g.name}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            <section className="mt-5">
-              <h3 className="text-xs uppercase tracking-wide text-[#6f759e] mb-2">
-                Описание
-              </h3>
+          {/* Подробности */}
+          <div
+            className="mg-page-rise mx-auto mt-8 max-w-[760px] space-y-4"
+            style={{ animationDelay: "220ms" }}
+          >
+            <section className="mg-glass-panel rounded-[24px] p-5 sm:p-7">
+              {details?.tagline && (
+                <p className="mb-4 text-sm sm:text-[15px] italic text-[#c4c8e4]">
+                  {/* TMDB иногда присылает слоган уже в кавычках */}
+                  «{details.tagline.replace(/^[«"“„]+|[»"”]+$/g, "")}»
+                </p>
+              )}
+              {genres.length > 0 && (
+                <div className="mb-5 flex flex-wrap gap-1.5">
+                  {genres.map((g) => (
+                    <span key={g.id} className="mg-glass-chip text-xs py-1.5">
+                      {g.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <h2 className={SECTION_LABEL}>Описание</h2>
               {loading && !overview ? (
                 <Skeleton />
               ) : (
-                <p className="text-sm sm:text-[15px] text-[#c9cce6] leading-relaxed whitespace-pre-line">
+                <p className="text-sm sm:text-[15px] text-[#e2e4f3] leading-[1.75] whitespace-pre-line">
                   {overview || "Описание отсутствует"}
                 </p>
               )}
+
+              {directors.length > 0 && (
+                <dl className="mt-6">
+                  <Fact label={isTv ? "Создатели" : "Режиссёр"}>{directors.join(", ")}</Fact>
+                </dl>
+              )}
             </section>
 
-            {(directors.length > 0 || trailer) && (
-              <dl className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-                {directors.length > 0 && (
-                  <Fact label={isTv ? "Создатели" : "Режиссёр"}>
-                    {directors.join(", ")}
-                  </Fact>
-                )}
-                {trailer && (
-                  <Fact label="Трейлер">
-                    <a
-                      href={`https://www.youtube.com/watch?v=${trailer.key}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-[#f47c4f] hover:underline"
-                    >
-                      <Icon
-                        n="play"
-                        className={`w-3.5 h-3.5 ${ORANGE_FILTER}`}
-                      />
-                      Смотреть на YouTube
-                    </a>
-                  </Fact>
-                )}
-              </dl>
-            )}
-
             {cast.length > 0 && (
-              <section className="mt-6">
-                <h3 className="text-xs uppercase tracking-wide text-[#6f759e] mb-3">
-                  В ролях
-                </h3>
-                <ul className="flex gap-3 overflow-x-auto scroll-contain pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+              <section className="mg-glass-panel rounded-[24px] p-5 sm:p-7">
+                <h2 className={SECTION_LABEL}>В ролях</h2>
+                <ul className="no-scrollbar flex gap-3.5 overflow-x-auto scroll-contain pb-1 -mx-5 px-5 sm:-mx-7 sm:px-7">
                   {cast.map((person) => (
                     <CastMember key={person.credit_id || person.id} person={person} />
                   ))}
@@ -322,46 +372,41 @@ export default function MovieDetailsModal({
             )}
           </div>
         </div>
+      </div>
 
-        {/* Кнопки всегда под рукой, даже когда описание длинное */}
-        <div className="shrink-0 flex gap-2 border-t border-white/5 bg-[#171a33] px-4 sm:px-8 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+      {/* Действия: стеклянная панель внизу, всегда под рукой */}
+      <div className="absolute z-20 left-3 right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] mx-auto max-w-[560px]">
+        <div className="mg-glass-nav rounded-full p-1.5 flex gap-1.5">
           {existing ? (
             <button
               type="button"
               onClick={() => {
                 onOpenReview(existing.id);
-                onClose();
+                close();
               }}
-              className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm ${BTN_ORANGE}`}
+              className="flex-1 min-w-0 whitespace-nowrap inline-flex items-center justify-center gap-2 h-12 px-3 rounded-full text-sm sm:text-[15px] font-extrabold text-[#1b0d07] bg-[#ff7a45] hover:bg-[#ff8a5a] transition-colors"
             >
-              <Icon n="message-square-text" className="w-4 h-4 [filter:brightness(0.1)]" />
+              <Icon n="message-square-text" className={`w-[18px] h-[18px] ${DARK_ICON}`} />
               Оценка и отзыв
             </button>
           ) : (
             <>
               <button
                 type="button"
-                onClick={() => handleAdd("WATCHED")}
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold transition-colors bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300"
+                onClick={() => handleAdd("WATCHLIST")}
+                className="mg-glass-btn mg-glass-btn--wide mg-glass-btn--orange flex-1 min-w-0 whitespace-nowrap inline-flex items-center justify-center gap-2 h-12 px-3 rounded-full text-sm sm:text-[15px] font-extrabold text-white"
               >
-                <Icon n="check" className="w-4 h-4" /> Смотрел
+                <Icon n="eye" className="w-[18px] h-[18px]" /> Буду смотреть
               </button>
               <button
                 type="button"
-                onClick={() => handleAdd("WATCHLIST")}
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold transition-colors bg-[#f47c4f]/15 hover:bg-[#f47c4f]/25 text-[#f47c4f]"
+                onClick={() => handleAdd("WATCHED")}
+                className="mg-glass-btn mg-glass-btn--wide mg-glass-btn--green flex-1 min-w-0 whitespace-nowrap inline-flex items-center justify-center gap-2 h-12 px-3 rounded-full text-sm sm:text-[15px] font-extrabold text-white"
               >
-                <Icon n="bookmark" className="w-4 h-4" /> В список
+                <Icon n="check" className="w-[18px] h-[18px]" /> Смотрел
               </button>
             </>
           )}
-          <button
-            type="button"
-            onClick={onClose}
-            className={`hidden sm:inline-flex items-center justify-center px-4 py-3 rounded-lg text-sm ${BTN_SOFT}`}
-          >
-            Закрыть
-          </button>
         </div>
       </div>
     </div>
