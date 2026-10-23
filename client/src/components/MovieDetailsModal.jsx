@@ -406,7 +406,7 @@ export default function MovieDetailsModal({
       </div>
 
       {/* Действия: стеклянная панель внизу, всегда под рукой */}
-      <div className="absolute z-20 left-3 right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] mx-auto max-w-[560px]">
+      <div className="mg-dock-bottom absolute z-20 left-3 right-3 mx-auto max-w-[560px]">
         {listsOpen && (
           <div className="mg-glass-nav mg-page-rise mb-2 rounded-[24px] p-4 max-h-[45dvh] overflow-y-auto scroll-contain">
             <div className="flex items-center justify-between gap-3 mb-3">

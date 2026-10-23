@@ -177,3 +177,44 @@ export const Row = ({ children }) => (
     {children}
   </div>
 );
+
+// Стеклянный переключатель подразделов с подсветкой, которая переезжает к выбранному
+export function SubTabs({ items, active, onChange }) {
+  const index = Math.max(items.findIndex((t) => t.id === active), 0);
+  return (
+    <div className="mb-6 flex justify-center sm:justify-start">
+      <div className="mg-glass-nav relative flex w-full sm:w-auto rounded-full p-1" role="tablist">
+        <span
+          aria-hidden="true"
+          className="mg-glass-pill absolute inset-y-1 left-1 rounded-full"
+          style={{
+            width: `calc((100% - 0.5rem) / ${items.length})`,
+            transform: `translateX(${index * 100}%)`,
+          }}
+        />
+        {items.map((t) => {
+          const selected = t.id === active;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => onChange(t.id)}
+              className={`relative flex-1 sm:flex-none sm:w-[150px] h-10 px-3 rounded-full inline-flex items-center justify-center gap-1.5 text-sm font-bold transition-colors duration-300 ${
+                selected ? "text-[#ffb08c]" : "text-[#aeb3d6] hover:text-white"
+              }`}
+            >
+              {t.label}
+              {t.badge > 0 && (
+                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#ff7a45] text-[#1b0d07] text-[10px] font-extrabold leading-none flex items-center justify-center">
+                  {t.badge > 9 ? "9+" : t.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

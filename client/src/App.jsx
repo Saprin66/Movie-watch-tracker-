@@ -29,7 +29,7 @@ import {
 import { metaFromTmdb } from "./utils/genres";
 import { useMetaBackfill } from "./hooks/useMetaBackfill";
 import Icon from "./components/Icon";
-import { Chip, MovieCard, CornerButton, Grid, Empty, Avatar, Logo, Poster } from "./components/ui";
+import { Chip, MovieCard, CornerButton, Grid, Empty, Avatar, Logo, Poster, SubTabs } from "./components/ui";
 import {
   ORANGE_FILTER,
   BTN_ORANGE,
@@ -548,6 +548,13 @@ function MovieTracker() {
 
   // Номер последнего запроса: запоздавший ответ на старый запрос не перезапишет свежий
   const searchSeq = useRef(0);
+  const searchInputRef = useRef(null);
+
+  // Кнопка-лупа: открыть поиск и сразу поставить курсор в поле
+  const openSearch = () => {
+    setActiveTab("search");
+    requestAnimationFrame(() => searchInputRef.current?.focus());
+  };
   const searchTimer = useRef(null);
 
   const searchMovies = async (query) => {
@@ -811,25 +818,33 @@ function MovieTracker() {
     { id: "home", label: "Главная", short: "Главная", icon: "house" },
     { id: "movies", label: "Мой список", short: "Список", icon: "layout-dashboard" },
     {
-      id: "discover",
-      label: "Что смотреть",
-      short: "Смотреть",
-      icon: "sparkles",
-    },
-    { id: "feed", label: "Лента друзей", short: "Лента", icon: "activity" },
-    { id: "together", label: "Смотрим вместе", short: "Вместе", icon: "popcorn", badge: listInvites.length },
-    { id: "search", label: "Искать", icon: "compass" },
-    {
       id: "friends",
       label: "Друзья",
       icon: "users",
-      badge: requestsCount,
+      badge: requestsCount + listInvites.length,
     },
-    { id: "profile", label: "Профиль", icon: "user-round" },
+    // «Искать» и «Профиль» на телефоне открываются отдельной кнопкой-лупой и из шапки
+    { id: "search", label: "Искать", icon: "compass", desktopOnly: true },
+    { id: "profile", label: "Профиль", icon: "user-round", desktopOnly: true },
   ];
 
-  const mobileNavItems = navItems.filter((item) => item.id !== "profile");
-  const mobileNavIndex = mobileNavItems.findIndex((item) => item.id === activeTab);
+  // Разделы, которые живут внутри других: «Что смотреть» — в списке, лента и «Вместе» — в друзьях
+  const SECTION_OF = { discover: "movies", feed: "friends", together: "friends" };
+  const activeSection = activeTab.startsWith("profile-") ? "profile" : SECTION_OF[activeTab] || activeTab;
+  const subTabs = {
+    movies: [
+      { id: "movies", label: "Мой журнал" },
+      { id: "discover", label: "Что смотреть" },
+    ],
+    friends: [
+      { id: "friends", label: "Друзья", badge: requestsCount },
+      { id: "feed", label: "Лента" },
+      { id: "together", label: "Вместе", badge: listInvites.length },
+    ],
+  }[activeSection];
+
+  const mobileNavItems = navItems.filter((item) => !item.desktopOnly);
+  const mobileNavIndex = mobileNavItems.findIndex((item) => item.id === activeSection);
 
   const tabs = [
     { id: "watched", label: "Просмотрено" },
@@ -879,9 +894,7 @@ function MovieTracker() {
 
           <nav className="space-y-1" aria-label="Разделы">
             {navItems.map((item) => {
-              const active =
-                activeTab === item.id ||
-                (item.id === "profile" && activeTab.startsWith("profile-"));
+              const active = activeSection === item.id;
               return (
                 <button
                   key={item.id}
@@ -918,52 +931,13 @@ function MovieTracker() {
           <button
             type="button"
             onClick={() => setActiveTab("home")}
-            className="hidden sm:block lg:hidden shrink-0"
+            className="lg:hidden shrink-0"
             aria-label="На главную"
           >
-            <Logo showText={false} />
+            <Logo />
           </button>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault(); // Предотвращаем перезагрузку страницы при нажатии Enter/Поиск
-              if (activeTab !== "search") setActiveTab("search");
-              searchMovies(searchQuery); // Явно запускаем поиск по текущему значению
-            }}
-            className="relative flex-1 min-w-0 max-w-xl flex gap-2"
-          >
-            <div className="relative flex-1 min-w-0">
-              <Icon
-                n="search"
-                className={`absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] ${activeTab === "search" && searchQuery ? ORANGE_FILTER : "opacity-50"}`}
-              />
-              <input
-                type="search" /* показывает кнопку с лупой на клавиатуре телефона */
-                inputMode="search"
-                autoComplete="off"
-                placeholder="Поиск фильмов и сериалов"
-                aria-label="Поиск фильмов и сериалов"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  if (activeTab !== "search") setActiveTab("search");
-                  searchMoviesDebounced(e.target.value);
-                }}
-                className="w-full min-w-0 h-12 bg-[#12152a] border border-white/[0.08] rounded-2xl pl-11 pr-3 text-base sm:text-sm text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45] focus:ring-[3px] focus:ring-[#ff7a45]/20 transition"
-              />
-            </div>
-
-            <button
-              type="submit"
-              aria-label="Найти"
-              className={`h-12 px-3.5 sm:px-5 rounded-2xl text-sm flex items-center gap-2 shrink-0 active:scale-95 ${BTN_ORANGE}`}
-            >
-              <Icon n="search" className={`w-5 h-5 sm:hidden ${DARK_ICON}`} />
-              <span className="hidden sm:inline">Найти</span>
-            </button>
-          </form>
-
-          <div className="hidden sm:block flex-1" />
+          <div className="flex-1" />
 
           <button
             type="button"
@@ -1028,6 +1002,9 @@ function MovieTracker() {
 
       <div className="flex flex-1">
         <main className="flex-1 min-w-0 px-4 lg:px-8 py-6 lg:py-8 pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
+          {subTabs && (
+            <SubTabs items={subTabs} active={activeTab} onChange={setActiveTab} />
+          )}
           {/* key пересоздаёт обёртку при смене вкладки, чтобы проиграть анимацию входа */}
           <div key={activeTab} className="mg-tab-enter">
           {activeTab === "home" && (
@@ -1235,6 +1212,36 @@ function MovieTracker() {
                 <h1 className={PAGE_TITLE}>Открыть новое</h1>
                 <p className="mt-2.5 text-sm text-[#8b91b5]">Ищи по названию или подбери фильмы и сериалы по параметрам</p>
               </div>
+
+              <form
+                role="search"
+                onSubmit={(e) => {
+                  e.preventDefault(); // без перезагрузки страницы по Enter/«Найти» на клавиатуре
+                  searchMovies(searchQuery);
+                  e.currentTarget.querySelector("input")?.blur(); // прячем клавиатуру телефона
+                }}
+                className="mg-glass-chip !flex !rounded-full !p-1.5 !pl-4 gap-2"
+              >
+                <Icon n="search" className={`w-[18px] h-[18px] ${searchQuery ? ORANGE_FILTER : "opacity-60"}`} />
+                <input
+                  ref={searchInputRef}
+                  type="search" /* показывает кнопку с лупой на клавиатуре телефона */
+                  inputMode="search"
+                  enterKeyHint="search"
+                  autoComplete="off"
+                  placeholder="Фильм или сериал"
+                  aria-label="Поиск фильмов и сериалов"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    searchMoviesDebounced(e.target.value);
+                  }}
+                  className="flex-1 min-w-0 h-11 bg-transparent text-base font-semibold text-white placeholder:text-[#8b91b5] placeholder:font-medium focus:outline-none"
+                />
+                <button type="submit" className={`h-11 px-5 rounded-full text-sm shrink-0 active:scale-95 ${BTN_ORANGE}`}>
+                  Найти
+                </button>
+              </form>
 
               <section className={`${PANEL} p-4 sm:p-6 space-y-5`}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1699,54 +1706,66 @@ function MovieTracker() {
         </div>
       </div>
 
-      <nav
-        aria-label="Разделы"
-        className="mg-glass-nav lg:hidden fixed z-40 left-3 right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] mx-auto max-w-[480px] rounded-full p-1.5"
-      >
-        <div className="relative flex">
-          {/* Подсветка активной вкладки плавно переезжает между пунктами */}
-          <span
-            aria-hidden="true"
-            className="mg-glass-pill absolute inset-y-0 left-0 rounded-full"
-            style={{
-              width: `${100 / mobileNavItems.length}%`,
-              transform: `translateX(${Math.max(mobileNavIndex, 0) * 100}%)`,
-              opacity: mobileNavIndex < 0 ? 0 : 1,
-            }}
-          />
-          {mobileNavItems.map((item) => {
-            const active = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                aria-current={active ? "page" : undefined}
-                className="relative flex-1 min-w-0 min-h-[52px] flex flex-col items-center justify-center gap-1 px-0 rounded-full active:scale-90 transition-transform duration-200"
-              >
-                <span key={active ? "on" : "off"} className={`relative ${active ? "mg-nav-pop" : ""}`}>
-                  <Icon
-                    n={item.icon}
-                    className={`w-[22px] h-[22px] transition-opacity duration-300 ${active ? ORANGE_FILTER : "opacity-60"}`}
-                  />
-                  {item.badge > 0 && (
-                    <span
-                      className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-[#ff7a45] text-[#1b0d07] text-[10px] font-extrabold leading-none flex items-center justify-center"
-                      aria-label={`Новых заявок: ${item.badge}`}
-                    >
-                      {item.badge > 9 ? "9+" : item.badge}
-                    </span>
-                  )}
-                </span>
-                <span
-                  className={`max-w-full truncate text-[10px] font-semibold tracking-[-0.01em] transition-colors duration-300 ${active ? "text-[#ff935f]" : "text-[#aeb3d6]/70"}`}
+      {/* Нижний док на телефоне: панель разделов и отдельная кнопка поиска справа */}
+      <div className="mg-dock-bottom lg:hidden fixed z-40 left-3 right-3 mx-auto max-w-[480px] flex items-stretch gap-2">
+        <nav
+          aria-label="Разделы"
+          className="mg-glass-nav flex-1 min-w-0 rounded-full p-1.5"
+        >
+          <div className="relative flex">
+            {/* Подсветка активной вкладки плавно переезжает между пунктами */}
+            <span
+              aria-hidden="true"
+              className="mg-glass-pill absolute inset-y-0 left-0 rounded-full"
+              style={{
+                width: `${100 / mobileNavItems.length}%`,
+                transform: `translateX(${Math.max(mobileNavIndex, 0) * 100}%)`,
+                opacity: mobileNavIndex < 0 ? 0 : 1,
+              }}
+            />
+            {mobileNavItems.map((item) => {
+              const active = activeSection === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  aria-current={active ? "page" : undefined}
+                  className="relative flex-1 min-w-0 min-h-[52px] flex flex-col items-center justify-center gap-1 px-0 rounded-full active:scale-90 transition-transform duration-200"
                 >
-                  {item.short ?? item.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+                  <span key={active ? "on" : "off"} className={`relative ${active ? "mg-nav-pop" : ""}`}>
+                    <Icon
+                      n={item.icon}
+                      className={`w-[22px] h-[22px] transition-opacity duration-300 ${active ? ORANGE_FILTER : "opacity-60"}`}
+                    />
+                    {item.badge > 0 && (
+                      <span
+                        className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-[#ff7a45] text-[#1b0d07] text-[10px] font-extrabold leading-none flex items-center justify-center"
+                        aria-label={`Новых уведомлений: ${item.badge}`}
+                      >
+                        {item.badge > 9 ? "9+" : item.badge}
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    className={`max-w-full truncate text-[10px] font-semibold tracking-[-0.01em] transition-colors duration-300 ${active ? "text-[#ff935f]" : "text-[#aeb3d6]/70"}`}
+                  >
+                    {item.short ?? item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+        <button
+          type="button"
+          onClick={openSearch}
+          aria-label="Поиск"
+          aria-current={activeTab === "search" ? "page" : undefined}
+          className={`mg-glass-nav shrink-0 w-16 rounded-full flex items-center justify-center transition-transform active:scale-90 ${activeTab === "search" ? "mg-glass-nav--active" : ""}`}
+        >
+          <Icon n="search" className={`w-6 h-6 ${activeTab === "search" ? ORANGE_FILTER : ""}`} />
+        </button>
+      </div>
 
       {selectedUserId && (
         <ProfileModal

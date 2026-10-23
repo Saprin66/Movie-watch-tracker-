@@ -360,3 +360,15 @@ body {
 .mg-glass-btn--flat:not(.mg-glass-btn--orange):not(.mg-glass-btn--green) {
   background: linear-gradient(180deg, rgba(40, 44, 70, 0.72), rgba(10, 12, 26, 0.62));
 }
+
+/* Нижний док прижат к краю экрана: на iPhone с полосой «домой» safe-area уже даёт
+   ~34px, поэтому сверху добавляем совсем немного, а без неё оставляем 0.75rem */
+.mg-dock-bottom {
+  bottom: max(0.75rem, calc(env(safe-area-inset-bottom) - 0.75rem));
+}
+
+/* Кнопка-лупа в доке, когда открыт поиск */
+.mg-glass-nav--active {
+  background: linear-gradient(180deg, rgba(255, 122, 69, 0.32), rgba(255, 122, 69, 0.1));
+  border-color: rgba(255, 170, 130, 0.45);
+}
