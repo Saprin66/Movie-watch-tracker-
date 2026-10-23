@@ -1,18 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Icon from "./Icon";
 import { Poster } from "./ui";
 import { DARK_ICON, ORANGE_FILTER } from "./styles";
 import { POSTER_LARGE, PROFILE } from "../config";
 import { fetchTmdb } from "../utils/tmdb";
 import { useScrollLock } from "../hooks/useScrollLock";
+import { useBackClose } from "../hooks/useBackClose";
 import { useAuth } from "../context/AuthContext";
 import { itemFromTmdb, listsRequest } from "../utils/listsApi";
 
 const DETAILS_PARAMS =
   "&language=ru-RU&append_to_response=credits,videos,release_dates,content_ratings&include_video_language=ru,en,null";
-
-// Длительность анимации закрытия страницы, мс (совпадает с .mg-page-leave в index.css)
-const LEAVE_MS = 260;
 
 const pluralSeasons = (n) => {
   const m10 = n % 10;
@@ -132,13 +130,7 @@ export default function MovieDetailsModal({
 
   const type = movie.media_type === "tv" ? "tv" : "movie";
   const [state, setState] = useState({ loading: true, details: null });
-  const [leaving, setLeaving] = useState(false);
-
-  // Свежий onClose без переподписки на события
-  const onCloseRef = useRef(onClose);
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
+  const { leaving, close, handOver } = useBackClose("details", onClose);
 
   useEffect(() => {
     let cancelled = false;
@@ -157,29 +149,6 @@ export default function MovieDetailsModal({
       cancelled = true;
     };
   }, [movie.id, type]);
-
-  // Страница добавляет запись в историю: системная кнопка/жест «Назад» закрывает её,
-  // а не уводит с сайта
-  useEffect(() => {
-    if (!window.history.state?.mgDetails) {
-      window.history.pushState({ ...window.history.state, mgDetails: true }, "");
-    }
-    let timer;
-    const onPop = () => {
-      setLeaving(true);
-      timer = setTimeout(() => onCloseRef.current(), LEAVE_MS);
-    };
-    window.addEventListener("popstate", onPop);
-    return () => {
-      window.removeEventListener("popstate", onPop);
-      clearTimeout(timer);
-    };
-  }, []);
-
-  const close = () => {
-    if (window.history.state?.mgDetails) window.history.back();
-    else onClose();
-  };
 
   useEffect(() => {
     const onKey = (e) => {
@@ -246,7 +215,9 @@ export default function MovieDetailsModal({
 
   const handleAdd = (status) => {
     onAdd(status, details);
-    close();
+    // «Смотрел» сразу открывает оценку — отдаём ей свою запись в истории
+    if (status === "WATCHED") handOver("review");
+    else close();
   };
 
   return (
@@ -458,7 +429,7 @@ export default function MovieDetailsModal({
               type="button"
               onClick={() => {
                 onOpenReview(existing.id);
-                close();
+                handOver("review");
               }}
               className="flex-1 min-w-0 whitespace-nowrap inline-flex items-center justify-center gap-2 h-12 px-3 rounded-full text-sm sm:text-[15px] font-extrabold text-[#1b0d07] bg-[#ff7a45] hover:bg-[#ff8a5a] transition-colors"
             >

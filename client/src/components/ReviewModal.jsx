@@ -1,11 +1,99 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
-import { Poster } from "./ui";
+import { Avatar, Poster } from "./ui";
+import { API_URL } from "../config";
+import { useAuth } from "../context/AuthContext";
 import { useScrollLock } from "../hooks/useScrollLock";
+import { useBackClose } from "../hooks/useBackClose";
 
 const MAX_COMMENT = 1000;
 const SCALE = Array.from({ length: 10 }, (_, i) => i + 1);
 
+// В журнале постер хранится в маленьком размере — для фона берём покрупнее
+const largePoster = (url) => url?.replace("/t/p/w300/", "/t/p/w500/") || null;
+
+const formatDate = (iso) =>
+  new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
+
+// Оценки и отзывы друзей к этому же фильму
+function FriendsReviews({ movie }) {
+  const { token } = useAuth();
+  const [state, setState] = useState({ loading: true, items: [], error: "" });
+
+  useEffect(() => {
+    if (!movie.tmdbId) return;
+    let cancelled = false;
+    const params = new URLSearchParams({ tmdbId: movie.tmdbId, mediaType: movie.mediaType || "movie" });
+    fetch(`${API_URL}/api/friends/reviews?${params}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error || "Не удалось загрузить отзывы друзей");
+        if (!cancelled) setState({ loading: false, items: Array.isArray(data) ? data : [], error: "" });
+      })
+      .catch((error) => {
+        if (!cancelled) setState({ loading: false, items: [], error: error.message });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [movie.tmdbId, movie.mediaType, token]);
+
+  if (!movie.tmdbId) return null;
+  const { loading, items, error } = state;
+
+  return (
+    <section className="mg-glass-panel rounded-[24px] p-5">
+      <h2 className="mb-4 font-display text-[17px] font-semibold text-white">
+        Отзывы друзей {items.length > 0 && <span className="text-[#9aa0c4]">· {items.length}</span>}
+      </h2>
+      {loading ? (
+        <div className="space-y-3 animate-pulse" aria-hidden="true">
+          {[0, 1].map((i) => (
+            <div key={i} className="flex gap-3">
+              <div className="w-10 h-10 rounded-full bg-white/10" />
+              <div className="flex-1 space-y-2 pt-1">
+                <div className="h-3 w-1/3 rounded bg-white/10" />
+                <div className="h-3 w-4/5 rounded bg-white/10" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : error ? (
+        <p className="text-sm text-red-300">{error}</p>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-[#aeb3d6]">Друзья ещё не оценили этот фильм.</p>
+      ) : (
+        <ul className="space-y-4">
+          {items.map((r) => (
+            <li key={r.id} className="mg-page-rise flex gap-3">
+              <Avatar name={r.user.username} avatar={r.user.avatar} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 truncate text-sm font-extrabold text-white">{r.user.username}</span>
+                  {r.rating && (
+                    <span className="mg-glass-chip mg-glass-chip--orange !py-0.5 !px-2 !text-xs shrink-0">
+                      ★ {r.rating}
+                    </span>
+                  )}
+                  <span className="ml-auto shrink-0 text-[11px] text-[#8b91b5]">{formatDate(r.updatedAt)}</span>
+                </div>
+                {r.comment && (
+                  <p className="mt-1.5 text-sm leading-relaxed text-[#e2e4f3] whitespace-pre-line break-words">
+                    {r.comment}
+                  </p>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+// Страница оценки и отзыва к фильму из своего журнала, на весь экран
 export default function ReviewModal({
   movie,
   onClose,
@@ -14,25 +102,35 @@ export default function ReviewModal({
   onDelete,
 }) {
   useScrollLock();
+  const { leaving, close } = useBackClose("review", onClose);
 
   const [rating, setRating] = useState(movie.rating ?? null);
   const [comment, setComment] = useState(movie.comment ?? "");
+  // Поле отзыва раскрывается только по нажатию
+  const [commentOpen, setCommentOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const textareaRef = useRef(null);
 
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  });
 
   const isWatched = movie.status === "WATCHED";
   const changed =
     rating !== (movie.rating ?? null) ||
     comment.trim() !== (movie.comment ?? "");
+  const posterSrc = largePoster(movie.posterUrl);
+
+  const openComment = () => {
+    setCommentOpen(true);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -43,178 +141,233 @@ export default function ReviewModal({
       comment: trimmed === "" ? null : trimmed,
     });
     setSaving(false);
-    if (result?.ok) onClose();
+    if (result?.ok) close();
     else setError(result?.error || "Не удалось сохранить");
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-6 bg-[#04050c]/80 backdrop-blur-sm"
-      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Оценка: ${movie.title}`}
+      className={`fixed inset-0 z-50 bg-[#080a16] overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"}`}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Отзыв: ${movie.title}`}
-        className="bg-[#12152a] border border-white/10 rounded-t-[26px] sm:rounded-[28px] max-w-[760px] w-full max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto scroll-contain pb-[env(safe-area-inset-bottom)] shadow-[0_40px_120px_rgba(0,0,0,0.7)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex gap-7 p-5 sm:p-8">
-          <div className="hidden sm:block w-[190px] aspect-[2/3] self-start shrink-0 overflow-hidden rounded-[18px] border border-white/[0.12] shadow-[0_22px_50px_rgba(0,0,0,0.5)]">
-            <Poster src={movie.posterUrl} title={movie.title} />
-          </div>
+      {/* Фон: постер сверху, слегка размыт и уходит в тёмный фон */}
+      <div className="absolute inset-x-0 top-0 h-[70vh] overflow-hidden" aria-hidden="true">
+        {posterSrc && (
+          <img
+            src={posterSrc}
+            alt=""
+            className="mg-page-bg absolute inset-0 w-full h-full object-cover object-center blur-[6px]"
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#080a16]/45 via-[#080a16]/60 via-45% to-[#080a16]" />
+      </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                      isWatched
-                        ? "bg-emerald-400/[0.14] text-[#58dcaa]"
-                        : "bg-sky-400/[0.15] text-[#86b8ff]"
-                    }`}
-                  >
-                    {isWatched ? "Просмотрено" : "Буду смотреть"}
-                  </span>
-                  {movie.mediaType === "tv" && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#ff7a45]/[0.16] text-[#ff9a6c]">
-                      Сериал
-                    </span>
-                  )}
-                </div>
-                <h2 className="font-display text-[22px] sm:text-[28px] font-bold leading-tight text-white break-words">
-                  {movie.title}
-                </h2>
-              </div>
+      <div className="relative h-full overflow-y-auto scroll-contain">
+        {/* Верхняя панель */}
+        <div className="sticky top-0 z-20 flex items-center justify-between gap-2 px-4 sm:px-8 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3">
+          <button
+            type="button"
+            onClick={close}
+            aria-label="Назад"
+            className="mg-glass-btn w-11 h-11 rounded-full flex items-center justify-center"
+          >
+            <Icon n="arrow-left" className="w-5 h-5" />
+          </button>
+          {confirmDelete ? (
+            <div className="mg-glass-nav mg-page-rise flex items-center gap-1 rounded-full p-1 pl-3.5">
+              <span className="text-xs font-bold text-white">Удалить из журнала?</span>
               <button
                 type="button"
-                onClick={onClose}
-                aria-label="Закрыть"
-                className="w-11 h-11 flex items-center justify-center bg-white/[0.07] hover:bg-white/[0.12] rounded-full transition-colors shrink-0"
+                onClick={() => {
+                  onDelete();
+                  close();
+                }}
+                className="h-9 px-3.5 rounded-full text-xs font-extrabold text-white bg-red-500/70 hover:bg-red-500/85 transition-colors"
               >
-                <Icon n="x" className="w-4 h-4" />
+                Да
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="h-9 px-3.5 rounded-full text-xs font-bold text-white hover:bg-white/10 transition-colors"
+              >
+                Нет
               </button>
             </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              aria-label="Удалить из журнала"
+              title="Удалить из журнала"
+              className="mg-glass-btn w-11 h-11 rounded-full flex items-center justify-center"
+            >
+              <Icon n="trash-2" className="w-[18px] h-[18px]" />
+            </button>
+          )}
+        </div>
 
-            <div className="mt-6">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[15px] font-extrabold text-white">
-                  {rating ? <>Оценка: <span className="text-[#ff935f]">{rating}</span> из 10</> : "Оценка не поставлена"}
-                </span>
+        <div className="px-4 sm:px-8 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
+          {/* Постер и название по центру */}
+          <div className="flex flex-col items-center text-center">
+            <div className="mg-page-poster w-[150px] sm:w-[190px] aspect-[2/3] overflow-hidden rounded-[20px] border border-white/20 shadow-[0_30px_80px_rgba(0,0,0,0.65)]">
+              <Poster src={posterSrc} title={movie.title} />
+            </div>
+            <h1
+              className="mg-page-rise mt-5 max-w-[760px] font-display text-[24px] sm:text-[32px] font-bold text-white leading-[1.1] break-words"
+              style={{ animationDelay: "80ms" }}
+            >
+              {movie.title}
+            </h1>
+            <div className="mg-page-rise mt-3 flex flex-wrap justify-center gap-2" style={{ animationDelay: "120ms" }}>
+              <button
+                type="button"
+                onClick={onToggleStatus}
+                title={isWatched ? "Вернуть в «Буду смотреть»" : "Отметить просмотренным"}
+                className={`mg-glass-chip ${isWatched ? "mg-glass-chip--green" : "mg-glass-chip--orange"} transition-transform active:scale-95`}
+              >
+                <Icon n={isWatched ? "check" : "eye"} className="w-3.5 h-3.5" />
+                {isWatched ? "Просмотрено" : "Буду смотреть"}
+                <Icon n="repeat-2" className="w-3.5 h-3.5 opacity-60" />
+              </button>
+              {movie.mediaType === "tv" && <span className="mg-glass-chip">Сериал</span>}
+            </div>
+          </div>
+
+          <div className="mg-page-rise mx-auto mt-7 max-w-[760px] space-y-4" style={{ animationDelay: "180ms" }}>
+            {/* Оценка */}
+            <section className="mg-glass-panel rounded-[24px] p-5">
+              <div className="mb-4 flex items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4]">Ваша оценка</h2>
+                  <div className="mt-1 font-display text-white leading-none">
+                    {rating ? (
+                      <>
+                        <span key={rating} className="mg-nav-pop inline-block text-[44px] font-bold text-[#ffb08c]">{rating}</span>
+                        <span className="ml-1 text-lg font-bold text-[#9aa0c4]">/ 10</span>
+                      </>
+                    ) : (
+                      <span className="text-lg font-bold text-[#aeb3d6]">Не поставлена</span>
+                    )}
+                  </div>
+                </div>
                 {rating && (
                   <button
                     type="button"
                     onClick={() => setRating(null)}
-                    className="min-h-[36px] px-2 text-[13px] font-bold text-[#8b91b5] hover:text-white"
+                    className="min-h-[36px] px-2 text-[13px] font-bold text-[#aeb3d6] hover:text-white"
                   >
                     Сбросить
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
-                {SCALE.map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setRating(rating === n ? null : n)}
-                    aria-pressed={rating === n}
-                    aria-label={`Оценка ${n}`}
-                    className={`h-[46px] rounded-xl text-[15px] font-extrabold transition-colors ${
-                      rating !== null && n <= rating
-                        ? "bg-[#ff7a45] text-[#1b0d07]"
-                        : "bg-white/[0.06] text-[#9aa0c6] hover:bg-white/[0.12]"
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
+              <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
+                {SCALE.map((n) => {
+                  const filled = rating !== null && n <= rating;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setRating(rating === n ? null : n)}
+                      aria-pressed={rating === n}
+                      aria-label={`Оценка ${n}`}
+                      className={`mg-glass-btn mg-glass-btn--wide aspect-square rounded-full text-[15px] font-extrabold ${
+                        filled ? "mg-glass-btn--orange text-white" : "text-[#c4c8e4]"
+                      }`}
+                      style={{ transitionDelay: filled ? `${n * 18}ms` : "0ms" }}
+                    >
+                      {n}
+                    </button>
+                  );
+                })}
               </div>
               {!isWatched && rating && (
-                <p className="mt-2 text-xs text-[#8b91b5]">
-                  С оценкой фильм перейдёт в «Просмотрено».
-                </p>
+                <p className="mt-3 text-xs text-[#aeb3d6]">С оценкой фильм перейдёт в «Просмотрено».</p>
               )}
-            </div>
+            </section>
 
-            <div className="mt-5">
-              <label
-                htmlFor="review-comment"
-                className="block text-[15px] font-extrabold text-white mb-2.5"
+            {/* Отзыв: поле раскрывается только по нажатию */}
+            {commentOpen ? (
+              <section className="mg-glass-panel mg-page-rise rounded-[24px] p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <label htmlFor="review-comment" className="font-display text-[17px] font-semibold text-white">
+                    Ваш отзыв
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setCommentOpen(false)}
+                    aria-label="Свернуть отзыв"
+                    className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/[0.1]"
+                  >
+                    <Icon n="chevron-up" className="w-4 h-4 opacity-70" />
+                  </button>
+                </div>
+                <textarea
+                  ref={textareaRef}
+                  id="review-comment"
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  maxLength={MAX_COMMENT}
+                  rows={5}
+                  placeholder="Что думаете о фильме? Отзыв видите вы и ваши друзья."
+                  className="w-full rounded-[18px] bg-black/25 border border-white/[0.14] px-4 py-3.5 text-base sm:text-sm leading-relaxed text-white placeholder:text-[#8b91b5] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] focus:outline-none focus:border-[#ff7a45]/70 focus:ring-[3px] focus:ring-[#ff7a45]/20 resize-y"
+                />
+                <div className="mt-1.5 text-right text-xs text-[#8b91b5]">
+                  {comment.length}/{MAX_COMMENT}
+                </div>
+              </section>
+            ) : comment.trim() ? (
+              <button
+                type="button"
+                onClick={openComment}
+                className="mg-glass-panel w-full rounded-[24px] p-5 text-left transition-transform active:scale-[0.99]"
               >
-                Отзыв
-              </label>
-              <textarea
-                id="review-comment"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                maxLength={MAX_COMMENT}
-                rows={4}
-                placeholder="Что думаете о фильме? Отзыв видите вы и ваши друзья."
-                className="w-full bg-[#0d1021] border border-white/10 rounded-[14px] px-4 py-3.5 text-base sm:text-sm leading-relaxed text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45] focus:ring-[3px] focus:ring-[#ff7a45]/20 resize-y"
-              />
-              <div className="mt-1.5 text-right text-xs text-[#7b81a6]">
-                {comment.length}/{MAX_COMMENT}
-              </div>
-            </div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-display text-[17px] font-semibold text-white">Ваш отзыв</span>
+                  <span className="inline-flex items-center gap-1.5 text-sm font-bold text-[#ff935f]">
+                    <Icon n="pencil" className="w-3.5 h-3.5" /> Изменить
+                  </span>
+                </div>
+                <p className="text-sm leading-relaxed text-[#e2e4f3] whitespace-pre-line break-words line-clamp-4">
+                  {comment}
+                </p>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={openComment}
+                className="mg-glass-btn mg-glass-btn--wide w-full h-14 rounded-full inline-flex items-center justify-center gap-2 text-[15px] font-bold text-white"
+              >
+                <Icon n="pencil-line" className="w-[18px] h-[18px]" />
+                Написать отзыв
+              </button>
+            )}
 
             {error && (
-              <div
-                role="alert"
-                className="mt-3 text-sm text-red-300 bg-red-500/10 rounded-xl px-3.5 py-2.5"
-              >
+              <div role="alert" className="rounded-2xl border border-red-400/25 bg-red-500/15 px-4 py-3 text-sm text-red-200">
                 {error}
               </div>
             )}
 
-            <div className="mt-6 flex flex-wrap gap-2.5">
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving || !changed}
-                className="h-12 px-7 rounded-xl text-sm font-extrabold bg-[#ff7a45] hover:bg-[#ff9166] text-[#1b0d07] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                {saving ? "Сохраняю..." : "Сохранить"}
-              </button>
-              <button
-                type="button"
-                onClick={onToggleStatus}
-                className="h-12 px-5 rounded-xl text-sm font-bold bg-white/[0.07] hover:bg-white/[0.12] text-[#e9ebf7] transition-colors"
-              >
-                {isWatched ? "Вернуть в список" : "Отметить просмотренным"}
-              </button>
-
-              <div className="ml-auto flex items-center gap-2">
-                {confirmDelete ? (
-                  <>
-                    <span className="text-xs text-[#8b91b5]">Удалить?</span>
-                    <button
-                      type="button"
-                      onClick={onDelete}
-                      className="h-11 px-4 rounded-xl text-sm font-bold bg-red-500/20 hover:bg-red-500/35 text-red-300 transition-colors"
-                    >
-                      Да
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDelete(false)}
-                      className="h-11 px-4 rounded-xl text-sm font-bold bg-white/[0.07] hover:bg-white/[0.12] text-[#e9ebf7] transition-colors"
-                    >
-                      Нет
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDelete(true)}
-                    className="h-12 px-5 rounded-xl text-sm font-bold bg-red-400/[0.14] hover:bg-red-400/25 text-red-300 transition-colors"
-                  >
-                    Удалить
-                  </button>
-                )}
-              </div>
-            </div>
+            <FriendsReviews movie={movie} />
           </div>
+        </div>
+      </div>
+
+      {/* Сохранение: стеклянная панель внизу, всегда под рукой */}
+      <div className="mg-dock-bottom absolute z-20 left-3 right-3 mx-auto max-w-[560px]">
+        <div className="mg-glass-nav rounded-full p-1.5">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || !changed}
+            className="w-full h-12 rounded-full inline-flex items-center justify-center gap-2 text-[15px] font-extrabold text-[#1b0d07] bg-[#ff7a45] hover:bg-[#ff8a5a] disabled:bg-white/[0.08] disabled:text-[#8b91b5] transition-colors"
+          >
+            <Icon n="check" className={`w-[18px] h-[18px] ${saving || !changed ? "opacity-60" : "[filter:brightness(0.1)]"}`} />
+            {saving ? "Сохраняю…" : changed ? "Сохранить" : "Нет изменений"}
+          </button>
         </div>
       </div>
     </div>

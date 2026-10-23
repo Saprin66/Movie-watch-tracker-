@@ -542,6 +542,48 @@ app.get('/api/feed', authMiddleware, async (req, res) => {
   }
 });
 
+// Оценки и отзывы друзей к одному фильму (для страницы оценки)
+app.get('/api/friends/reviews', authMiddleware, async (req, res) => {
+  try {
+    const tmdbId = Number(req.query.tmdbId);
+    const mediaType = req.query.mediaType === 'tv' ? 'tv' : 'movie';
+    if (!Number.isInteger(tmdbId)) {
+      return res.status(400).json({ error: 'Неверный идентификатор фильма' });
+    }
+
+    const friendships = await prisma.friend.findMany({
+      where: {
+        status: 'accepted',
+        OR: [{ userId: req.userId }, { friendId: req.userId }]
+      },
+      select: { userId: true, friendId: true }
+    });
+    const friendIds = friendships.map((f) => (f.userId === req.userId ? f.friendId : f.userId));
+    if (friendIds.length === 0) return res.json([]);
+
+    const rows = await prisma.userMovie.findMany({
+      where: {
+        userId: { in: friendIds },
+        tmdbId,
+        mediaType,
+        OR: [{ rating: { not: null } }, { comment: { not: null } }]
+      },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        rating: true,
+        comment: true,
+        updatedAt: true,
+        user: { select: { id: true, username: true, avatar: true } }
+      }
+    });
+    res.json(rows);
+  } catch (error) {
+    console.error('Ошибка загрузки отзывов друзей:', error);
+    res.status(500).json({ error: 'Не удалось загрузить отзывы друзей' });
+  }
+});
+
 // Оценка (1-10) и комментарий к фильму из своего журнала
 app.put('/api/movies/:id/review', authMiddleware, async (req, res) => {
   try {
