@@ -27,6 +27,7 @@ function RootNavigator() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="movie/[type]/[id]" options={{ presentation: "modal" }} />
         <Stack.Screen name="review/[id]" options={{ presentation: "modal" }} />
+        <Stack.Screen name="person/[id]" options={{ presentation: "modal" }} />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="auth" />

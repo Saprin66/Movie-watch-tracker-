@@ -11,3 +11,4 @@ export function openMovie(item) {
 export const openUser = (userId) => router.push(`/user/${userId}`);
 export const openReview = (movieId) => router.push(`/review/${movieId}`);
 export const openList = (listId) => router.push(`/list/${listId}`);
+export const openPerson = (personId) => router.push(`/person/${personId}`);

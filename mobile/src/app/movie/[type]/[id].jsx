@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchDetails } from "../../../lib/tmdb";
 import { BACKDROP, POSTER_LARGE, PROFILE } from "../../../lib/config";
 import { findInJournal, useMovieActions, useMovies } from "../../../lib/movies";
-import { openReview } from "../../../lib/nav";
+import { openPerson, openReview } from "../../../lib/nav";
 import { pluralize } from "../../../utils/plural";
 import { Avatar, Button, Chip, COLORS, Icon, Notice, Poster } from "../../../components/ui";
 import WatchProviders from "../../../components/WatchProviders";
@@ -90,8 +90,8 @@ export default function MovieScreen() {
   const runtime = formatRuntime(details);
   const crew = details.credits?.crew || [];
   const directors = isTv
-    ? (details.created_by || []).map((p) => p.name)
-    : crew.filter((c) => c.job === "Director").map((c) => c.name);
+    ? details.created_by || []
+    : crew.filter((c) => c.job === "Director");
   const cast = (details.credits?.cast || []).slice(0, 12);
   const trailer = (details.videos?.results || []).find((v) => v.site === "YouTube" && v.type === "Trailer");
 
@@ -174,7 +174,18 @@ export default function MovieScreen() {
           {directors.length > 0 && (
             <View className="mt-6">
               <Label>{isTv ? "Создатели" : "Режиссёр"}</Label>
-              <Text className="text-[15px] font-bold text-white">{directors.join(", ")}</Text>
+              <View className="flex-row flex-wrap gap-2">
+                {directors.map((p) => (
+                  <Pressable
+                    key={p.credit_id || p.id}
+                    onPress={() => openPerson(p.id)}
+                    className="flex-row items-center gap-1 pl-3.5 pr-2.5 py-2 rounded-full bg-white/[0.08] active:opacity-70"
+                  >
+                    <Text className="text-[15px] font-bold text-white">{p.name}</Text>
+                    <Icon name="chevron-right" size={15} color={COLORS.muted} />
+                  </Pressable>
+                ))}
+              </View>
             </View>
           )}
 
@@ -211,7 +222,11 @@ export default function MovieScreen() {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3.5 px-[18px]">
               {cast.map((person) => (
-                <View key={person.credit_id || person.id} className="w-[84px] items-center">
+                <Pressable
+                  key={person.credit_id || person.id}
+                  onPress={() => openPerson(person.id)}
+                  className="w-[84px] items-center active:opacity-70"
+                >
                   <Avatar
                     name={person.name}
                     uri={person.profile_path ? `${PROFILE}${person.profile_path}` : null}
@@ -225,7 +240,7 @@ export default function MovieScreen() {
                       {person.character}
                     </Text>
                   ) : null}
-                </View>
+                </Pressable>
               ))}
             </ScrollView>
           </View>
