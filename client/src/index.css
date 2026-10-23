@@ -129,3 +129,224 @@ body {
     transform: translateY(0);
   }
 }
+
+/* Нижняя панель в стиле «жидкого стекла» */
+.mg-glass-nav {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03));
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 40px rgba(0, 0, 0, 0.45);
+  animation: mg-nav-rise 0.6s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+
+.mg-glass-pill {
+  background: radial-gradient(120% 140% at 50% 0%, rgba(255, 122, 69, 0.28), rgba(255, 122, 69, 0.08) 70%);
+  border: 1px solid rgba(255, 160, 120, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 6px 18px rgba(255, 122, 69, 0.25);
+  transition:
+    transform 0.5s cubic-bezier(0.34, 1.4, 0.5, 1),
+    opacity 0.3s ease;
+}
+
+/* Иконка активной вкладки слегка «подпрыгивает» */
+.mg-nav-pop {
+  animation: mg-nav-pop 0.45s cubic-bezier(0.34, 1.6, 0.5, 1);
+}
+
+/* Появление содержимого при смене вкладки */
+.mg-tab-enter {
+  animation: mg-tab-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes mg-nav-rise {
+  from { opacity: 0; transform: translateY(24px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes mg-nav-pop {
+  0% { transform: scale(0.8) translateY(2px); }
+  60% { transform: scale(1.15) translateY(-2px); }
+  100% { transform: none; }
+}
+
+@keyframes mg-tab-enter {
+  from { opacity: 0; transform: translateY(12px); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mg-glass-nav,
+  .mg-nav-pop,
+  .mg-tab-enter {
+    animation: none;
+  }
+  .mg-glass-pill {
+    transition: none;
+  }
+}
+
+/* Кнопки на постере в стиле «жидкого стекла» */
+.mg-glass-btn {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.35);
+  transition:
+    transform 0.35s cubic-bezier(0.34, 1.6, 0.5, 1),
+    background 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+.mg-glass-btn:hover { transform: scale(1.1); }
+.mg-glass-btn:active { transform: scale(0.88); }
+
+.mg-glass-btn--orange {
+  background: linear-gradient(180deg, rgba(255, 122, 69, 0.45), rgba(255, 122, 69, 0.18));
+  border-color: rgba(255, 170, 130, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 4px 14px rgba(255, 122, 69, 0.4);
+}
+
+.mg-glass-btn--green {
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.42), rgba(52, 211, 153, 0.16));
+  border-color: rgba(120, 230, 190, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 4px 14px rgba(52, 211, 153, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mg-glass-btn { transition: none; }
+}
+
+/* Широкие стеклянные кнопки увеличиваются едва заметно */
+.mg-glass-btn--wide:hover { transform: scale(1.02); }
+.mg-glass-btn--wide:active { transform: scale(0.97); }
+
+/* Стеклянные плашки и панели на странице фильма */
+.mg-glass-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04));
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+.mg-glass-chip--orange {
+  color: #ffb08c;
+  background: linear-gradient(180deg, rgba(255, 122, 69, 0.3), rgba(255, 122, 69, 0.1));
+  border-color: rgba(255, 170, 130, 0.38);
+}
+.mg-glass-chip--green {
+  color: #8ef0c8;
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.28), rgba(52, 211, 153, 0.08));
+  border-color: rgba(120, 230, 190, 0.38);
+}
+
+.mg-glass-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.025));
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+/* Открытие и закрытие страницы фильма */
+.mg-page-enter { animation: mg-page-enter 0.42s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.mg-page-leave { animation: mg-page-leave 0.26s cubic-bezier(0.4, 0, 1, 1) both; }
+.mg-page-bg { animation: mg-page-bg 1.2s ease-out both; }
+.mg-page-poster { animation: mg-page-poster 0.6s cubic-bezier(0.34, 1.3, 0.5, 1) both; }
+.mg-page-rise { animation: mg-page-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@keyframes mg-page-enter {
+  from { opacity: 0; transform: translateY(40px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes mg-page-leave {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(40px) scale(0.98); }
+}
+@keyframes mg-page-bg {
+  from { opacity: 0; transform: scale(1.45); }
+  to { opacity: 0.6; transform: scale(1.25); }
+}
+@keyframes mg-page-poster {
+  from { opacity: 0; transform: translateY(24px) scale(0.85); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes mg-page-rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mg-page-enter,
+  .mg-page-leave,
+  .mg-page-bg,
+  .mg-page-poster,
+  .mg-page-rise {
+    animation-duration: 0.01ms;
+    animation-delay: 0ms !important;
+  }
+}
+
+/* Кнопка Premium: золотое стекло с бегущим бликом */
+.mg-premium-btn {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(255, 214, 120, 0.95), rgba(255, 160, 70, 0.9) 55%, rgba(255, 122, 69, 0.9));
+  border: 1px solid rgba(255, 236, 190, 0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 10px 30px rgba(255, 160, 70, 0.35);
+  transition: transform 0.35s cubic-bezier(0.34, 1.6, 0.5, 1);
+}
+.mg-premium-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: mg-shine 3.2s ease-in-out infinite;
+}
+.mg-premium-btn:hover { transform: scale(1.02); }
+.mg-premium-btn:active { transform: scale(0.97); }
+
+/* Полоски жанров вырастают слева направо */
+.mg-bar {
+  transform-origin: left;
+  animation: mg-bar 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes mg-shine {
+  0%, 55% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+@keyframes mg-bar {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mg-premium-btn::after,
+  .mg-bar { animation: none; }
+}
