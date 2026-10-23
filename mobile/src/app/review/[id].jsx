@@ -1,33 +1,64 @@
-import { useEffect, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useState } from "react";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMovieActions, useMovies } from "../../lib/movies";
-import { openMovie } from "../../lib/nav";
-import { Button, Chip, COLORS, Icon, LinkButton, Notice, Poster } from "../../components/ui";
+import { useFriendReviews } from "../../lib/social";
+import { openMovie, openUser } from "../../lib/nav";
+import { Avatar, Button, Chip, COLORS, Icon, LinkButton, Notice, Panel, Poster } from "../../components/ui";
 
 const MAX_COMMENT = 1000;
 const SCALE = Array.from({ length: 10 }, (_, i) => i + 1);
+
+const formatDate = (iso) =>
+  new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
+
+// Оценки и отзывы друзей к этому же фильму
+function FriendsReviews({ movie }) {
+  const { data: items = [], isLoading, error } = useFriendReviews(movie.tmdbId, movie.mediaType);
+  if (!movie.tmdbId) return null;
+
+  return (
+    <Panel className="mt-8 p-4">
+      <Text className="mb-4 text-[17px] font-semibold text-white">
+        Отзывы друзей {items.length > 0 ? <Text className="text-muted">· {items.length}</Text> : null}
+      </Text>
+      {isLoading ? (
+        <ActivityIndicator color={COLORS.accent} />
+      ) : error ? (
+        <Text className="text-sm text-red-300">{error.message || "Не удалось загрузить отзывы друзей"}</Text>
+      ) : items.length === 0 ? (
+        <Text className="text-sm text-soft">Друзья ещё не оценили этот фильм.</Text>
+      ) : (
+        <View className="gap-4">
+          {items.map((r) => (
+            <View key={r.id} className="flex-row gap-3">
+              <Pressable onPress={() => openUser(r.user.id)}>
+                <Avatar name={r.user.username} uri={r.user.avatar} size={40} />
+              </Pressable>
+              <View className="flex-1">
+                <View className="flex-row items-center gap-2">
+                  <Text numberOfLines={1} className="shrink text-sm font-extrabold text-white" onPress={() => openUser(r.user.id)}>
+                    {r.user.username}
+                  </Text>
+                  {r.rating ? <Chip tone="orange">★ {r.rating}</Chip> : null}
+                  <Text className="ml-auto text-[11px] text-muted">{formatDate(r.updatedAt)}</Text>
+                </View>
+                {r.comment ? <Text className="mt-1.5 text-sm leading-5 text-[#e2e4f3]">{r.comment}</Text> : null}
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </Panel>
+  );
+}
 
 // Оценка (1–10) и отзыв к фильму из журнала. Здесь же смена статуса и удаление.
 export default function ReviewScreen() {
   const { id } = useLocalSearchParams();
   const { data: movies } = useMovies();
-  const actions = useMovieActions();
   const movie = movies?.find((m) => m.id === id);
-
-  const [rating, setRating] = useState(null);
-  const [comment, setComment] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  // Подставляем сохранённые оценку и отзыв, когда запись загрузилась
-  useEffect(() => {
-    if (movie) {
-      setRating(movie.rating ?? null);
-      setComment(movie.comment ?? "");
-    }
-  }, [movie?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!movie) {
     return (
@@ -37,6 +68,18 @@ export default function ReviewScreen() {
       </SafeAreaView>
     );
   }
+  // key: оценка и отзыв берутся из записи заново, если открыли другую
+  return <ReviewForm key={movie.id} movie={movie} />;
+}
+
+function ReviewForm({ movie }) {
+  const actions = useMovieActions();
+  const [rating, setRating] = useState(movie.rating ?? null);
+  const [comment, setComment] = useState(movie.comment ?? "");
+  // Поле отзыва раскрывается только по нажатию
+  const [commentOpen, setCommentOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const isWatched = movie.status === "WATCHED";
   const changed = rating !== (movie.rating ?? null) || comment.trim() !== (movie.comment ?? "");
@@ -122,25 +165,58 @@ export default function ReviewScreen() {
             ) : null}
           </View>
 
-          <View className="mt-5">
-            <Text className="text-[15px] font-extrabold text-white mb-2.5">Отзыв</Text>
-            <TextInput
-              value={comment}
-              onChangeText={setComment}
-              maxLength={MAX_COMMENT}
-              multiline
-              textAlignVertical="top"
-              placeholder="Что думаете о фильме? Отзыв видите вы и ваши друзья."
-              placeholderTextColor={COLORS.faint}
-              selectionColor={COLORS.accent}
-              className="min-h-[120px] bg-deep border border-white/10 rounded-[14px] px-4 py-3.5 text-base text-white"
-            />
-            <Text className="mt-1.5 text-right text-xs text-[#7b81a6]">
-              {comment.length}/{MAX_COMMENT}
-            </Text>
+          {/* Отзыв: поле раскрывается только по нажатию */}
+          <View className="mt-6">
+            {commentOpen ? (
+              <>
+                <View className="flex-row items-center justify-between mb-2.5">
+                  <Text className="text-[15px] font-extrabold text-white">Ваш отзыв</Text>
+                  <Pressable onPress={() => setCommentOpen(false)} className="w-9 h-9 items-center justify-center rounded-full active:bg-white/10">
+                    <Icon name="chevron-up" size={18} color={COLORS.muted} />
+                  </Pressable>
+                </View>
+                <TextInput
+                  value={comment}
+                  onChangeText={setComment}
+                  maxLength={MAX_COMMENT}
+                  multiline
+                  autoFocus
+                  textAlignVertical="top"
+                  placeholder="Что думаете о фильме? Отзыв видите вы и ваши друзья."
+                  placeholderTextColor={COLORS.faint}
+                  selectionColor={COLORS.accent}
+                  className="min-h-[120px] bg-deep border border-white/10 rounded-[14px] px-4 py-3.5 text-base text-white"
+                />
+                <Text className="mt-1.5 text-right text-xs text-[#7b81a6]">
+                  {comment.length}/{MAX_COMMENT}
+                </Text>
+              </>
+            ) : comment.trim() ? (
+              <Pressable
+                onPress={() => setCommentOpen(true)}
+                className="bg-deep border border-white/10 rounded-[14px] p-4 active:opacity-80"
+              >
+                <View className="flex-row items-center justify-between mb-2">
+                  <Text className="text-[15px] font-extrabold text-white">Ваш отзыв</Text>
+                  <View className="flex-row items-center gap-1.5">
+                    <Icon name="edit-2" size={13} color="#ff935f" />
+                    <Text className="text-sm font-bold text-accent-light">Изменить</Text>
+                  </View>
+                </View>
+                <Text numberOfLines={4} className="text-sm leading-5 text-[#e2e4f3]">
+                  {comment}
+                </Text>
+              </Pressable>
+            ) : (
+              <Button variant="soft" icon="edit-3" title="Написать отзыв" onPress={() => setCommentOpen(true)} />
+            )}
           </View>
 
-          {error ? <Notice error>{error}</Notice> : null}
+          {error ? (
+            <View className="mt-4">
+              <Notice error>{error}</Notice>
+            </View>
+          ) : null}
 
           <View className="mt-6 gap-2.5">
             <Button title="Сохранить" loading={saving} disabled={!changed} onPress={save} />
@@ -153,6 +229,8 @@ export default function ReviewScreen() {
             />
             <Button variant="red" icon="trash-2" title="Удалить из журнала" disabled={saving} onPress={confirmDelete} />
           </View>
+
+          <FriendsReviews movie={movie} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

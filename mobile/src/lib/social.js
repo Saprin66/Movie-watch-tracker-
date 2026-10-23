@@ -30,6 +30,13 @@ export const useLastWatched = (userId, enabled = true) =>
   useApiQuery(["lastWatched", userId], `/api/users/${userId}/last-watched`, { enabled });
 export const useLists = () => useApiQuery(["lists"], "/api/lists");
 export const useList = (listId) => useApiQuery(["list", listId], `/api/lists/${listId}`);
+// Оценки и отзывы друзей к фильму
+export const useFriendReviews = (tmdbId, mediaType) => {
+  const type = mediaType === "tv" ? "tv" : "movie";
+  return useApiQuery(["friendReviews", type, tmdbId], `/api/friends/reviews?tmdbId=${tmdbId}&mediaType=${type}`, {
+    enabled: Boolean(tmdbId),
+  });
+};
 
 // Запрос к API с токеном и последующим обновлением перечисленных данных.
 // Пример: const call = useApiCall(); await call("/api/lists", { method: "POST", body }, [["lists"]]);
