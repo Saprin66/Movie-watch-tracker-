@@ -440,6 +440,22 @@ function MovieTracker() {
     ...metaFromTmdb(movie),
   });
 
+  // Несколько фильмов в «Буду смотреть» разом (части коллекции), журнал обновляем один раз
+  const addToWatchlist = async (items) => {
+    for (const item of items) {
+      try {
+        await fetch(`${API_URL}/api/movies`, {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify(tmdbToEntry({ ...item, media_type: "movie" }, "WATCHLIST")),
+        });
+      } catch (error) {
+        console.error("Ошибка добавления:", error);
+      }
+    }
+    await fetchMovies();
+  };
+
   const deleteMovie = async (id) => {
     try {
       await fetch(`${API_URL}/api/movies/${id}`, {
@@ -775,6 +791,9 @@ function MovieTracker() {
       onOpenReview={setReviewMovieId}
       onOpenPerson={openPerson}
       onEpisodesChanged={fetchMovies}
+      movies={movies}
+      onOpenMovie={(next) => setPageStack((stack) => [...stack, { kind: "movie", movie: next }])}
+      onAddToWatchlist={addToWatchlist}
       onAdd={async (status, details) => {
         const created = await addMovie({
           tmdbId: movie.id,

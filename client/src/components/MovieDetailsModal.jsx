@@ -8,6 +8,7 @@ import { useScrollLock } from "../hooks/useScrollLock";
 import { useBackClose } from "../hooks/useBackClose";
 import WatchProviders from "./WatchProviders";
 import SeasonsTracker from "./SeasonsTracker";
+import CollectionBlock from "./CollectionBlock";
 import { useAuth } from "../context/AuthContext";
 import { itemFromTmdb, listsRequest } from "../utils/listsApi";
 
@@ -137,6 +138,9 @@ export default function MovieDetailsModal({
   onOpenReview,
   onOpenPerson,
   onEpisodesChanged,
+  movies = [],
+  onOpenMovie,
+  onAddToWatchlist,
   historyKey = "details",
 }) {
   useScrollLock();
@@ -404,6 +408,18 @@ export default function MovieDetailsModal({
                   Добавьте сериал в «Буду смотреть», чтобы отмечать просмотренные серии.
                 </p>
               ))}
+
+            {details?.belongs_to_collection && (
+              <CollectionBlock
+                collectionId={details.belongs_to_collection.id}
+                currentId={movie.id}
+                movies={movies}
+                onOpenMovie={(part) =>
+                  onOpenMovie({ id: part.id, media_type: "movie", title: part.title, poster_path: part.poster_path })
+                }
+                onAddToWatchlist={onAddToWatchlist}
+              />
+            )}
 
             <WatchProviders results={details?.["watch/providers"]?.results} loading={loading} />
 
