@@ -13,8 +13,11 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const FRIENDS_PREVIEW = 5;
 const ONLINE_MS = 5 * 60 * 1000;
 
+// «октября 2026 г.»: месяц в родительном падеже получается только вместе с днём
 const dateLabel = (value) =>
-  value ? new Date(value).toLocaleDateString("ru-RU", { month: "long", year: "numeric" }) : "недавно";
+  value
+    ? new Date(value).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" }).replace(/^\d+\s/, "")
+    : "недавно";
 const shortDate = (value) =>
   value ? new Date(value).toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) : "";
 

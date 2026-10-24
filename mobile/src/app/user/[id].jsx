@@ -21,8 +21,11 @@ import RecentMovies from "../../components/RecentMovies";
 
 const FRIENDS_PREVIEW = 5;
 
+// «октября 2026 г.»: месяц в родительном падеже получается только вместе с днём
 const monthYear = (value) =>
-  value ? new Date(value).toLocaleDateString("ru-RU", { month: "long", year: "numeric" }) : "недавно";
+  value
+    ? new Date(value).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" }).replace(/^\d+\s/, "")
+    : "недавно";
 
 // Профиль другого пользователя в том же виде, что и свой.
 // Друзьям сервер отдаёт облегчённый журнал — по нему считаем достижения, время и франшизы.
