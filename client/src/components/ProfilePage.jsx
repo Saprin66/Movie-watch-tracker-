@@ -27,7 +27,7 @@ export default function ProfilePage({
   const visibleFriends = friendsExpanded ? friends : friends.slice(0, FRIENDS_PREVIEW);
 
   return (
-    <div className="relative isolate mx-auto max-w-xl">
+    <div className="relative isolate mx-auto max-w-xl lg:max-w-none">
       <div className="flex justify-end">
         <button
           type="button"
@@ -60,11 +60,14 @@ export default function ProfilePage({
         {avatarError && <p role="alert" className="mt-2 max-w-xs text-xs text-red-300">{avatarError}</p>}
       </ProfileHero>
 
-      <div className="mg-page-rise mt-7 space-y-4" style={{ animationDelay: "140ms" }}>
-        <AchievementsSection achievements={achievements} />
+      {/* На телефоне — одна колонка, на компьютере — две: статистика слева, франшизы и друзья справа */}
+      <div className="mg-page-rise mt-7 grid grid-cols-1 gap-4 lg:grid-cols-2 items-start" style={{ animationDelay: "140ms" }}>
+        <div className="lg:col-span-2">
+          <AchievementsSection achievements={achievements} />
+        </div>
 
         {/* Premium: пока без оплаты */}
-        <div>
+        <div className="lg:col-span-2">
           <button
             type="button"
             onClick={() => setPremiumNote(true)}
@@ -93,49 +96,51 @@ export default function ProfilePage({
           </button>
         </StatsSection>
 
-        <FranchisesSection franchises={franchises} loading={loading} onOpenMovie={onOpenMovie} />
+        <div className="space-y-4">
+          <FranchisesSection franchises={franchises} loading={loading} onOpenMovie={onOpenMovie} />
 
-        {/* Друзья */}
-        <section className="mg-glass-panel rounded-[24px] p-5">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="font-display text-[17px] font-semibold text-white">
-              Друзья <span className="text-[#9aa0c4]">· {friends.length}</span>
-            </h2>
-            <button type="button" onClick={onManageFriends} className="text-sm font-bold text-[#ff935f] hover:text-[#ffb08c]">
-              Управлять
-            </button>
-          </div>
-          {friends.length === 0 ? (
-            <p className="py-2 text-sm text-[#aeb3d6]">Пока друзей нет. Их можно найти во вкладке «Друзья».</p>
-          ) : (
-            <ul className="space-y-1">
-              {visibleFriends.map((friend) => (
-                <li key={friend.id} className="mg-page-rise">
-                  <button
-                    type="button"
-                    onClick={() => onOpenFriend(friend.id)}
-                    className="w-full flex items-center gap-3 rounded-2xl p-2.5 text-left hover:bg-white/[0.07] transition-colors"
-                  >
-                    <Avatar name={friend.username} avatar={friend.avatar} />
-                    <span className="min-w-0 flex-1 text-sm font-extrabold text-white truncate">{friend.username}</span>
-                    <Icon n="chevron-right" className="w-4 h-4 opacity-50" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {friends.length > FRIENDS_PREVIEW && (
-            <button
-              type="button"
-              onClick={() => setFriendsExpanded((v) => !v)}
-              aria-expanded={friendsExpanded}
-              className="mg-glass-btn mg-glass-btn--wide mt-3 w-full h-11 rounded-full inline-flex items-center justify-center gap-2 text-sm font-bold text-white"
-            >
-              {friendsExpanded ? "Свернуть" : `Показать всех (${friends.length})`}
-              <Icon n={friendsExpanded ? "chevron-up" : "chevron-down"} className="w-4 h-4 opacity-70" />
-            </button>
-          )}
-        </section>
+          {/* Друзья */}
+          <section className="mg-glass-panel rounded-[24px] p-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="font-display text-[17px] font-semibold text-white">
+                Друзья <span className="text-[#9aa0c4]">· {friends.length}</span>
+              </h2>
+              <button type="button" onClick={onManageFriends} className="text-sm font-bold text-[#ff935f] hover:text-[#ffb08c]">
+                Управлять
+              </button>
+            </div>
+            {friends.length === 0 ? (
+              <p className="py-2 text-sm text-[#aeb3d6]">Пока друзей нет. Их можно найти во вкладке «Друзья».</p>
+            ) : (
+              <ul className="space-y-1">
+                {visibleFriends.map((friend) => (
+                  <li key={friend.id} className="mg-page-rise">
+                    <button
+                      type="button"
+                      onClick={() => onOpenFriend(friend.id)}
+                      className="w-full flex items-center gap-3 rounded-2xl p-2.5 text-left hover:bg-white/[0.07] transition-colors"
+                    >
+                      <Avatar name={friend.username} avatar={friend.avatar} />
+                      <span className="min-w-0 flex-1 text-sm font-extrabold text-white truncate">{friend.username}</span>
+                      <Icon n="chevron-right" className="w-4 h-4 opacity-50" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {friends.length > FRIENDS_PREVIEW && (
+              <button
+                type="button"
+                onClick={() => setFriendsExpanded((v) => !v)}
+                aria-expanded={friendsExpanded}
+                className="mg-glass-btn mg-glass-btn--wide mt-3 w-full h-11 rounded-full inline-flex items-center justify-center gap-2 text-sm font-bold text-white"
+              >
+                {friendsExpanded ? "Свернуть" : `Показать всех (${friends.length})`}
+                <Icon n={friendsExpanded ? "chevron-up" : "chevron-down"} className="w-4 h-4 opacity-70" />
+              </button>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );

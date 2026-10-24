@@ -175,7 +175,7 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
           )}
         </div>
 
-        <div className="relative isolate mx-auto max-w-xl px-4 pb-[calc(3rem+env(safe-area-inset-bottom))]">
+        <div className="relative isolate mx-auto max-w-xl lg:max-w-6xl px-4 lg:px-8 pb-[calc(3rem+env(safe-area-inset-bottom))]">
           {loading ? (
             <p className="py-16 text-center text-[#8b91b5] animate-pulse">Загрузка профиля…</p>
           ) : error || !profile ? (
@@ -211,15 +211,18 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
                 )}
               </ProfileHero>
 
-              <div className="mg-page-rise mt-7 space-y-4" style={{ animationDelay: "140ms" }}>
+              {/* На телефоне — одна колонка, на компьютере — две */}
+              <div className="mg-page-rise mt-7 grid grid-cols-1 gap-4 lg:grid-cols-2 items-start" style={{ animationDelay: "140ms" }}>
                 {journal ? (
                   <>
-                    <AchievementsSection achievements={stats.achievements} unlockedFirst />
+                    <div className="lg:col-span-2">
+                      <AchievementsSection achievements={stats.achievements} unlockedFirst />
+                    </div>
                     <StatsSection total={stats.total} month={stats.month} loading={stats.loading} />
                     <FranchisesSection franchises={stats.franchises} loading={stats.loading} onOpenMovie={onOpenMovie} />
                   </>
                 ) : (
-                  <section className="mg-glass-panel rounded-[24px] p-5">
+                  <section className="mg-glass-panel rounded-[24px] p-5 lg:col-span-2">
                     <div className="grid grid-cols-3 gap-2">
                       <CountTile value={profile.moviesCount} label="В журнале" />
                       <CountTile value={profile.watchedCount} label="Просмотрено" />

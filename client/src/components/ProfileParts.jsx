@@ -103,7 +103,8 @@ export function AchievementsSection({ achievements, unlockedFirst = false }) {
           {unlockedCount} из {achievements.length}
         </span>
       </div>
-      <ul className="no-scrollbar -mx-5 px-5 flex gap-3 overflow-x-auto pb-1">
+      {/* На телефоне листаются вбок, на широком экране видны все сразу */}
+      <ul className="no-scrollbar -mx-5 px-5 flex gap-3 overflow-x-auto pb-1 lg:flex-wrap lg:overflow-visible lg:gap-y-4">
         {list.map((a) => (
           <AchievementBadge
             key={a.id}
