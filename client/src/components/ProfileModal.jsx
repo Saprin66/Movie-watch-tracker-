@@ -216,7 +216,7 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
                 {journal ? (
                   <>
                     <div className="lg:col-span-2">
-                      <AchievementsSection achievements={stats.achievements} unlockedFirst />
+                      <AchievementsSection achievements={stats.achievements} />
                     </div>
                     <StatsSection total={stats.total} month={stats.month} loading={stats.loading} />
                     <FranchisesSection franchises={stats.franchises} loading={stats.loading} onOpenMovie={onOpenMovie} />
