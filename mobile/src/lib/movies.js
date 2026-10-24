@@ -46,6 +46,24 @@ export function useMovieActions() {
       });
       await refresh();
     },
+    // Несколько фильмов разом (части коллекции), журнал обновляем один раз
+    addMany: async (items, type, status) => {
+      for (const item of items) {
+        await api("/api/movies", {
+          token,
+          method: "POST",
+          body: {
+            tmdbId: item.id,
+            title: item.title || item.name,
+            posterUrl: item.poster_path ? `${POSTER}${item.poster_path}` : null,
+            mediaType: type,
+            status,
+            ...metaFromTmdb(item),
+          },
+        }).catch(() => {}); // уже в журнале или сбой — остальные всё равно добавляем
+      }
+      await refresh();
+    },
     remove: async (id) => {
       await api(`/api/movies/${id}`, { token, method: "DELETE" });
       await refresh();

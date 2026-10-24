@@ -14,6 +14,7 @@ import { Avatar, Button, Chip, COLORS, Icon, Notice, Poster } from "../../../com
 import WatchProviders from "../../../components/WatchProviders";
 import AddToList from "../../../components/AddToList";
 import SeasonsTracker from "../../../components/SeasonsTracker";
+import CollectionBlock from "../../../components/CollectionBlock";
 
 function formatRuntime(details) {
   const minutes = details?.runtime || details?.episode_run_time?.[0] || details?.last_episode_to_air?.runtime;
@@ -211,6 +212,12 @@ export default function MovieScreen() {
                   </Text>
                 </View>
               )}
+            </View>
+          )}
+
+          {details.belongs_to_collection && (
+            <View className="mt-7">
+              <CollectionBlock collectionId={details.belongs_to_collection.id} currentId={details.id} />
             </View>
           )}
         </View>
