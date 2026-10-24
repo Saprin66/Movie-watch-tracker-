@@ -1,0 +1,165 @@
+import { useState } from "react";
+import Icon from "./Icon";
+import { MONTHS, formatHours } from "../utils/watchStats";
+
+// Общие блоки своего и чужого профиля: шапка, достижения, статистика
+
+// Цветное свечение за стеклом и круглый аватар с ником по центру.
+// avatarAction — кнопка на границе круга (смена фото), children — что под ником.
+export function ProfileHero({ user, avatarAction, children }) {
+  const initial = user?.username?.[0]?.toUpperCase() || "U";
+  return (
+    <>
+      <div className="pointer-events-none absolute inset-x-0 -top-10 h-[420px] -z-10 overflow-hidden" aria-hidden="true">
+        {user?.avatar ? (
+          <img src={user.avatar} alt="" className="w-full h-full object-cover blur-[60px] opacity-50 scale-125" />
+        ) : (
+          <>
+            <div className="absolute left-[10%] top-6 w-56 h-56 rounded-full bg-[#ff7a45]/40 blur-[70px]" />
+            <div className="absolute right-[8%] top-24 w-56 h-56 rounded-full bg-[#8b5cf6]/40 blur-[70px]" />
+          </>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#080a16]/40 to-[#080a16]" />
+      </div>
+
+      <div className="flex flex-col items-center text-center">
+        <div className="mg-page-poster relative">
+          <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-full p-[3px] bg-gradient-to-br from-[#ff7a45] via-[#ffb08c]/60 to-[#8b5cf6] shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
+            {user?.avatar ? (
+              <img src={user.avatar} alt="Аватар профиля" className="w-full h-full rounded-full object-cover" />
+            ) : (
+              <div className="w-full h-full rounded-full bg-[#12152a] flex items-center justify-center font-display text-[56px] font-bold text-white">
+                {initial}
+              </div>
+            )}
+          </div>
+          {avatarAction}
+        </div>
+
+        <h1
+          className="mg-page-rise mt-5 max-w-full font-display text-[28px] sm:text-[34px] font-bold text-white truncate"
+          style={{ animationDelay: "80ms" }}
+        >
+          {user?.username || "Киноман"}
+        </h1>
+        {children}
+      </div>
+    </>
+  );
+}
+
+// Значок достижения: открытые — оранжевое стекло, закрытые — серые с полоской прогресса
+function AchievementBadge({ a, selected, onSelect }) {
+  return (
+    <li className="w-[78px] shrink-0 text-center">
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={selected}
+        aria-label={`${a.name}: ${a.desc}. ${a.unlocked ? "Получено" : `${a.value} из ${a.goal}`}`}
+        className="w-full transition-transform active:scale-95"
+      >
+        <div
+          className={`relative mx-auto w-16 h-16 rounded-full flex items-center justify-center border transition-shadow ${
+            a.unlocked
+              ? "mg-glass-btn--orange border-[#ffb08c]/60 shadow-[0_6px_22px_rgba(255,122,69,0.45)]"
+              : "bg-white/[0.06] border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]"
+          } ${selected ? "ring-2 ring-white/70" : ""}`}
+        >
+          <Icon n={a.icon} className={`w-6 h-6 ${a.unlocked ? "" : "opacity-35"}`} />
+          {!a.unlocked && (
+            <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#12152a] border border-white/15 flex items-center justify-center">
+              <Icon n="lock" className="w-3 h-3 opacity-70" />
+            </span>
+          )}
+        </div>
+        <div className={`mt-2 text-[11px] font-bold leading-tight ${a.unlocked ? "text-white" : "text-[#9aa0c4]"}`}>
+          {a.name}
+        </div>
+        {!a.unlocked && (
+          <div className="mx-auto mt-1.5 h-1 w-12 rounded-full bg-white/10 overflow-hidden">
+            <div className="mg-bar h-full rounded-full bg-[#ff7a45]" style={{ width: `${(a.value / a.goal) * 100}%` }} />
+          </div>
+        )}
+      </button>
+    </li>
+  );
+}
+
+// Полученные достижения — первыми, чтобы в чужом профиле сразу было видно, чем он гордится
+export function AchievementsSection({ achievements, unlockedFirst = false }) {
+  const [selectedId, setSelectedId] = useState(null);
+  const list = unlockedFirst
+    ? [...achievements].sort((a, b) => Number(b.unlocked) - Number(a.unlocked))
+    : achievements;
+  const unlockedCount = achievements.filter((a) => a.unlocked).length;
+  const selected = achievements.find((a) => a.id === selectedId) || null;
+
+  return (
+    <section className="mg-glass-panel rounded-[24px] p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="font-display text-[17px] font-semibold text-white">Достижения</h2>
+        <span className="mg-glass-chip mg-glass-chip--orange !py-1 !px-2.5 !text-[11px]">
+          {unlockedCount} из {achievements.length}
+        </span>
+      </div>
+      <ul className="no-scrollbar -mx-5 px-5 flex gap-3 overflow-x-auto pb-1">
+        {list.map((a) => (
+          <AchievementBadge
+            key={a.id}
+            a={a}
+            selected={selected?.id === a.id}
+            onSelect={() => setSelectedId((id) => (id === a.id ? null : a.id))}
+          />
+        ))}
+      </ul>
+      {selected && (
+        <p key={selected.id} className="mg-page-rise mt-3 text-center text-sm text-[#c4c8e4]">
+          <span className="font-bold text-white">{selected.name}.</span> {selected.desc}
+          {selected.unlocked ? " — получено!" : ` — ${selected.value} из ${selected.goal}.`}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function StatTile({ value, unit, label, loading }) {
+  return (
+    <div className="mg-glass-chip flex-col !items-start !gap-0 !rounded-[18px] !px-3.5 !py-3 min-w-0">
+      <div className="font-display text-[22px] sm:text-[26px] font-bold text-white leading-none">
+        {loading ? <span className="opacity-50">…</span> : value}
+        {unit && <span className="ml-1 text-sm font-bold text-[#c4c8e4]">{unit}</span>}
+      </div>
+      <div className="mt-1.5 text-[11px] sm:text-xs font-bold text-[#aeb3d6] truncate max-w-full">
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function StatsBlock({ title, summary, loading }) {
+  const hours = formatHours(summary.minutes);
+  return (
+    <div>
+      <h3 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4]">
+        {title}
+      </h3>
+      <div className="grid grid-cols-3 gap-2">
+        <StatTile value={hours.value} unit={hours.unit} label="Время" loading={loading} />
+        <StatTile value={summary.films} label="Фильмов" />
+        <StatTile value={summary.series} label="Сериалов" />
+      </div>
+    </div>
+  );
+}
+
+// «За всё время» и «этот месяц»; children — кнопки под цифрами
+export function StatsSection({ total, month, loading, children }) {
+  return (
+    <section className="mg-glass-panel rounded-[24px] p-5 space-y-5">
+      <StatsBlock title="За всё время" summary={total} loading={loading} />
+      <StatsBlock title={`${MONTHS[new Date().getMonth()]} — этот месяц`} summary={month} loading={loading} />
+      {children}
+    </section>
+  );
+}

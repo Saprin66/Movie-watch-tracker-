@@ -1429,6 +1429,7 @@ function MovieTracker() {
                 onOpenStats={() => setActiveTab("profile-stats")}
                 onOpenFriend={setSelectedUserId}
                 onManageFriends={() => setActiveTab("friends")}
+                onOpenMovie={setSelectedMovie}
               />
             </>
           )}

@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { fetchTmdb } from "./tmdb";
 
 // Длительность в журнале не хранится: берём её из TMDB и кэшируем в браузере.
+// Заодно запоминаем коллекцию фильма (франшизу) — она нужна профилю.
 // Для сериала без отмеченных серий считаем весь сериал: число серий × длина серии.
 // Если серии отмечены, точное время приходит с сервера (episodeMinutes).
-const CACHE_KEY = "mg-runtime-v1";
+const CACHE_KEY = "mg-movie-meta-v2";
 const PARALLEL = 4;
 
 const keyOf = (m) => `${m.mediaType === "tv" ? "tv" : "movie"}-${m.tmdbId}`;
@@ -37,6 +38,13 @@ function writeCache(cache) {
   }
 }
 
+// Старый кэш (только минуты) больше не нужен
+try {
+  localStorage.removeItem("mg-runtime-v1");
+} catch {
+  // Хранилище недоступно — ничего страшного
+}
+
 function minutesFromDetails(data, type) {
   if (!data) return 0;
   if (type === "movie") return data.runtime || 0;
@@ -44,12 +52,13 @@ function minutesFromDetails(data, type) {
   return episode * (data.number_of_episodes || 0);
 }
 
-// Минуты просмотра по ключу «movie-123» / «tv-456» для всех просмотренных записей
+// Для всех просмотренных записей по ключу «movie-123» / «tv-456»:
+// runtimes — минуты просмотра, collections — id коллекции TMDB (если фильм из серии)
 export function useRuntimes(movies) {
-  const [runtimes, setRuntimes] = useState(readCache);
+  const [meta, setMeta] = useState(readCache);
 
   const missingKey = movies
-    .filter((m) => m.status === "WATCHED" && !hasEpisodes(m) && m.tmdbId && runtimes[keyOf(m)] === undefined)
+    .filter((m) => m.status === "WATCHED" && m.tmdbId && meta[keyOf(m)] === undefined)
     .map(keyOf)
     .join(",");
 
@@ -65,17 +74,20 @@ export function useRuntimes(movies) {
         const [type, id] = key.split("-");
         try {
           const res = await fetchTmdb(type, Number(id), "", "&language=ru-RU");
-          found[key] = minutesFromDetails(res?.data, res?.type || type);
+          found[key] = {
+            m: minutesFromDetails(res?.data, res?.type || type),
+            c: res?.data?.belongs_to_collection?.id || null,
+          };
         } catch {
           // Не удалось получить — посчитаем как 0, чтобы не запрашивать бесконечно
-          found[key] = 0;
+          found[key] = { m: 0, c: null };
         }
       }
     };
 
     Promise.all(Array.from({ length: PARALLEL }, worker)).then(() => {
       if (cancelled) return;
-      setRuntimes((prev) => {
+      setMeta((prev) => {
         const next = { ...prev, ...found };
         writeCache(next);
         return next;
@@ -87,8 +99,14 @@ export function useRuntimes(movies) {
     };
   }, [missingKey]);
 
+  const runtimes = {};
+  const collections = {};
+  for (const [key, value] of Object.entries(meta)) {
+    runtimes[key] = value.m;
+    if (value.c) collections[key] = value.c;
+  }
   // Пока есть записи без длительности, данные ещё догружаются
-  return { runtimes, loading: Boolean(missingKey) };
+  return { runtimes, collections, loading: Boolean(missingKey) };
 }
 
 export const watchedDate = (m) => (m.watchedAt ? new Date(m.watchedAt) : null);
