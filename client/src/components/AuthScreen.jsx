@@ -141,12 +141,18 @@ const Notice = ({ error, children }) => (
 );
 
 
-export default function AuthScreen() {
+export default function AuthScreen({ initialLogin = true }) {
   // 'auth' | 'verify' | 'forgot' (ввод email) | 'reset' (код и новый пароль)
   const [step, setStep] = useState("auth");
   const [resetCode, setResetCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(initialLogin);
+  // Переход между #/login и #/register (в том числе кнопкой «Назад») переключает вкладку
+  const [prevInitialLogin, setPrevInitialLogin] = useState(initialLogin);
+  if (prevInitialLogin !== initialLogin) {
+    setPrevInitialLogin(initialLogin);
+    setIsLogin(initialLogin);
+  }
   const [acceptedPolicy, setAcceptedPolicy] = useState(false);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");

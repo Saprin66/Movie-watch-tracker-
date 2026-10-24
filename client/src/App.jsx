@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import AuthScreen from "./components/AuthScreen";
+import Landing from "./components/Landing";
 import Footer from "./components/Footer";
 import PrivacyPolicy from "./components/PrivacyPolicy";
-import { useHashRoute } from "./hooks/useHashRoute";
-import { POLICY_HASH, CONTACT_EMAIL } from "./legal";
+import { useHashRoute, leaveHashRoute } from "./hooks/useHashRoute";
+import { POLICY_HASH, CONTACT_EMAIL, LOGIN_HASH, REGISTER_HASH } from "./legal";
 import FriendsPanel from "./components/FriendsPanel";
 import ProfileModal from "./components/ProfileModal";
 import ReviewModal from "./components/ReviewModal";
@@ -1844,10 +1845,24 @@ function MovieTracker() {
 function App() {
   const { token, user } = useAuth();
   const hash = useHashRoute();
+  const isAuthRoute = hash === LOGIN_HASH || hash === REGISTER_HASH;
+  const needsVerification = Boolean(token && user && !user.isVerified);
+
+  // После входа убираем #/login из адреса, чтобы он не остался в истории
+  useEffect(() => {
+    if (token && !needsVerification && isAuthRoute) leaveHashRoute();
+  }, [token, needsVerification, isAuthRoute]);
+
   // Политика открывается и без входа, и по прямой ссылке
   if (hash === POLICY_HASH) return <PrivacyPolicy />;
-  if (token && user && !user.isVerified) return <AuthScreen />;
-  return token ? <MovieTracker /> : <AuthScreen />;
+  // Один и тот же экран для входа и подтверждения email: после регистрации
+  // он не перемонтируется и не теряет шаг ввода кода
+  if (needsVerification || (!token && isAuthRoute)) {
+    return <AuthScreen initialLogin={hash !== REGISTER_HASH} />;
+  }
+  if (token) return <MovieTracker />;
+  // Гость без хэша видит лендинг
+  return <Landing />;
 }
 
 export default function Root() {
