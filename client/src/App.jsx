@@ -1675,11 +1675,13 @@ function MovieTracker() {
 
       {selectedUserId && (
         <ProfileModal
+          key={selectedUserId}
           userId={selectedUserId}
           token={token}
           onClose={() => setSelectedUserId(null)}
           onUserClick={(id) => setSelectedUserId(id)}
           onFriendRemoved={loadFriends}
+          onOpenMovie={setSelectedMovie}
         />
       )}
 

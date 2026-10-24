@@ -229,6 +229,7 @@ app.get('/api/users/:userId', authMiddleware, async (req, res) => {
         select: {
           id: true,
           tmdbId: true,
+          mediaType: true,
           title: true,
           posterUrl: true,
           status: true,
@@ -243,6 +244,36 @@ app.get('/api/users/:userId', authMiddleware, async (req, res) => {
     const recentMovies = recentMoviesRaw.map((m) =>
       canSeeReviews ? m : { ...m, comment: null }
     );
+
+    // Журнал без названий и текстов отзывов: по нему клиент считает время,
+    // достижения и франшизы. Только себе и друзьям, как и отзывы.
+    let journal = null;
+    if (canSeeReviews) {
+      const [rows, episodeStats] = await Promise.all([
+        prisma.userMovie.findMany({
+          where: { userId: targetUserId },
+          select: {
+            id: true, tmdbId: true, mediaType: true, status: true, rating: true,
+            comment: true, genres: true, releaseYear: true, watchedAt: true
+          }
+        }),
+        prisma.episodeWatch.groupBy({
+          by: ['userMovieId'],
+          where: { userMovie: { userId: targetUserId } },
+          _count: { _all: true },
+          _sum: { runtime: true }
+        })
+      ]);
+      const statsById = new Map(episodeStats.map((e) => [e.userMovieId, e]));
+      journal = rows.map(({ comment, ...m }) => {
+        const stat = statsById.get(m.id);
+        return {
+          ...m,
+          hasComment: Boolean(comment && comment.trim()),
+          ...(stat ? { episodesWatched: stat._count._all, episodeMinutes: stat._sum.runtime || 0 } : {})
+        };
+      });
+    }
 
     const profileFriends = await prisma.friend.findMany({
       where: { status: 'accepted', OR: [{ userId: targetUserId }, { friendId: targetUserId }] },
@@ -268,6 +299,7 @@ app.get('/api/users/:userId', authMiddleware, async (req, res) => {
       friendsCount,      // <-- Явные поля
       recentMovies,
       friends: friendsList,
+      journal,
       reviewsHidden: !canSeeReviews
     });
   } catch (error) {

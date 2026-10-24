@@ -1,161 +1,281 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import ConfirmDialog from "./ConfirmDialog";
-import { Poster } from "./ui";
+import Icon from "./Icon";
+import { Avatar, Poster } from "./ui";
+import { AchievementsSection, ProfileHero, StatsSection } from "./ProfileParts";
+import FranchisesSection from "./FranchisesSection";
+import { useProfileStats } from "../hooks/useProfileStats";
 import { useScrollLock } from "../hooks/useScrollLock";
+import { useBackClose } from "../hooks/useBackClose";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const FRIENDS_PREVIEW = 5;
+const ONLINE_MS = 5 * 60 * 1000;
 
-const Icon = ({ n, className = "w-4 h-4" }) => (
-  <img src={`https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/${n}.svg`} alt="" className={`${className} invert shrink-0`} />
-);
+const dateLabel = (value) =>
+  value ? new Date(value).toLocaleDateString("ru-RU", { month: "long", year: "numeric" }) : "недавно";
+const shortDate = (value) =>
+  value ? new Date(value).toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) : "";
 
-const Avatar = ({ profile, size = "w-[108px] h-[108px]" }) => (
-  profile?.avatar ? (
-    <img src={profile.avatar} alt="" className={`${size} rounded-[28px] object-cover shrink-0 border-4 border-[#12152a] shadow-[0_18px_40px_rgba(0,0,0,0.4)]`} />
-  ) : (
-    <div className={`${size} rounded-[28px] bg-gradient-to-br from-[#ff7a45] to-[#8b5cf6] flex items-center justify-center font-display text-[42px] font-bold text-white shrink-0 shadow-[0_18px_40px_rgba(0,0,0,0.4)] border-4 border-[#12152a]`}>
-      {profile?.username ? String(profile.username)[0].toUpperCase() : "U"}
-    </div>
-  )
-);
+const isOnline = (value) => Boolean(value) && Date.now() - new Date(value).getTime() < ONLINE_MS;
 
-const StatCard = ({ value, label, tone }) => (
-  <div className="bg-[#171b38] border border-white/[0.06] rounded-2xl p-3 sm:p-4 text-center min-w-0">
-    <div className={`font-display text-2xl sm:text-[26px] font-bold mb-1 ${tone}`}>{value ?? 0}</div>
-    <div className="text-[11px] sm:text-xs text-[#8b91b5]">{label}</div>
-  </div>
-);
-
-const dateLabel = (value) => value ? new Date(value).toLocaleDateString("ru-RU", { month: "long", year: "numeric" }) : "Недавно";
 const lastSeenLabel = (value) => {
-  if (!value) return "Не в сети";
+  if (!value) return "не в сети";
   const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
-  if (minutes < 1) return "В сети недавно";
-  if (minutes < 60) return `${minutes} мин назад`;
-  if (minutes < 1440) return `${Math.floor(minutes / 60)} ч назад`;
-  return `${Math.floor(minutes / 1440)} дн назад`;
+  if (minutes < 5) return "в сети";
+  if (minutes < 60) return `был ${minutes} мин назад`;
+  if (minutes < 1440) return `был ${Math.floor(minutes / 60)} ч назад`;
+  return `был ${Math.floor(minutes / 1440)} дн назад`;
 };
 
-export default function ProfileModal({ userId, token, onClose, onUserClick, onFriendRemoved }) {
+// Цифры для тех, кто не в друзьях: журнал целиком им не приходит
+function CountTile({ value, label }) {
+  return (
+    <div className="mg-glass-chip flex-col !items-start !gap-0 !rounded-[18px] !px-3.5 !py-3 min-w-0">
+      <div className="font-display text-[22px] sm:text-[26px] font-bold text-white leading-none">{value ?? 0}</div>
+      <div className="mt-1.5 text-[11px] sm:text-xs font-bold text-[#aeb3d6] truncate max-w-full">{label}</div>
+    </div>
+  );
+}
+
+// Последние фильмы: статус, оценка и отзыв (отзыв — только друзьям)
+function RecentSection({ movies, reviewsHidden, onOpenMovie }) {
+  if (!movies?.length) return null;
+  return (
+    <section className="mg-glass-panel rounded-[24px] p-5">
+      <h2 className="mb-3 font-display text-[17px] font-semibold text-white">Недавно</h2>
+      {reviewsHidden && <p className="mb-3 text-xs text-[#9aa0c4]">Отзывы видны только друзьям</p>}
+      <ul className="space-y-1">
+        {movies.map((m) => {
+          const watched = m.status === "WATCHED";
+          return (
+            <li key={m.id}>
+              <button
+                type="button"
+                disabled={!m.tmdbId}
+                onClick={() => onOpenMovie({ id: m.tmdbId, media_type: m.mediaType === "tv" ? "tv" : "movie", title: m.title, posterUrl: m.posterUrl })}
+                className="w-full flex gap-3 rounded-2xl p-2 text-left hover:bg-white/[0.06] transition-colors"
+              >
+                <div className="w-12 shrink-0 aspect-[2/3] overflow-hidden rounded-[10px] border border-white/15">
+                  <Poster src={m.posterUrl} title={m.title} small />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-sm font-extrabold text-white">{m.title}</span>
+                    {m.rating && (
+                      <span className="mg-glass-chip mg-glass-chip--orange !py-0.5 !px-2 !text-xs shrink-0">★ {m.rating}</span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 text-xs text-[#9aa0c4]">
+                    <span className={watched ? "text-[#58dcaa]" : "text-[#86b8ff]"}>
+                      {watched ? "Просмотрено" : "Буду смотреть"}
+                    </span>
+                    {" · "}
+                    {shortDate(watched && m.watchedAt ? m.watchedAt : m.updatedAt)}
+                  </div>
+                  {m.comment && (
+                    <p className="mt-1 text-[13px] leading-relaxed text-[#e2e4f3] line-clamp-2 break-words">{m.comment}</p>
+                  )}
+                </div>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+// Профиль другого пользователя на весь экран, в том же стиле, что и свой профиль.
+// Друзьям сервер отдаёт облегчённый журнал — по нему считаем достижения, время и франшизы.
+export default function ProfileModal({ userId, token, onClose, onUserClick, onFriendRemoved, onOpenMovie }) {
   useScrollLock();
-  const { updateProfile, user, removeFriend } = useAuth();
+  const { leaving, close } = useBackClose("profile", onClose);
+  const { user, removeFriend, sendFriendRequest } = useAuth();
+  const [state, setState] = useState({ loading: true, profile: null, error: "" });
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState("");
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [friendsOpen, setFriendsOpen] = useState(false);
-  const [newUsername, setNewUsername] = useState("");
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [requestStatus, setRequestStatus] = useState("");
+  const [friendsExpanded, setFriendsExpanded] = useState(false);
   const isOwnProfile = Boolean(user && user.id === userId);
 
   useEffect(() => {
     if (!userId || !token) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setFriendsOpen(false);
     fetch(`${API_URL}/api/users/${userId}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(async (res) => {
-        if (!res.ok) throw new Error(`Ошибка ${res.status}: ${await res.text()}`);
-        return res.json();
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error || `Ошибка ${res.status}`);
+        return data;
       })
-      .then((data) => { if (!cancelled) setProfile(data); })
-      .catch((err) => { if (!cancelled) { console.error("Ошибка загрузки профиля:", err); setError(err.message); } })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .then((profile) => !cancelled && setState({ loading: false, profile, error: "" }))
+      .catch((error) => !cancelled && setState({ loading: false, profile: null, error: error.message }));
+    return () => {
+      cancelled = true;
+    };
   }, [userId, token]);
 
-  const handleUpdateUsername = async (e) => {
-    e.preventDefault();
-    const username = newUsername.trim();
-    if (username.length < 3) return alert("Ник должен содержать минимум 3 символа");
-    setIsUpdating(true);
-    const result = await updateProfile(username);
-    setIsUpdating(false);
-    if (result.success) {
-      setProfile((prev) => prev ? { ...prev, username } : prev);
-      setNewUsername("");
-      alert("Ник успешно изменён!");
-    } else alert(result.error || "Ошибка при изменении ника");
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  const { loading, profile, error } = state;
+  const journal = profile?.journal || null;
+  const friendsCount = profile?.friendsCount ?? profile?.friends?.length ?? 0;
+  const stats = useProfileStats(journal || [], friendsCount);
+  const isFriend = Boolean(profile && !isOwnProfile && !profile.reviewsHidden);
+  const online = isOnline(profile?.lastSeen);
+  const friends = profile?.friends || [];
+  const visibleFriends = friendsExpanded ? friends : friends.slice(0, FRIENDS_PREVIEW);
+
+  const addFriend = async () => {
+    const result = await sendFriendRequest(userId);
+    setRequestStatus(result.success ? result.message || "Заявка отправлена" : result.error || "Не удалось отправить заявку");
   };
 
-  if (!userId) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-6 bg-[#04050c]/80 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-[#12152a] border border-white/10 rounded-t-[26px] sm:rounded-[28px] max-w-[880px] w-full shadow-[0_40px_120px_rgba(0,0,0,0.7)] max-h-[94dvh] sm:max-h-[90vh] overflow-y-auto scroll-contain pb-[env(safe-area-inset-bottom)]" onClick={(e) => e.stopPropagation()}>
-        <div className="relative h-32 sm:h-[150px] bg-[#1a1e3d] mg-glow-banner rounded-t-[26px] sm:rounded-t-[28px]">
-          <button onClick={onClose} aria-label="Закрыть профиль" className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 w-11 h-11 flex items-center justify-center bg-[#080a16]/60 hover:bg-[#080a16]/85 rounded-full transition-colors"><Icon n="x" className="w-5 h-5" /></button>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={profile?.username || "Профиль"}
+      className={`fixed inset-0 z-50 bg-[#080a16] overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"}`}
+    >
+      <div className="relative h-full overflow-y-auto scroll-contain">
+        <div className="sticky top-0 z-20 flex items-center justify-between px-4 sm:px-8 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3">
+          <button
+            type="button"
+            onClick={close}
+            aria-label="Назад"
+            className="mg-glass-btn w-11 h-11 rounded-full flex items-center justify-center"
+          >
+            <Icon n="arrow-left" className="w-5 h-5" />
+          </button>
+          {isFriend && (
+            <button
+              type="button"
+              onClick={() => {
+                setRemoveError("");
+                setConfirmRemove(true);
+              }}
+              aria-label="Удалить из друзей"
+              title="Удалить из друзей"
+              className="mg-glass-btn w-11 h-11 rounded-full flex items-center justify-center"
+            >
+              <Icon n="user-minus" className="w-[18px] h-[18px]" />
+            </button>
+          )}
         </div>
 
-        {loading ? <div className="p-10 text-center text-[#8b91b5] animate-pulse">Загрузка профиля...</div> : error ? (
-          <div className="p-8 text-center text-red-400"><p>Не удалось загрузить профиль.</p><p className="text-xs mt-2 opacity-70 break-words">{error}</p></div>
-        ) : profile ? (
-          <div className="px-4 sm:px-8 pb-8 -mt-[52px] relative space-y-[18px]">
-            <section className="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-5">
-              <Avatar profile={profile} />
-              <div className="flex-1 min-w-0 pb-1">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-[#ff8f5f] font-extrabold mb-2">Кинопрофиль</div>
-                <h2 className="font-display text-[26px] sm:text-[32px] font-bold text-white break-words">{profile.username || "Пользователь"}</h2>
-                {profile.bio && <p className="text-sm text-[#c4c8e4] mt-2 whitespace-pre-wrap">{profile.bio}</p>}
-                <div className="flex flex-wrap items-center gap-2 text-xs text-[#8b91b5] mt-2.5">
-                  <span>На сайте с {dateLabel(profile.createdAt)}</span><span>·</span>
-                  <span className={profile.lastSeen && Date.now() - new Date(profile.lastSeen).getTime() < 5 * 60 * 1000 ? "text-[#58dcaa] font-bold" : ""}>{lastSeenLabel(profile.lastSeen)}</span>
+        <div className="relative isolate mx-auto max-w-xl px-4 pb-[calc(3rem+env(safe-area-inset-bottom))]">
+          {loading ? (
+            <p className="py-16 text-center text-[#8b91b5] animate-pulse">Загрузка профиля…</p>
+          ) : error || !profile ? (
+            <p role="alert" className="mt-10 rounded-2xl border border-red-400/25 bg-red-500/15 px-4 py-3 text-sm text-red-200">
+              Не удалось загрузить профиль{error ? `: ${error}` : ""}
+            </p>
+          ) : (
+            <>
+              <ProfileHero user={profile}>
+                <div className="mg-page-rise mt-1.5 text-xs text-[#9aa0c4]" style={{ animationDelay: "100ms" }}>
+                  На MovieGrade с {dateLabel(profile.createdAt)} ·{" "}
+                  <span className={online ? "font-bold text-[#58dcaa]" : ""}>{lastSeenLabel(profile.lastSeen)}</span>
                 </div>
+                {profile.bio && (
+                  <p className="mg-page-rise mt-3 max-w-md text-sm text-[#c4c8e4] whitespace-pre-wrap break-words" style={{ animationDelay: "120ms" }}>
+                    {profile.bio}
+                  </p>
+                )}
+                {!isOwnProfile && !isFriend && (
+                  <div className="mt-4">
+                    {requestStatus ? (
+                      <p role="status" className="text-sm text-[#c4c8e4]">{requestStatus}</p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={addFriend}
+                        className="mg-glass-btn mg-glass-btn--wide mg-glass-btn--orange h-11 px-5 rounded-full inline-flex items-center gap-2 text-sm font-extrabold text-white"
+                      >
+                        <Icon n="user-plus" className="w-4 h-4" /> Добавить в друзья
+                      </button>
+                    )}
+                  </div>
+                )}
+              </ProfileHero>
+
+              <div className="mg-page-rise mt-7 space-y-4" style={{ animationDelay: "140ms" }}>
+                {journal ? (
+                  <>
+                    <AchievementsSection achievements={stats.achievements} unlockedFirst />
+                    <StatsSection total={stats.total} month={stats.month} loading={stats.loading} />
+                    <FranchisesSection franchises={stats.franchises} loading={stats.loading} onOpenMovie={onOpenMovie} />
+                  </>
+                ) : (
+                  <section className="mg-glass-panel rounded-[24px] p-5">
+                    <div className="grid grid-cols-3 gap-2">
+                      <CountTile value={profile.moviesCount} label="В журнале" />
+                      <CountTile value={profile.watchedCount} label="Просмотрено" />
+                      <CountTile value={friendsCount} label="Друзей" />
+                    </div>
+                    {!isOwnProfile && (
+                      <p className="mt-4 flex items-center gap-2 text-sm text-[#aeb3d6]">
+                        <Icon n="lock" className="w-4 h-4 opacity-70" />
+                        Достижения и статистика видны только друзьям
+                      </p>
+                    )}
+                  </section>
+                )}
+
+                <RecentSection movies={profile.recentMovies} reviewsHidden={profile.reviewsHidden} onOpenMovie={onOpenMovie} />
+
+                <section className="mg-glass-panel rounded-[24px] p-5">
+                  <h2 className="mb-3 font-display text-[17px] font-semibold text-white">
+                    Друзья <span className="text-[#9aa0c4]">· {friends.length}</span>
+                  </h2>
+                  {friends.length === 0 ? (
+                    <p className="py-2 text-sm text-[#aeb3d6]">Список друзей пока пуст.</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {visibleFriends.map((friend) => (
+                        <li key={friend.id}>
+                          <button
+                            type="button"
+                            onClick={() => onUserClick?.(friend.id)}
+                            className="w-full flex items-center gap-3 rounded-2xl p-2.5 text-left hover:bg-white/[0.07] transition-colors"
+                          >
+                            <Avatar name={friend.username} avatar={friend.avatar} />
+                            <span className="min-w-0 flex-1 text-sm font-extrabold text-white truncate">
+                              {friend.id === user?.id ? `${friend.username} (вы)` : friend.username}
+                            </span>
+                            <Icon n="chevron-right" className="w-4 h-4 opacity-50" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {friends.length > FRIENDS_PREVIEW && (
+                    <button
+                      type="button"
+                      onClick={() => setFriendsExpanded((v) => !v)}
+                      aria-expanded={friendsExpanded}
+                      className="mg-glass-btn mg-glass-btn--wide mt-3 w-full h-11 rounded-full inline-flex items-center justify-center gap-2 text-sm font-bold text-white"
+                    >
+                      {friendsExpanded ? "Свернуть" : `Показать всех (${friends.length})`}
+                      <Icon n={friendsExpanded ? "chevron-up" : "chevron-down"} className="w-4 h-4 opacity-70" />
+                    </button>
+                  )}
+                </section>
               </div>
-              {!isOwnProfile && !profile.reviewsHidden && (
-                <button
-                  type="button"
-                  onClick={() => { setRemoveError(""); setConfirmRemove(true); }}
-                  className="self-start sm:self-end inline-flex items-center gap-2 h-11 px-4 rounded-xl text-sm font-bold bg-white/[0.07] hover:bg-red-500/20 text-[#e9ebf7] transition-colors"
-                >
-                  <Icon n="user-minus" className="w-4 h-4 opacity-80" /> Удалить из друзей
-                </button>
-              )}
-            </section>
-
-            {isOwnProfile && <section className="bg-[#171b38] border border-white/[0.06] rounded-[20px] p-5">
-              <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2"><Icon n="edit" /> Изменить никнейм</h3>
-              <form onSubmit={handleUpdateUsername} className="flex flex-col sm:flex-row gap-2">
-                <input value={newUsername} onChange={(e) => setNewUsername(e.target.value)} placeholder="Новый ник (3–20 символов)" maxLength={20} className="flex-1 min-w-0 h-11 bg-[#0d1021] border border-white/10 rounded-xl px-4 text-base sm:text-sm text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45]" />
-                <button type="submit" disabled={isUpdating || newUsername.trim().length < 3} className="h-11 bg-[#ff7a45] hover:bg-[#ff9166] disabled:opacity-40 text-[#1b0d07] px-5 rounded-xl text-sm font-extrabold">{isUpdating ? "Сохранение..." : "Сохранить"}</button>
-              </form>
-            </section>}
-
-            <section className="grid grid-cols-3 gap-2 sm:gap-3">
-              <StatCard value={profile.moviesCount ?? profile._count?.movies ?? 0} label="В журнале" tone="text-[#ff935f]" />
-              <StatCard value={profile.watchedCount ?? 0} label="Просмотрено" tone="text-[#58dcaa]" />
-              <StatCard value={profile.friendsCount ?? profile.friends?.length ?? 0} label="Друзей" tone="text-[#86b8ff]" />
-            </section>
-
-            <section className="bg-[#171b38] border border-white/[0.06] rounded-[20px] p-5 sm:p-6">
-              <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-amber-400/10 flex items-center justify-center"><Icon n="trophy" className="w-5 h-5" /></div><div><h3 className="font-display text-base sm:text-[17px] font-semibold text-white">Достижения</h3><p className="text-xs text-[#8b91b5]">Система достижений в разработке</p></div></div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {["Первый фильм", "Киномарафон", "Кинокритик"].map((label) => <div key={label} className="flex items-center gap-3 rounded-[14px] bg-white/[0.03] border border-white/[0.05] p-3 opacity-75"><div className="w-9 h-9 rounded-lg bg-[#1d2140] flex items-center justify-center"><Icon n="lock-keyhole" className="w-4 h-4" /></div><div><p className="text-[13px] font-extrabold text-white">{label}</p><p className="text-[10px] text-[#8b91b5]">В разработке</p></div></div>)}
-              </div>
-            </section>
-
-            <section className="bg-[#171b38] border border-white/[0.06] rounded-[20px] p-5 sm:p-6">
-              <button onClick={() => setFriendsOpen((open) => !open)} className="w-full flex items-center gap-3 text-left">
-                <div className="w-10 h-10 rounded-xl bg-sky-400/10 flex items-center justify-center"><Icon n="users" className="w-5 h-5" /></div>
-                <div className="flex-1 min-w-0"><h3 className="font-display text-base sm:text-[17px] font-semibold text-white">Друзья</h3><p className="text-xs text-[#8b91b5]">{profile.friends?.length ?? profile.friendsCount ?? 0} в списке · нажмите, чтобы {friendsOpen ? "скрыть" : "посмотреть"}</p></div>
-                <Icon n={friendsOpen ? "chevron-up" : "chevron-down"} className="w-5 h-5 opacity-60" />
-              </button>
-              {friendsOpen && <div className="mt-4 pt-4 border-t border-white/5">
-                {!profile.friends?.length ? <p className="text-sm text-[#8b91b5] py-2">Список друзей пока пуст.</p> : <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {profile.friends.map((friend) => <button key={friend.id} onClick={() => { if (onUserClick) onUserClick(friend.id); }} className="flex items-center gap-3 rounded-xl p-3 bg-white/[0.03] hover:bg-white/[0.07] text-left transition-colors">
-                    {friend.avatar ? <img src={friend.avatar} alt="" className="w-10 h-10 rounded-xl object-cover" /> : <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ff7a45] to-[#8b5cf6] flex items-center justify-center text-sm font-bold text-white">{friend.username?.[0]?.toUpperCase() || "U"}</div>}
-                    <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-white truncate">{friend.username}</span><span className="block text-xs text-[#8b91b5]">Открыть профиль</span></span><Icon n="arrow-up-right" className="w-4 h-4 opacity-50" />
-                  </button>)}
-                </div>}
-              </div>}
-            </section>
-
-          </div>
-        ) : <div className="p-8 text-center text-[#8b91b5]">Не удалось загрузить профиль</div>}
+            </>
+          )}
+        </div>
       </div>
+
       {confirmRemove && profile && (
         <ConfirmDialog
           title="Удалить из друзей?"
@@ -173,7 +293,7 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
             if (!result.success) return setRemoveError(result.error);
             setConfirmRemove(false);
             onFriendRemoved?.(profile.id);
-            onClose();
+            close();
           }}
         />
       )}

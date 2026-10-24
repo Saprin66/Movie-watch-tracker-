@@ -52,7 +52,8 @@ export function computeAchievements({ movies, minutes, friendsCount, franchisesD
   const decades = new Set(
     watched.filter((m) => m.releaseYear).map((m) => Math.floor(m.releaseYear / 10)),
   ).size;
-  const reviews = movies.filter((m) => m.comment && m.comment.trim()).length;
+  // У журнала друга текстов отзывов нет, только отметка hasComment
+  const reviews = movies.filter((m) => m.hasComment ?? Boolean(m.comment && m.comment.trim())).length;
   const ratings = movies.filter((m) => m.rating).length;
   const hours = Math.floor(minutes / 60);
   const retro = watched.filter((m) => m.mediaType !== "tv" && m.releaseYear && m.releaseYear < 1980).length;
