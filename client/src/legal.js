@@ -12,3 +12,7 @@ export const POLICY_VERSION = "2026-10-14";
 export const POLICY_DATE_LABEL = "14 октября 2026 года";
 
 export const POLICY_HASH = "#/privacy";
+
+// Вход и регистрация для гостей; без хэша гость видит лендинг
+export const LOGIN_HASH = "#/login";
+export const REGISTER_HASH = "#/register";

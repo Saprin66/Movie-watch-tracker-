@@ -338,3 +338,53 @@ body {
   .mg-premium-btn::after,
   .mg-bar { animation: none; }
 }
+
+/* ---- Лендинг: движущаяся сетка постеров ---- */
+.mg-poster-wall {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 170%;
+  display: flex;
+  --gap: 14px;
+  gap: var(--gap);
+  /* Сдвиг на четверть: экран всегда видит середину колонки, пока она едет на половину */
+  transform: translate(-50%, -25%) rotate(-12deg);
+}
+.mg-poster-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  animation: mg-poster-up 80s linear infinite;
+  will-change: transform;
+}
+.mg-poster-col--down {
+  animation-name: mg-poster-down;
+}
+/* Половина высоты колонки = один полный набор постеров + один отступ */
+@keyframes mg-poster-up {
+  from { transform: translateY(0); }
+  to { transform: translateY(calc(-50% - var(--gap) / 2)); }
+}
+@keyframes mg-poster-down {
+  from { transform: translateY(calc(-50% - var(--gap) / 2)); }
+  to { transform: translateY(0); }
+}
+.mg-poster-veil {
+  background:
+    radial-gradient(90% 70% at 25% 45%, rgba(10, 12, 24, 0.92), rgba(10, 12, 24, 0.55) 70%),
+    linear-gradient(180deg, rgba(10, 12, 24, 0.55) 0%, rgba(10, 12, 24, 0.2) 40%, #0a0c18 100%);
+}
+@media (max-width: 640px) {
+  .mg-poster-wall {
+    width: 260%;
+    --gap: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mg-poster-col {
+    animation: none;
+  }
+}
