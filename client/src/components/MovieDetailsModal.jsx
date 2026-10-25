@@ -421,7 +421,14 @@ export default function MovieDetailsModal({
               />
             )}
 
-            <WatchProviders results={details?.["watch/providers"]?.results} loading={loading} />
+            <WatchProviders
+              results={details?.["watch/providers"]?.results}
+              loading={loading}
+              titles={{
+                local: details?.title || details?.name,
+                original: details?.original_title || details?.original_name || details?.title || details?.name,
+              }}
+            />
 
             {cast.length > 0 && (
               <section className="mg-glass-panel rounded-[24px] p-5 sm:p-7">
