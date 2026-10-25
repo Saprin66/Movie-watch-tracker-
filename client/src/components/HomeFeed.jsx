@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { TMDB, TMDB_API_KEY, POSTER, BACKDROP } from "../config";
 import { MovieCard, Chip, Empty, Row } from "./ui";
 import { BTN_ORANGE, BTN_SOFT, EYEBROW, PAGE_TITLE, SECTION_TITLE } from "./styles";
+import { QuickLog, YearStats, MoodPicks, RecentDiary } from "./HomeDashboard";
 
 const IMAGE = (path) => (path ? `${POSTER}${path}` : null);
 const YEAR = (movie) => (movie.release_date || movie.first_air_date || "").slice(0, 4);
@@ -11,7 +12,7 @@ function MovieRow({ title, subtitle, items, onOpenMovie, loading, emptyText }) {
     <section className="space-y-4">
       <div>
         <h2 className={SECTION_TITLE}>{title}</h2>
-        {subtitle && <p className="mt-1.5 text-[13px] text-[#8b91b5]">{subtitle}</p>}
+        {subtitle && <p className="mt-1.5 text-[13px] text-[#8f8d9b]">{subtitle}</p>}
       </div>
       {loading ? (
         <div className="flex gap-3 sm:gap-4 overflow-hidden">{Array.from({ length: 7 }).map((_, i) => <div key={i} className="w-[112px] sm:w-[136px] shrink-0 aspect-[2/3] rounded-[14px] bg-white/5 animate-pulse" />)}</div>
@@ -34,7 +35,7 @@ function MovieRow({ title, subtitle, items, onOpenMovie, loading, emptyText }) {
   );
 }
 
-export default function HomeFeed({ onOpenMovie, onBrowse }) {
+export default function HomeFeed({ movies = [], onOpenMovie, onOpenEntry, onBrowse, onQuickLog, onOpenStats, onOpenJournal }) {
   const [popular, setPopular] = useState([]);
   const [topRated, setTopRated] = useState([]);
   const [nowPlaying, setNowPlaying] = useState([]);
@@ -98,12 +99,24 @@ export default function HomeFeed({ onOpenMovie, onBrowse }) {
     <div className="space-y-10">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className={`${EYEBROW} mb-2.5`}>Movie night</p>
-          <h1 className={PAGE_TITLE}>Главная</h1>
-          <p className="mt-2.5 text-sm text-[#8b91b5]">Трейлеры, рейтинги и идеи для следующего просмотра.</p>
+          <p className={`${EYEBROW} mb-2.5 first-letter:uppercase`}>{new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })}</p>
+          <h1 className={PAGE_TITLE}>Что посмотрели <em className="text-[#ffb08c]">сегодня?</em></h1>
         </div>
-        <button onClick={onBrowse} className={`h-11 rounded-xl px-5 text-sm ${BTN_SOFT}`}>Подобрать по фильтрам →</button>
+        <button onClick={onBrowse} className={`hidden sm:inline-flex h-11 items-center rounded-xl px-5 text-sm ${BTN_SOFT}`}>Подобрать по фильтрам →</button>
       </header>
+
+      {/* Главное действие — отметить просмотр — стоит первым; рядом цифры года */}
+      <div className="grid grid-cols-1 gap-4 lg:gap-5 xl:grid-cols-12">
+        <div className="xl:col-span-7 2xl:col-span-8 space-y-4 lg:space-y-5">
+          <QuickLog movies={movies} onSave={onQuickLog} onOpenMovie={onOpenMovie} />
+          <RecentDiary movies={movies} onOpenEntry={onOpenEntry} onOpenJournal={onOpenJournal} />
+        </div>
+        <div className="xl:col-span-5 2xl:col-span-4">
+          <YearStats movies={movies} onOpenStats={onOpenStats} />
+        </div>
+      </div>
+
+      <MoodPicks movies={movies} onOpenMovie={onOpenMovie} />
 
       {error && <div className="rounded-2xl border border-red-400/20 bg-red-400/5 p-4 text-sm text-red-200">{error}. Проверьте подключение и ключ TMDB.</div>}
 
@@ -123,7 +136,7 @@ export default function HomeFeed({ onOpenMovie, onBrowse }) {
                 />
               ) : featured.backdrop_path ? (
                 <img className="absolute inset-0 h-full w-full object-cover" src={`${BACKDROP}${featured.backdrop_path}`} alt="" />
-              ) : <div className="absolute inset-0 bg-gradient-to-br from-[#252b58] to-[#0d1021]" />}
+              ) : <div className="absolute inset-0 bg-gradient-to-br from-[#24222c] to-mg-ink" />}
             </div>
             <div className="flex flex-col justify-center p-5 sm:p-8 lg:p-9">
               <div className="mb-4 flex flex-wrap gap-2">
@@ -131,10 +144,10 @@ export default function HomeFeed({ onOpenMovie, onBrowse }) {
                 {YEAR(featured) && <Chip>{YEAR(featured)}</Chip>}
                 <Chip>★ {Number(featured.vote_average || 0).toFixed(1)} / 10</Chip>
               </div>
-              <h2 className="font-display text-2xl sm:text-[34px] font-bold leading-[1.08] text-white">{featured.title || featured.name}</h2>
-              <p className="mt-4 line-clamp-5 text-sm leading-relaxed text-[#c4c8e4]">{featured.overview || "Посмотрите трейлер и решите, подходит ли этот фильм для следующего вечера."}</p>
+              <h2 className="font-display text-[32px] sm:text-[44px] leading-[1.02] text-white">{featured.title || featured.name}</h2>
+              <p className="mt-4 line-clamp-5 text-sm leading-relaxed text-[#cfcdd8]">{featured.overview || "Посмотрите трейлер и решите, подходит ли этот фильм для следующего вечера."}</p>
               <button onClick={() => onOpenMovie(featured)} className={`mt-6 w-fit h-11 rounded-xl px-5 text-sm ${BTN_ORANGE}`}>Подробнее о фильме</button>
-              {!trailerKey && <p className="mt-3 text-xs text-[#777da6]">Для этого фильма TMDB пока не нашёл подходящий трейлер на YouTube.</p>}
+              {!trailerKey && <p className="mt-3 text-xs text-[#7c7a88]">Для этого фильма TMDB пока не нашёл подходящий трейлер на YouTube.</p>}
             </div>
           </div>
         </section>

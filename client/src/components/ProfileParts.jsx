@@ -19,7 +19,7 @@ export function ProfileHero({ user, avatarAction, children }) {
             <div className="absolute right-[8%] top-24 w-56 h-56 rounded-full bg-[#8b5cf6]/40 blur-[70px]" />
           </>
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#080a16]/40 to-[#080a16]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-mg-ink/40 to-mg-ink" />
       </div>
 
       <div className="flex flex-col items-center text-center">
@@ -28,7 +28,7 @@ export function ProfileHero({ user, avatarAction, children }) {
             {user?.avatar ? (
               <img src={user.avatar} alt="Аватар профиля" className="w-full h-full rounded-full object-cover" />
             ) : (
-              <div className="w-full h-full rounded-full bg-[#12152a] flex items-center justify-center font-display text-[56px] font-bold text-white">
+              <div className="w-full h-full rounded-full bg-mg-pop flex items-center justify-center font-display text-[56px] font-bold text-white">
                 {initial}
               </div>
             )}
@@ -68,12 +68,12 @@ function AchievementBadge({ a, selected, onSelect }) {
         >
           <Icon n={a.icon} className={`w-6 h-6 ${a.unlocked ? "" : "opacity-35"}`} />
           {!a.unlocked && (
-            <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#12152a] border border-white/15 flex items-center justify-center">
+            <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-mg-pop border border-white/15 flex items-center justify-center">
               <Icon n="lock" className="w-3 h-3 opacity-70" />
             </span>
           )}
         </div>
-        <div className={`mt-2 text-[11px] font-bold leading-tight ${a.unlocked ? "text-white" : "text-[#9aa0c4]"}`}>
+        <div className={`mt-2 text-[11px] font-bold leading-tight ${a.unlocked ? "text-white" : "text-[#a19fad]"}`}>
           {a.name}
         </div>
         {!a.unlocked && (
@@ -112,18 +112,18 @@ function AchievementRow({ a }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className={`truncate text-sm font-extrabold ${a.unlocked ? "text-white" : "text-[#c4c8e4]"}`}>{a.name}</span>
+          <span className={`truncate text-sm font-extrabold ${a.unlocked ? "text-white" : "text-[#cfcdd8]"}`}>{a.name}</span>
           {a.unlocked ? (
             <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-extrabold text-[#58dcaa]">
               <Icon n="check" className="w-3 h-3 [filter:invert(1)_sepia(1)_saturate(3)_hue-rotate(100deg)]" /> Получено
             </span>
           ) : (
-            <span className="shrink-0 text-[11px] font-bold text-[#9aa0c4]">
+            <span className="shrink-0 text-[11px] font-bold text-[#a19fad]">
               {a.value} из {a.goal}
             </span>
           )}
         </div>
-        <p className="mt-0.5 text-xs text-[#9aa0c4]">{a.desc}</p>
+        <p className="mt-0.5 text-xs text-[#a19fad]">{a.desc}</p>
         {!a.unlocked && (
           <div className="mt-2 h-1 rounded-full bg-white/10 overflow-hidden">
             <div className="mg-bar h-full rounded-full bg-[#ff7a45]" style={{ width: `${(a.value / a.goal) * 100}%` }} />
@@ -156,7 +156,7 @@ export function AchievementsSection({ achievements }) {
         <div className="mg-page-rise space-y-4">
           {done.length > 0 && (
             <div>
-              <h3 className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4]">
+              <h3 className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a19fad]">
                 Получено · {done.length}
               </h3>
               <ul className="grid gap-2 lg:grid-cols-2">
@@ -168,7 +168,7 @@ export function AchievementsSection({ achievements }) {
           )}
           {rest.length > 0 && (
             <div>
-              <h3 className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4]">
+              <h3 className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a19fad]">
                 Впереди · {rest.length}
               </h3>
               <ul className="grid gap-2 lg:grid-cols-2">
@@ -181,7 +181,7 @@ export function AchievementsSection({ achievements }) {
         </div>
       ) : (
         <>
-          {!done.length && <p className="mb-3 text-sm text-[#aeb3d6]">Пока ни одного — ближе всего к этим:</p>}
+          {!done.length && <p className="mb-3 text-sm text-[#b4b2bf]">Пока ни одного — ближе всего к этим:</p>}
           <ul className="flex justify-between sm:justify-start gap-2 sm:gap-3">
             {preview.map((a) => (
               <AchievementBadge
@@ -193,7 +193,7 @@ export function AchievementsSection({ achievements }) {
             ))}
           </ul>
           {selected && (
-            <p key={selected.id} className="mg-page-rise mt-3 text-center text-sm text-[#c4c8e4]">
+            <p key={selected.id} className="mg-page-rise mt-3 text-center text-sm text-[#cfcdd8]">
               <span className="font-bold text-white">{selected.name}.</span> {selected.desc}
               {selected.unlocked ? " — получено!" : ` — ${selected.value} из ${selected.goal}.`}
             </p>
@@ -222,9 +222,9 @@ function StatTile({ value, unit, label, loading }) {
     <div className="mg-glass-chip flex-col !items-start !gap-0 !rounded-[18px] !px-3.5 !py-3 min-w-0">
       <div className="font-display text-[22px] sm:text-[26px] font-bold text-white leading-none">
         {loading ? <span className="opacity-50">…</span> : value}
-        {unit && <span className="ml-1 text-sm font-bold text-[#c4c8e4]">{unit}</span>}
+        {unit && <span className="ml-1 text-sm font-bold text-[#cfcdd8]">{unit}</span>}
       </div>
-      <div className="mt-1.5 text-[11px] sm:text-xs font-bold text-[#aeb3d6] truncate max-w-full">
+      <div className="mt-1.5 text-[11px] sm:text-xs font-bold text-[#b4b2bf] truncate max-w-full">
         {label}
       </div>
     </div>
@@ -235,7 +235,7 @@ function StatsBlock({ title, summary, loading }) {
   const hours = formatHours(summary.minutes);
   return (
     <div>
-      <h3 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4]">
+      <h3 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a19fad]">
         {title}
       </h3>
       <div className="grid grid-cols-3 gap-2">

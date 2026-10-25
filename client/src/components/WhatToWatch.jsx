@@ -64,7 +64,7 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
       <div>
         <div className={`${EYEBROW} mb-2.5`}>Выбор на вечер</div>
         <h1 className={PAGE_TITLE}>Что смотреть</h1>
-        <p className="mt-2.5 text-sm text-[#8b91b5]">
+        <p className="mt-2.5 text-sm text-[#8f8d9b]">
           Рулетка по вашему списку и подборка по вашим оценкам
         </p>
       </div>
@@ -87,18 +87,18 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
         </div>
 
         {!TMDB_API_KEY ? (
-          <p className="py-8 text-sm text-[#8b91b5]">
+          <p className="py-8 text-sm text-[#8f8d9b]">
             Не задан ключ TMDB, рекомендации недоступны.
           </p>
         ) : !hasWatched ? (
-          <p className="py-8 text-sm text-[#8b91b5]">
+          <p className="py-8 text-sm text-[#8f8d9b]">
             Отметьте несколько фильмов просмотренными и поставьте оценки, и здесь
             появятся рекомендации.
           </p>
         ) : (
           <>
             {recs.seeds.length > 0 && (
-              <p className="text-[13px] text-[#8b91b5] mt-1 mb-5">
+              <p className="text-[13px] text-[#8f8d9b] mt-1 mb-5">
                 На основе:{" "}
                 {recs.seeds
                   .map((s) => (s.rating ? `${s.title} (${s.rating})` : s.title))
@@ -107,11 +107,11 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
             )}
 
             {recs.status === "loading" && visibleRecs.length === 0 ? (
-              <p className="py-8 text-sm text-[#8b91b5] animate-pulse">
+              <p className="py-8 text-sm text-[#8f8d9b] animate-pulse">
                 Подбираю...
               </p>
             ) : visibleRecs.length === 0 ? (
-              <p className="py-8 text-sm text-[#8b91b5]">
+              <p className="py-8 text-sm text-[#8f8d9b]">
                 Новых рекомендаций не нашлось. Попробуйте другую подборку.
               </p>
             ) : (

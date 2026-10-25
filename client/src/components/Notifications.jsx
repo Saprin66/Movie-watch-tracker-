@@ -87,7 +87,7 @@ export function NotificationsBell({
       >
         <Icon n="bell" className="w-5 h-5" />
         {count > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[20px] h-5 px-1 rounded-full bg-[#ff7a45] text-[#1b0d07] text-[11px] font-extrabold flex items-center justify-center border-2 border-[#0a0c18]">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[20px] h-5 px-1 rounded-full bg-[#ff7a45] text-[#1b0d07] text-[11px] font-extrabold flex items-center justify-center border-2 border-mg-bg">
             {count > 9 ? "9+" : count}
           </span>
         )}
@@ -97,12 +97,12 @@ export function NotificationsBell({
         <div
           role="dialog"
           aria-label="Уведомления"
-          className="fixed sm:absolute left-3 right-3 sm:left-auto sm:right-0 top-[calc(72px+env(safe-area-inset-top))] sm:top-[calc(100%+0.75rem)] z-50 sm:w-[360px] max-h-[70dvh] overflow-y-auto scroll-contain rounded-2xl border border-white/10 bg-[#12152a] p-2 shadow-2xl shadow-black/50"
+          className="fixed sm:absolute left-3 right-3 sm:left-auto sm:right-0 top-[calc(72px+env(safe-area-inset-top))] sm:top-[calc(100%+0.75rem)] z-50 sm:w-[360px] max-h-[70dvh] overflow-y-auto scroll-contain rounded-2xl border border-white/10 bg-mg-pop mg-pop-glass p-2 shadow-2xl shadow-black/50"
         >
           <div className="px-3 pt-2.5 pb-2 font-display text-base font-semibold text-white">Уведомления</div>
 
           {count === 0 && (
-            <div className="px-3 pb-5 pt-2 text-sm text-[#8b91b5]">Новых уведомлений нет.</div>
+            <div className="px-3 pb-5 pt-2 text-sm text-[#8f8d9b]">Новых уведомлений нет.</div>
           )}
 
           {invites.map((inv) => (
@@ -112,8 +112,8 @@ export function NotificationsBell({
                   <Icon n="popcorn" className="w-5 h-5 [filter:invert(1)_sepia(1)_saturate(6)_hue-rotate(335deg)]" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm leading-snug text-[#c4c8e4]"><InviteText invite={inv} /></p>
-                  <p className="mt-1 text-xs text-[#7b81a6]">
+                  <p className="text-sm leading-snug text-[#cfcdd8]"><InviteText invite={inv} /></p>
+                  <p className="mt-1 text-xs text-[#7c7a88]">
                     {inv.itemsCount > 0 ? `В списке уже ${inv.itemsCount} · ` : ""}
                     {formatTimeAgo(inv.invitedAt)}
                   </p>
@@ -137,7 +137,7 @@ export function NotificationsBell({
                   <Avatar name={r.username} avatar={r.avatar} />
                 </button>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm leading-snug text-[#c4c8e4]">
+                  <p className="text-sm leading-snug text-[#cfcdd8]">
                     <b className="text-white">{r.username}</b> хочет добавить вас в друзья
                   </p>
                   <Actions
@@ -161,7 +161,7 @@ export function InviteToast({ invite, onAccept, onDecline, onClose }) {
     <div
       role="status"
       aria-live="polite"
-      className="fixed z-[55] left-3 right-3 sm:left-auto sm:right-6 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] lg:bottom-6 sm:w-[380px] rounded-2xl border border-[#ff7a45]/30 bg-[#14172e]/95 backdrop-blur-xl p-4 shadow-[0_24px_60px_rgba(0,0,0,0.55)] animate-[toastIn_.25s_ease-out]"
+      className="fixed z-[55] left-3 right-3 sm:left-auto sm:right-6 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] lg:bottom-6 sm:w-[380px] rounded-2xl border border-[#ff7a45]/30 bg-mg-pop mg-pop-glass/95 backdrop-blur-xl p-4 shadow-[0_24px_60px_rgba(0,0,0,0.55)] animate-[toastIn_.25s_ease-out]"
     >
       <div className="flex gap-3">
         <div className="w-10 h-10 shrink-0 rounded-xl bg-[#ff7a45]/15 flex items-center justify-center">
@@ -179,7 +179,7 @@ export function InviteToast({ invite, onAccept, onDecline, onClose }) {
               <Icon n="x" className="w-4 h-4 opacity-70" />
             </button>
           </div>
-          <p className="mt-1 text-sm leading-snug text-[#c4c8e4]"><InviteText invite={invite} /></p>
+          <p className="mt-1 text-sm leading-snug text-[#cfcdd8]"><InviteText invite={invite} /></p>
           <Actions label={`приглашение в «${invite.name}»`} onAccept={onAccept} onDecline={onDecline} />
         </div>
       </div>

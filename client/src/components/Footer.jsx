@@ -4,12 +4,12 @@ import { CONTACT_EMAIL, POLICY_HASH } from "../legal";
 export default function Footer({ className = "" }) {
   return (
     <footer
-      className={`border-t border-white/[0.06] pt-6 text-xs text-[#7b81a6] ${className}`}
+      className={`border-t border-white/[0.06] pt-6 text-xs text-[#7c7a88] ${className}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-        <div className="font-bold text-[#c4c8e4]">
+        <div className="font-bold text-[#cfcdd8]">
           Movie<span className="text-[#ff7a45]">Grade</span>{" "}
-          <span className="text-[#8b91b5]">
+          <span className="text-[#8f8d9b]">
             © {new Date().getFullYear()}
           </span>
         </div>
@@ -20,20 +20,20 @@ export default function Footer({ className = "" }) {
         >
           <a
             href={POLICY_HASH}
-            className="text-[#9aa0c6] hover:text-[#ff935f] transition-colors"
+            className="text-[#a19fad] hover:text-[#ff935f] transition-colors"
           >
             Политика конфиденциальности
           </a>
           <a
             href={`mailto:${CONTACT_EMAIL}`}
-            className="text-[#9aa0c6] hover:text-[#ff935f] transition-colors"
+            className="text-[#a19fad] hover:text-[#ff935f] transition-colors"
           >
             {CONTACT_EMAIL}
           </a>
         </nav>
       </div>
 
-      <p className="mt-3 leading-relaxed text-[#7b81a6]">
+      <p className="mt-3 leading-relaxed text-[#7c7a88]">
         Данные о фильмах и сериалах предоставлены{" "}
         <a
           href="https://www.themoviedb.org"

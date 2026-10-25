@@ -4,9 +4,38 @@
 
 /* ---- Правки для телефонов (особенно iPhone) ---- */
 
+/* ---- Тема: стекло на телефоне, плотный интерфейс на компьютере ----
+   Цвета поверхностей заданы тройками «R G B» и подключены в tailwind.config.js
+   (bg-mg-panel, bg-mg-sunken и т.д.). На телефоне панели полупрозрачные и лежат
+   поверх цветных «засветок», с lg (сайдбар) те же классы дают плотный графит. */
+:root {
+  --mg-bg: 8 7 14;
+  --mg-ink: 6 5 11;
+  --mg-pop: 24 21 33;
+  --mg-panel: 255 255 255;
+  --mg-panel-a: 0.06;
+  --mg-sunken: 0 0 0;
+  --mg-sunken-a: 0.28;
+  --mg-raised: 255 255 255;
+  --mg-raised-a: 0.09;
+}
+@media (min-width: 1024px) {
+  :root {
+    --mg-bg: 11 11 14;
+    --mg-ink: 8 8 10;
+    --mg-pop: 24 24 29;
+    --mg-panel: 20 20 24;
+    --mg-panel-a: 1;
+    --mg-sunken: 15 15 18;
+    --mg-sunken-a: 1;
+    --mg-raised: 30 30 36;
+    --mg-raised-a: 1;
+  }
+}
+
 html,
 body {
-  background-color: #0a0c18;
+  background-color: rgb(var(--mg-bg));
   /* страница не «уезжает» вбок, если какой-то блок шире экрана */
   overflow-x: clip;
   /* без резиновой «растяжки» страницы, из-за которой интерфейс дёргается */
@@ -66,14 +95,52 @@ summary {
 
 /* ---- Новый дизайн ---- */
 body {
-  font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: #e9ebf7;
+  font-family: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #ecebf1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 .font-display {
-  letter-spacing: -0.01em;
+  /* Instrument Serif — одно начертание: жирность не подделываем */
+  font-weight: 400 !important;
+  letter-spacing: -0.005em;
+}
+
+/* Фон приложения. На телефоне — тёмное «кино» с размытыми пятнами цвета, как от
+   постеров на стене; пятна нарисованы градиентами, без filter: blur, поэтому
+   прокрутка не тормозит. На компьютере — ровный плотный фон без пятен. */
+.mg-canvas {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+}
+.mg-canvas::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(55% 38% at 8% 4%, rgba(255, 122, 69, 0.34), transparent 70%),
+    radial-gradient(50% 40% at 100% 22%, rgba(139, 92, 246, 0.36), transparent 70%),
+    radial-gradient(60% 40% at 0% 68%, rgba(32, 160, 170, 0.22), transparent 70%),
+    radial-gradient(55% 35% at 100% 100%, rgba(232, 87, 122, 0.26), transparent 70%),
+    rgb(var(--mg-bg));
+}
+@media (min-width: 1024px) {
+  .mg-canvas { background: rgb(var(--mg-bg)); }
+  .mg-canvas::before { display: none; }
+}
+
+/* Всплывающие меню и окна: на телефоне — матовое стекло, на компьютере — плотные */
+@media (max-width: 1023px) {
+  .mg-pop-glass {
+    background: rgba(26, 22, 36, 0.72);
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
+    backdrop-filter: blur(28px) saturate(170%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 30px 60px rgba(0, 0, 0, 0.5);
+  }
 }
 
 /* Тонкие полосы прокрутки в тёмной теме */
@@ -412,8 +479,8 @@ body {
 }
 .mg-poster-veil {
   background:
-    radial-gradient(90% 70% at 25% 45%, rgba(10, 12, 24, 0.92), rgba(10, 12, 24, 0.55) 70%),
-    linear-gradient(180deg, rgba(10, 12, 24, 0.55) 0%, rgba(10, 12, 24, 0.2) 40%, #0a0c18 100%);
+    radial-gradient(90% 70% at 25% 45%, rgb(var(--mg-bg) / 0.92), rgb(var(--mg-bg) / 0.55) 70%),
+    linear-gradient(180deg, rgb(var(--mg-bg) / 0.55) 0%, rgb(var(--mg-bg) / 0.2) 40%, rgb(var(--mg-bg)) 100%);
 }
 @media (max-width: 640px) {
   .mg-poster-wall {
@@ -424,5 +491,84 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .mg-poster-col {
     animation: none;
+  }
+}
+
+/* ---- Компьютер: никакого стекла ----
+   Все «стеклянные» классы с lg становятся плотными поверхностями с тонкой
+   границей: внимание остаётся на постерах и тексте. */
+@media (min-width: 1024px) {
+  .mg-glass-nav,
+  .mg-glass-panel,
+  .mg-glass-chip {
+    background: rgb(var(--mg-panel));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-color: rgba(255, 255, 255, 0.07);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  }
+  .mg-glass-nav { animation: none; }
+  .mg-glass-chip--orange {
+    color: #ffb08c;
+    background: rgba(255, 122, 69, 0.12);
+    border-color: rgba(255, 122, 69, 0.28);
+  }
+  .mg-glass-chip--green {
+    color: #8ef0c8;
+    background: rgba(52, 211, 153, 0.1);
+    border-color: rgba(52, 211, 153, 0.26);
+  }
+  .mg-glass-pill {
+    background: rgba(255, 122, 69, 0.14);
+    border-color: transparent;
+    box-shadow: none;
+  }
+  .mg-glass-btn {
+    background: rgba(12, 12, 15, 0.86);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  .mg-glass-btn--flat:not(.mg-glass-btn--orange):not(.mg-glass-btn--green) {
+    background: rgba(12, 12, 15, 0.86);
+  }
+  .mg-glass-btn--orange {
+    background: #ff7a45;
+    border-color: #ff7a45;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  .mg-glass-btn--orange img { filter: brightness(0.1); }
+  .mg-glass-btn--green {
+    background: #2fbf8a;
+    border-color: #2fbf8a;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  .mg-glass-nav--active {
+    background: rgba(255, 122, 69, 0.14);
+    border-color: rgba(255, 122, 69, 0.3);
+  }
+}
+
+/* Сегменты оценки 1–10 в «Быстром логе» */
+.mg-seg {
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.mg-seg[data-on="true"] {
+  background: linear-gradient(180deg, #ff9a6c, #ff7a45);
+  box-shadow: 0 0 16px -4px rgba(255, 122, 69, 0.7);
+}
+@media (hover: hover) {
+  .mg-seg:hover { transform: translateY(-2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mg-seg { transition: none; }
+}
+
+@media (min-width: 1024px) {
+  /* Главный баннер на компьютере — плотная карточка без цветных пятен */
+  .mg-glow-hero {
+    background-image: none;
+    background-color: rgb(var(--mg-panel));
   }
 }

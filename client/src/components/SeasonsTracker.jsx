@@ -164,7 +164,7 @@ export default function SeasonsTracker({ entry, tmdbId, details, onChanged }) {
   return (
     <section className="mg-glass-panel rounded-[24px] p-5 sm:p-7">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4]">Сезоны и серии</h2>
+        <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a19fad]">Сезоны и серии</h2>
         {watched && (
           <span className="mg-glass-chip !py-1 !px-2.5 !text-xs">
             {Math.min(watchedCount, totalAired)} из {totalAired}
@@ -190,7 +190,7 @@ export default function SeasonsTracker({ entry, tmdbId, details, onChanged }) {
               Сезон {next.season}, серия {next.episode}
             </div>
             {nextEpisodeData?.name && (
-              <div className="truncate text-xs text-[#aeb3d6]">{nextEpisodeData.name}</div>
+              <div className="truncate text-xs text-[#b4b2bf]">{nextEpisodeData.name}</div>
             )}
           </div>
           <button
@@ -240,7 +240,7 @@ export default function SeasonsTracker({ entry, tmdbId, details, onChanged }) {
                         style={{ width: `${aired ? Math.min(100, (seen / aired) * 100) : 0}%` }}
                       />
                     </div>
-                    <span className="text-xs text-[#aeb3d6]">
+                    <span className="text-xs text-[#b4b2bf]">
                       {seen}/{aired || season.episode_count}
                       {aired < season.episode_count && aired > 0 ? ` · ещё ${season.episode_count - aired} впереди` : ""}
                       {aired === 0 ? " · ещё не вышел" : ""}
@@ -253,7 +253,7 @@ export default function SeasonsTracker({ entry, tmdbId, details, onChanged }) {
               {isOpen && (
                 <div className="mg-page-rise border-t border-white/[0.08] px-2 pb-2">
                   {!episodes ? (
-                    <p className="px-2 py-3 text-sm text-[#aeb3d6] animate-pulse">Загружаю серии…</p>
+                    <p className="px-2 py-3 text-sm text-[#b4b2bf] animate-pulse">Загружаю серии…</p>
                   ) : (
                     <>
                       {airedEpisodes.length > 0 && (
@@ -292,14 +292,14 @@ export default function SeasonsTracker({ entry, tmdbId, details, onChanged }) {
                                   {seenEp ? (
                                     <Icon n="check" className="w-4 h-4 [filter:brightness(0.1)]" />
                                   ) : (
-                                    <span className="text-xs font-bold text-[#c4c8e4]">{ep.episode_number}</span>
+                                    <span className="text-xs font-bold text-[#cfcdd8]">{ep.episode_number}</span>
                                   )}
                                 </span>
                                 <span className={`min-w-0 flex-1 ${out ? "" : "opacity-50"}`}>
                                   <span className="block truncate text-sm font-bold text-white">
                                     {ep.name || `Серия ${ep.episode_number}`}
                                   </span>
-                                  <span className="block text-xs text-[#9aa0c4]">
+                                  <span className="block text-xs text-[#a19fad]">
                                     {ep.air_date
                                       ? new Date(ep.air_date).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })
                                       : "Дата неизвестна"}

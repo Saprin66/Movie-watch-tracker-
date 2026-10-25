@@ -27,12 +27,12 @@ function Members({ members, max = 5, size = "w-8 h-8" }) {
   return (
     <div className="flex items-center">
       {shown.map((m, i) => (
-        <div key={m.id} className={`rounded-full ring-2 ring-[#12152a] ${i > 0 ? "-ml-2" : ""}`} title={m.username}>
+        <div key={m.id} className={`rounded-full ring-2 ring-mg-pop ${i > 0 ? "-ml-2" : ""}`} title={m.username}>
           <Avatar name={m.username} avatar={m.avatar} size={size} text="text-xs" />
         </div>
       ))}
       {rest > 0 && (
-        <div className={`-ml-2 ${size} rounded-full ring-2 ring-[#12152a] bg-[#1d2140] flex items-center justify-center text-[11px] font-extrabold text-[#aeb3d6]`}>
+        <div className={`-ml-2 ${size} rounded-full ring-2 ring-mg-pop bg-mg-raised flex items-center justify-center text-[11px] font-extrabold text-[#b4b2bf]`}>
           +{rest}
         </div>
       )}
@@ -63,7 +63,7 @@ function CreateListDialog({ friends, onClose, onCreate }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-6 bg-[#04050c]/80 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-6 bg-mg-ink/80 backdrop-blur-sm"
       onClick={() => !busy && onClose()}
     >
       <form
@@ -72,12 +72,12 @@ function CreateListDialog({ friends, onClose, onCreate }) {
         aria-label="Новый общий список"
         onSubmit={submit}
         onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-[480px] max-h-[92dvh] overflow-y-auto scroll-contain bg-[#12152a] border border-white/10 rounded-t-[26px] sm:rounded-[24px] p-6 sm:p-7 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-7 shadow-[0_40px_120px_rgba(0,0,0,0.7)]"
+        className="w-full sm:max-w-[480px] max-h-[92dvh] overflow-y-auto scroll-contain bg-mg-pop mg-pop-glass border border-white/10 rounded-t-[26px] sm:rounded-[24px] p-6 sm:p-7 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-7 shadow-[0_40px_120px_rgba(0,0,0,0.7)]"
       >
         <div className="flex items-start justify-between gap-3 mb-6">
           <div>
             <h2 className="font-display text-xl font-semibold text-white">Новый общий список</h2>
-            <p className="mt-2 text-sm text-[#8b91b5]">Друзья смогут добавлять сюда фильмы, которые хотят посмотреть вместе.</p>
+            <p className="mt-2 text-sm text-[#8f8d9b]">Друзья смогут добавлять сюда фильмы, которые хотят посмотреть вместе.</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Закрыть" className="w-11 h-11 shrink-0 flex items-center justify-center rounded-full bg-white/[0.07] hover:bg-white/[0.12]">
             <Icon n="x" className="w-4 h-4" />
@@ -85,7 +85,7 @@ function CreateListDialog({ friends, onClose, onCreate }) {
         </div>
 
         <label className="block">
-          <span className="block text-[13px] font-bold text-[#aeb3d6] mb-2">Название</span>
+          <span className="block text-[13px] font-bold text-[#b4b2bf] mb-2">Название</span>
           <input
             autoFocus
             value={name}
@@ -97,11 +97,11 @@ function CreateListDialog({ friends, onClose, onCreate }) {
         </label>
 
         <div className="mt-6">
-          <div className="text-[13px] font-bold text-[#aeb3d6] mb-2.5">
-            Кого пригласить <span className="font-medium text-[#6f759e]">друзья получат приглашение</span>
+          <div className="text-[13px] font-bold text-[#b4b2bf] mb-2.5">
+            Кого пригласить <span className="font-medium text-[#6f6d7b]">друзья получат приглашение</span>
           </div>
           {friends.length === 0 ? (
-            <p className="text-sm text-[#8b91b5] rounded-xl bg-white/[0.03] p-4">
+            <p className="text-sm text-[#8f8d9b] rounded-xl bg-white/[0.03] p-4">
               Друзей пока нет. Список можно создать и пригласить их потом.
             </p>
           ) : (
@@ -193,12 +193,12 @@ function AddMovieSearch({ existingKeys, onAdd }) {
           value={query}
           onChange={(e) => search(e.target.value)}
           placeholder="Найти фильм или сериал, чтобы добавить"
-          className={`${INPUT} h-12 pl-11 rounded-2xl bg-[#0d1021]`}
+          className={`${INPUT} h-12 pl-11 rounded-2xl bg-mg-sunken`}
         />
       </label>
 
       {message && <p role="status" className="mt-3 text-sm font-bold text-[#58dcaa]">{message}</p>}
-      {status === "loading" && <p className="mt-3 text-sm text-[#8b91b5]">Ищу…</p>}
+      {status === "loading" && <p className="mt-3 text-sm text-[#8f8d9b]">Ищу…</p>}
       {status === "error" && <p className="mt-3 text-sm text-red-300">Нет связи с TMDB. Попробуй ещё раз.</p>}
 
       {results.length > 0 && (
@@ -214,7 +214,7 @@ function AddMovieSearch({ existingKeys, onAdd }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-extrabold text-white truncate">{m.title || m.name}</div>
-                  <div className="text-xs text-[#8b91b5] mt-0.5">
+                  <div className="text-xs text-[#8f8d9b] mt-0.5">
                     {[year, m.media_type === "tv" ? "Сериал" : "Фильм"].filter(Boolean).join(" · ")}
                   </div>
                 </div>
@@ -272,7 +272,7 @@ function ListDetail({ listId, token, friends, onBack, onChanged, onOpenMovie }) 
   if (error && !list) {
     return (
       <div className="space-y-5">
-        <button onClick={onBack} className="inline-flex items-center gap-2 min-h-[44px] text-sm font-bold text-[#8b91b5] hover:text-white">
+        <button onClick={onBack} className="inline-flex items-center gap-2 min-h-[44px] text-sm font-bold text-[#8f8d9b] hover:text-white">
           <Icon n="arrow-left" className="w-4 h-4" /> Все списки
         </button>
         <p className={`${PANEL} p-6 text-sm text-red-200`}>{error}</p>
@@ -281,7 +281,7 @@ function ListDetail({ listId, token, friends, onBack, onChanged, onOpenMovie }) 
   }
 
   if (!list) {
-    return <div className={`${PANEL} py-16 text-center text-[#8b91b5] animate-pulse`}>Загружаю список…</div>;
+    return <div className={`${PANEL} py-16 text-center text-[#8f8d9b] animate-pulse`}>Загружаю список…</div>;
   }
 
   const existingKeys = new Set(list.items.map((i) => `${i.mediaType}-${i.tmdbId}`));
@@ -370,7 +370,7 @@ function ListDetail({ listId, token, friends, onBack, onChanged, onOpenMovie }) 
 
   return (
     <div className="space-y-6">
-      <button onClick={onBack} className="inline-flex items-center gap-2 min-h-[44px] text-sm font-bold text-[#8b91b5] hover:text-white">
+      <button onClick={onBack} className="inline-flex items-center gap-2 min-h-[44px] text-sm font-bold text-[#8f8d9b] hover:text-white">
         <Icon n="arrow-left" className="w-4 h-4" /> Все списки
       </button>
 
@@ -394,7 +394,7 @@ function ListDetail({ listId, token, friends, onBack, onChanged, onOpenMovie }) 
             ) : (
               <h1 className={`${PAGE_TITLE} break-words`}>{list.name}</h1>
             )}
-            <p className="mt-2.5 text-sm text-[#8b91b5]">
+            <p className="mt-2.5 text-sm text-[#8f8d9b]">
               {toWatch.length} {pluralize(toWatch.length, "фильм", "фильма", "фильмов")} хотим посмотреть
               {watched.length > 0 && ` · ${watched.length} уже посмотрели`}
             </p>
@@ -419,19 +419,19 @@ function ListDetail({ listId, token, friends, onBack, onChanged, onOpenMovie }) 
         </div>
 
         <div className="mt-6 pt-5 border-t border-white/[0.07]">
-          <div className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#7b81a6] mb-3">
+          <div className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#7c7a88] mb-3">
             Участники · {list.members.filter((m) => !m.pending).length}
             {list.members.some((m) => m.pending) && ` · приглашены ${list.members.filter((m) => m.pending).length}`}
           </div>
           <div className="flex flex-wrap gap-2">
             {list.members.map((m) => (
-              <span key={m.id} className={`inline-flex items-center gap-2 h-10 pl-1.5 pr-3 rounded-full text-sm font-bold ${m.pending ? "border border-dashed border-white/15 text-[#8b91b5]" : "bg-white/[0.06] text-white"}`}>
+              <span key={m.id} className={`inline-flex items-center gap-2 h-10 pl-1.5 pr-3 rounded-full text-sm font-bold ${m.pending ? "border border-dashed border-white/15 text-[#8f8d9b]" : "bg-white/[0.06] text-white"}`}>
                 <span className={m.pending ? "opacity-50" : ""}>
                   <Avatar name={m.username} avatar={m.avatar} size="w-7 h-7" text="text-[11px]" />
                 </span>
                 {m.username}
                 {m.id === list.ownerId && <span className="text-[11px] font-bold text-[#ff9a6c]">создатель</span>}
-                {m.pending && <span className="text-[11px] font-semibold text-[#7b81a6]">ждёт ответа</span>}
+                {m.pending && <span className="text-[11px] font-semibold text-[#7c7a88]">ждёт ответа</span>}
                 {list.isOwner && m.id !== list.ownerId && (
                   <button
                     type="button"
@@ -450,14 +450,14 @@ function ListDetail({ listId, token, friends, onBack, onChanged, onOpenMovie }) 
                   type="button"
                   onClick={() => setInviteOpen((v) => !v)}
                   aria-expanded={inviteOpen}
-                  className="inline-flex items-center gap-2 h-10 px-4 rounded-full border border-dashed border-white/20 text-sm font-bold text-[#aeb3d6] hover:text-white hover:border-white/40"
+                  className="inline-flex items-center gap-2 h-10 px-4 rounded-full border border-dashed border-white/20 text-sm font-bold text-[#b4b2bf] hover:text-white hover:border-white/40"
                 >
                   <Icon n="user-plus" className="w-4 h-4" /> Пригласить
                 </button>
                 {inviteOpen && (
-                  <div className="absolute left-0 top-12 z-20 w-64 rounded-2xl border border-white/10 bg-[#171b38] p-2 shadow-2xl shadow-black/50">
+                  <div className="absolute left-0 top-12 z-20 w-64 rounded-2xl border border-white/10 bg-mg-pop mg-pop-glass p-2 shadow-2xl shadow-black/50">
                     {invitable.length === 0 ? (
-                      <p className="p-3 text-sm text-[#8b91b5]">Все друзья уже в списке или друзей пока нет.</p>
+                      <p className="p-3 text-sm text-[#8f8d9b]">Все друзья уже в списке или друзей пока нет.</p>
                     ) : (
                       invitable.map((f) => (
                         <button
@@ -495,7 +495,7 @@ function ListDetail({ listId, token, friends, onBack, onChanged, onOpenMovie }) 
           <div className={`${PANEL} text-center py-12 px-6`}>
             <Icon n="popcorn" className={`w-8 h-8 mx-auto mb-3 ${ORANGE_FILTER}`} />
             <p className="text-white font-bold">Список пока пуст</p>
-            <p className="mt-1.5 text-sm text-[#8b91b5]">Найди фильм выше или добавь его из карточки фильма кнопкой «В общий список».</p>
+            <p className="mt-1.5 text-sm text-[#8f8d9b]">Найди фильм выше или добавь его из карточки фильма кнопкой «В общий список».</p>
           </div>
         ) : (
           <Grid>{toWatch.map(card)}</Grid>
@@ -556,8 +556,8 @@ function InviteCard({ invite, onAccept, onDecline }) {
         <Avatar name={invite.owner?.username} avatar={invite.owner?.avatar} size="w-11 h-11" />
         <div className="min-w-0 flex-1">
           <div className="font-display text-base font-semibold text-white truncate">{invite.name}</div>
-          <p className="mt-1 text-[13px] text-[#8b91b5]">
-            Приглашает <b className="text-[#c4c8e4]">{invite.owner?.username || "друг"}</b>
+          <p className="mt-1 text-[13px] text-[#8f8d9b]">
+            Приглашает <b className="text-[#cfcdd8]">{invite.owner?.username || "друг"}</b>
             {invite.itemsCount > 0 && ` · ${invite.itemsCount} ${pluralize(invite.itemsCount, "фильм", "фильма", "фильмов")}`}
           </p>
         </div>
@@ -626,7 +626,7 @@ export default function SharedLists({
         <div>
           <div className={`${EYEBROW} mb-2.5`}>С друзьями</div>
           <h1 className={PAGE_TITLE}>Смотрим вместе</h1>
-          <p className="mt-2.5 text-sm text-[#8b91b5]">Общие списки фильмов, которые хотите посмотреть с друзьями</p>
+          <p className="mt-2.5 text-sm text-[#8f8d9b]">Общие списки фильмов, которые хотите посмотреть с друзьями</p>
         </div>
         <button onClick={() => setCreateOpen(true)} className={`inline-flex items-center gap-2 h-11 px-5 rounded-xl text-sm ${BTN_ORANGE}`}>
           <Icon n="plus" className={`w-4 h-4 ${DARK_ICON}`} /> Создать список
@@ -659,7 +659,7 @@ export default function SharedLists({
             <Icon n="popcorn" className={`w-7 h-7 ${ORANGE_FILTER}`} />
           </div>
           <p className="text-white font-bold">Пока нет общих списков</p>
-          <p className="mt-1.5 text-sm text-[#8b91b5] max-w-sm mx-auto">Создай список, пригласи друзей, и добавляйте туда фильмы на совместный вечер.</p>
+          <p className="mt-1.5 text-sm text-[#8f8d9b] max-w-sm mx-auto">Создай список, пригласи друзей, и добавляйте туда фильмы на совместный вечер.</p>
           <button onClick={() => setCreateOpen(true)} className={`mt-6 h-11 px-6 rounded-xl text-sm ${BTN_ORANGE}`}>Создать первый список</button>
         </div>
       ) : (
@@ -681,7 +681,7 @@ export default function SharedLists({
               <div className="mt-4 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="font-display text-base font-semibold text-white truncate group-hover:text-[#ff935f] transition-colors">{l.name}</div>
-                  <div className="mt-1 text-xs text-[#8b91b5]">
+                  <div className="mt-1 text-xs text-[#8f8d9b]">
                     {l.itemsCount} {pluralize(l.itemsCount, "фильм", "фильма", "фильмов")}
                     {l.isOwner && <span className="text-[#ff9a6c] font-bold"> · ваш список</span>}
                   </div>

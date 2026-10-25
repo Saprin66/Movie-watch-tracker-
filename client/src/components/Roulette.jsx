@@ -88,7 +88,7 @@ export default function Roulette({ movies, onOpenMovie, onMarkWatched }) {
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-display text-[19px] font-semibold text-white">Рулетка</h2>
-          <p className="mt-1 text-[13px] text-[#aeb3d6]">Случайный фильм из «Буду смотреть»</p>
+          <p className="mt-1 text-[13px] text-[#b4b2bf]">Случайный фильм из «Буду смотреть»</p>
         </div>
         <SubTabs
           items={KINDS}
@@ -105,7 +105,7 @@ export default function Roulette({ movies, onOpenMovie, onMarkWatched }) {
       </div>
 
       {watchlist.length === 0 ? (
-        <p className="py-8 text-center text-sm text-[#aeb3d6]">
+        <p className="py-8 text-center text-sm text-[#b4b2bf]">
           В «Буду смотреть» пока ничего нет{kind !== "all" ? " для этого фильтра" : ""}. Добавьте
           фильмы через поиск или из подборки ниже.
         </p>
@@ -114,8 +114,8 @@ export default function Roulette({ movies, onOpenMovie, onMarkWatched }) {
           <div ref={viewportRef} className="relative -mx-5 sm:-mx-7 overflow-hidden py-3">
             {/* Указатель по центру */}
             <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 -translate-x-1/2 w-[104px] rounded-[18px] border-2 border-[#ff7a45] shadow-[0_0_30px_rgba(255,122,69,0.45)]" />
-            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-[#141730] to-transparent" />
-            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-[#141730] to-transparent" />
+            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-[#24222c] to-transparent" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-[#24222c] to-transparent" />
             <div
               className="flex"
               style={{

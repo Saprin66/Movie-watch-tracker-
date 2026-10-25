@@ -9,12 +9,12 @@ import {
 } from "../utils/filterMovies";
 
 const SELECT =
-  "w-full h-11 bg-[#0d1021] border border-white/[0.09] rounded-xl px-3 text-sm font-medium text-white focus:outline-none focus:border-[#ff7a45]";
+  "w-full h-11 bg-mg-sunken border border-white/[0.09] rounded-xl px-3 text-sm font-medium text-white focus:outline-none focus:border-[#ff7a45]";
 
 function Labeled({ label, children }) {
   return (
     <label className="block min-w-0">
-      <span className="block text-xs font-bold text-[#aeb3d6] mb-2">{label}</span>
+      <span className="block text-xs font-bold text-[#b4b2bf] mb-2">{label}</span>
       {children}
     </label>
   );
@@ -51,7 +51,7 @@ export default function MovieFilters({
             onChange={(e) => set({ query: e.target.value })}
             placeholder="Поиск по моему списку"
             aria-label="Поиск по моему списку"
-            className="w-full min-w-0 h-11 bg-[#12152a] border border-white/[0.08] rounded-xl pl-11 pr-3 text-base sm:text-sm text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45] focus:ring-[3px] focus:ring-[#ff7a45]/20 transition"
+            className="w-full min-w-0 h-11 bg-mg-panel border border-white/[0.08] rounded-xl pl-11 pr-3 text-base sm:text-sm text-white placeholder:text-[#6f6d7b] focus:outline-none focus:border-[#ff7a45] focus:ring-[3px] focus:ring-[#ff7a45]/20 transition"
           />
         </div>
 
@@ -127,7 +127,7 @@ export default function MovieFilters({
           </div>
 
           {metaPending > 0 && (
-            <p className="text-xs text-[#8b91b5]">
+            <p className="text-xs text-[#8f8d9b]">
               Жанры и годы ещё подгружаются для {metaPending} записей. Список
               фильтров станет полнее через несколько секунд.
             </p>
@@ -136,7 +136,7 @@ export default function MovieFilters({
       )}
 
       {filtering && (
-        <div className="flex items-center justify-between gap-3 text-[13px] text-[#8b91b5]">
+        <div className="flex items-center justify-between gap-3 text-[13px] text-[#8f8d9b]">
           <span>
             Найдено {shownCount} из {totalCount}
           </span>
