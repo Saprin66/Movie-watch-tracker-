@@ -147,7 +147,7 @@ export default function MovieDetailsModal({
 
   const type = movie.media_type === "tv" ? "tv" : "movie";
   const [state, setState] = useState({ loading: true, details: null });
-  const { leaving, close, handOver } = useBackClose(historyKey, onClose);
+  const { leaving, covered, close, handOver } = useBackClose(historyKey, onClose);
 
   useEffect(() => {
     let cancelled = false;
@@ -242,7 +242,7 @@ export default function MovieDetailsModal({
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className={`fixed inset-0 z-50 bg-[#080a16] overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"}`}
+      className={`fixed inset-0 z-50 bg-[#080a16] overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"} ${covered ? "mg-page-covered" : ""}`}
     >
       {/* Фон: постер сверху, слегка размыт, чтобы не спорить с постером по центру,
           и плавно уходит в тёмный фон к описанию */}

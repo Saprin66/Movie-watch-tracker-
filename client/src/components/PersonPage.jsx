@@ -87,7 +87,7 @@ function filmography(credits, tab) {
 // Страница актёра или режиссёра: фото, биография и фильмография с отметками «уже смотрел»
 export default function PersonPage({ person, movies, onClose, onOpenMovie, historyKey }) {
   useScrollLock();
-  const { leaving, close } = useBackClose(historyKey, onClose);
+  const { leaving, covered, close } = useBackClose(historyKey, onClose);
   const [state, setState] = useState({ loading: true, data: null, error: "" });
   const [bioOpen, setBioOpen] = useState(false);
   const [tabId, setTabId] = useState(null);
@@ -142,7 +142,7 @@ export default function PersonPage({ person, movies, onClose, onOpenMovie, histo
       role="dialog"
       aria-modal="true"
       aria-label={name}
-      className={`fixed inset-0 z-50 bg-[#080a16] overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"}`}
+      className={`fixed inset-0 z-50 bg-[#080a16] overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"} ${covered ? "mg-page-covered" : ""}`}
     >
       {/* Фон: фото сверху, слегка размыто и уходит в тёмный фон */}
       <div className="absolute inset-x-0 top-0 h-[70vh] overflow-hidden" aria-hidden="true">

@@ -102,7 +102,7 @@ export default function ReviewModal({
   onDelete,
 }) {
   useScrollLock();
-  const { leaving, close } = useBackClose("review", onClose);
+  const { leaving, covered, close } = useBackClose("review", onClose);
 
   const [rating, setRating] = useState(movie.rating ?? null);
   const [comment, setComment] = useState(movie.comment ?? "");
@@ -150,7 +150,7 @@ export default function ReviewModal({
       role="dialog"
       aria-modal="true"
       aria-label={`Оценка: ${movie.title}`}
-      className={`fixed inset-0 z-50 bg-[#080a16] overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"}`}
+      className={`fixed inset-0 z-50 bg-[#080a16] overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"} ${covered ? "mg-page-covered" : ""}`}
     >
       {/* Фон: постер сверху, слегка размыт и уходит в тёмный фон */}
       <div className="absolute inset-x-0 top-0 h-[70vh] overflow-hidden" aria-hidden="true">

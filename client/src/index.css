@@ -276,6 +276,10 @@ body {
 .mg-page-bg { animation: mg-page-bg 1.2s ease-out both; }
 .mg-page-poster { animation: mg-page-poster 0.6s cubic-bezier(0.34, 1.3, 0.5, 1) both; }
 .mg-page-rise { animation: mg-page-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+/* Страница под другой страницей не рисуется: стопка размытых фонов и стекла
+   сильно тормозит прокрутку. Прячем после анимации открытия верхней,
+   а показываем сразу, как только верхняя начинает закрываться */
+.mg-page-covered { visibility: hidden; transition: visibility 0s linear 0.42s; }
 
 @keyframes mg-page-enter {
   from { opacity: 0; transform: translateY(40px) scale(0.98); }
