@@ -18,7 +18,7 @@ const Icon = ({ n, className = "w-4 h-4" }) => (
 const BTN =
   "w-full h-[52px] bg-[#ff7a45] hover:bg-[#ff9166] disabled:opacity-50 disabled:cursor-not-allowed text-[#1b0d07] text-[15px] font-extrabold rounded-[14px] transition-colors flex items-center justify-center gap-2";
 const INPUT =
-  "w-full h-[52px] bg-[#12152a] border border-white/10 rounded-[14px] px-4 text-base sm:text-[15px] font-medium text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45] focus:ring-[3px] focus:ring-[#ff7a45]/20 transition";
+  "w-full h-[52px] bg-mg-panel border border-white/10 rounded-[14px] px-4 text-base sm:text-[15px] font-medium text-white placeholder:text-[#6f6d7b] focus:outline-none focus:border-[#ff7a45] focus:ring-[3px] focus:ring-[#ff7a45]/20 transition";
 
 // Запасные «постеры» на случай, если TMDB недоступен
 const FALLBACK_POSTERS = [
@@ -90,18 +90,18 @@ function PosterCollage() {
 
 function Shell({ children }) {
   return (
-    <div className="min-h-app bg-[#0a0c18] flex flex-col lg:flex-row">
-      <section className="hidden lg:block relative flex-1 min-h-[100dvh] overflow-hidden bg-[#0d1021] mg-glow-auth">
+    <div className="min-h-app mg-canvas flex flex-col lg:flex-row">
+      <section className="hidden lg:block relative flex-1 min-h-[100dvh] overflow-hidden bg-mg-sunken mg-glow-auth">
         <div className="absolute left-14 top-12 z-10">
           <Logo size="lg" />
         </div>
         <PosterCollage />
-        <div className="absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-[#0d1021] to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-mg-ink to-transparent" />
         <div className="absolute left-14 right-14 bottom-12 z-10">
           <h2 className="font-display text-[30px] font-semibold leading-[1.15] text-white max-w-md">
             Всё, что ты посмотрел, в одном журнале
           </h2>
-          <p className="mt-3 text-[15px] leading-relaxed text-[#aeb3d6] max-w-sm">
+          <p className="mt-3 text-[15px] leading-relaxed text-[#b4b2bf] max-w-sm">
             Оценки, отзывы и списки на потом. А ещё то, что смотрят друзья.
           </p>
         </div>
@@ -120,7 +120,7 @@ function Shell({ children }) {
 
 const Field = ({ label, icon, ...props }) => (
   <label className="block">
-    <span className="block text-[13px] font-bold text-[#aeb3d6] mb-2">{label}</span>
+    <span className="block text-[13px] font-bold text-[#b4b2bf] mb-2">{label}</span>
     <div className="relative">
       <Icon
         n={icon}
@@ -311,7 +311,7 @@ export default function AuthScreen({ initialLogin = true }) {
           <h1 className="font-display text-[26px] sm:text-[28px] font-semibold text-white mb-2.5">
             Сброс пароля
           </h1>
-          <p className="text-[15px] text-[#8b91b5]">
+          <p className="text-[15px] text-[#8f8d9b]">
             Укажите email аккаунта, и мы отправим на него код
           </p>
         </div>
@@ -337,7 +337,7 @@ export default function AuthScreen({ initialLogin = true }) {
           <button
             type="button"
             onClick={backToLogin}
-            className="w-full min-h-[44px] text-[#8b91b5] hover:text-white text-sm font-bold flex items-center justify-center gap-2"
+            className="w-full min-h-[44px] text-[#8f8d9b] hover:text-white text-sm font-bold flex items-center justify-center gap-2"
           >
             <Icon n="arrow-left" className="w-4 h-4 opacity-70" />
             Вернуться ко входу
@@ -358,14 +358,14 @@ export default function AuthScreen({ initialLogin = true }) {
           <h1 className="font-display text-[26px] sm:text-[28px] font-semibold text-white mb-2.5">
             Новый пароль
           </h1>
-          <p className="text-sm text-[#8b91b5]">
+          <p className="text-sm text-[#8f8d9b]">
             Введите код из письма и придумайте новый пароль
           </p>
         </div>
 
         <form onSubmit={handleResetSubmit} className="space-y-[18px]">
           <label className="block">
-            <span className="block text-[13px] font-bold text-[#aeb3d6] mb-2">
+            <span className="block text-[13px] font-bold text-[#b4b2bf] mb-2">
               Код из письма
             </span>
             <input
@@ -417,7 +417,7 @@ export default function AuthScreen({ initialLogin = true }) {
           <button
             type="button"
             onClick={backToLogin}
-            className="w-full min-h-[44px] text-[#8b91b5] hover:text-white text-sm font-bold flex items-center justify-center gap-2"
+            className="w-full min-h-[44px] text-[#8f8d9b] hover:text-white text-sm font-bold flex items-center justify-center gap-2"
           >
             <Icon n="arrow-left" className="w-4 h-4 opacity-70" />
             Вернуться ко входу
@@ -438,7 +438,7 @@ export default function AuthScreen({ initialLogin = true }) {
           <h1 className="font-display text-[26px] sm:text-[28px] font-semibold text-white mb-2.5">
             Подтверждение email
           </h1>
-          <p className="text-sm text-[#8b91b5]">
+          <p className="text-sm text-[#8f8d9b]">
             Мы отправили 6-значный код на адрес
           </p>
           <p className="text-sm font-semibold text-white mt-1">
@@ -448,7 +448,7 @@ export default function AuthScreen({ initialLogin = true }) {
 
         <form onSubmit={handleVerifySubmit} className="space-y-[18px]">
           <label className="block">
-            <span className="block text-[13px] font-bold text-[#aeb3d6] mb-2">
+            <span className="block text-[13px] font-bold text-[#b4b2bf] mb-2">
               Код подтверждения
             </span>
             <input
@@ -492,7 +492,7 @@ export default function AuthScreen({ initialLogin = true }) {
               setError("");
               setSuccessMsg("");
             }}
-            className="w-full min-h-[44px] text-[#8b91b5] hover:text-white text-sm font-bold flex items-center justify-center gap-2"
+            className="w-full min-h-[44px] text-[#8f8d9b] hover:text-white text-sm font-bold flex items-center justify-center gap-2"
           >
             <Icon n="arrow-left" className="w-4 h-4 opacity-70" />
             Вернуться ко входу
@@ -509,12 +509,12 @@ export default function AuthScreen({ initialLogin = true }) {
         <h1 className="font-display text-[26px] sm:text-[28px] font-semibold text-white">
           {isLogin ? "С возвращением" : "Создать аккаунт"}
         </h1>
-        <p className="mt-2.5 text-[15px] text-[#8b91b5]">
+        <p className="mt-2.5 text-[15px] text-[#8f8d9b]">
           {isLogin ? "Твой личный дневник киномана" : "Это бесплатно и займёт минуту"}
         </p>
       </div>
 
-      <div className="flex gap-1.5 p-[5px] rounded-[15px] bg-[#0f1226] border border-white/[0.06] mb-7" role="tablist">
+      <div className="flex gap-1.5 p-[5px] rounded-[15px] bg-mg-sunken border border-white/[0.06] mb-7" role="tablist">
         {[
           { v: true, l: "Вход" },
           { v: false, l: "Регистрация" },
@@ -527,8 +527,8 @@ export default function AuthScreen({ initialLogin = true }) {
             onClick={() => switchMode(t.v)}
             className={`flex-1 min-h-[44px] rounded-[11px] text-sm font-bold transition-colors ${
               isLogin === t.v
-                ? "bg-[#1d2140] text-white"
-                : "text-[#8b91b5] hover:text-white"
+                ? "bg-mg-raised text-white"
+                : "text-[#8f8d9b] hover:text-white"
             }`}
           >
             {t.l}
@@ -588,7 +588,7 @@ export default function AuthScreen({ initialLogin = true }) {
         )}
 
         {!isLogin && (
-          <label className="flex items-start gap-3 text-[13px] leading-relaxed text-[#8b91b5] cursor-pointer">
+          <label className="flex items-start gap-3 text-[13px] leading-relaxed text-[#8f8d9b] cursor-pointer">
             <input
               type="checkbox"
               checked={acceptedPolicy}

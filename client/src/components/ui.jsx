@@ -4,7 +4,7 @@ import Icon from "./Icon";
 
 export function Chip({ children, tone = "soft" }) {
   const tones = {
-    soft: "bg-white/[0.07] text-[#aeb3d6]",
+    soft: "bg-white/[0.07] text-[#b4b2bf]",
     orange: "bg-[#ff7a45]/[0.16] text-[#ff9a6c]",
     green: "bg-emerald-400/[0.14] text-[#58dcaa]",
     blue: "bg-sky-400/[0.15] text-[#86b8ff]",
@@ -92,12 +92,12 @@ export function MovieCard({ poster, title, chips, footerLeft, actions, onClick, 
   return (
     <div className="group relative min-w-0">
       <div
-        className="relative aspect-[2/3] cursor-pointer overflow-hidden rounded-[14px] border border-white/[0.08] bg-[#1d2140] shadow-[0_12px_28px_rgba(0,0,0,0.35)] transition duration-300 group-hover:-translate-y-1 group-hover:border-[#ff7a45]/50 group-hover:shadow-[0_18px_40px_rgba(0,0,0,0.5)]"
+        className="relative aspect-[2/3] cursor-pointer overflow-hidden rounded-[14px] border border-white/[0.08] bg-mg-raised shadow-[0_12px_28px_rgba(0,0,0,0.35)] transition duration-300 group-hover:-translate-y-1 group-hover:border-[#ff7a45]/50 group-hover:shadow-[0_18px_40px_rgba(0,0,0,0.5)]"
         onClick={onClick}
       >
         <Poster src={poster} title={title} />
         {/* С кнопками в углах чипы уезжают вниз постера, чтобы не перекрываться */}
-        <div className={`absolute left-2 right-2 flex flex-wrap gap-1 [&>span]:bg-[#080a16]/85 [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-[10px] [&>span]:rounded-lg ${hasCorners ? "bottom-2 items-end" : "top-2 items-start"}`}>
+        <div className={`absolute left-2 right-2 flex flex-wrap gap-1 [&>span]:bg-mg-ink/85 [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-[10px] [&>span]:rounded-lg ${hasCorners ? "bottom-2 items-end" : "top-2 items-start"}`}>
           {chips}
         </div>
         {topLeft && <div className="absolute top-1.5 left-1.5">{topLeft}</div>}
@@ -117,7 +117,7 @@ export function MovieCard({ poster, title, chips, footerLeft, actions, onClick, 
           {title}
         </div>
         {footerLeft && (
-          <div className="mt-0.5 flex items-center gap-1 text-xs text-[#8b91b5] truncate">
+          <div className="mt-0.5 flex items-center gap-1 text-xs text-[#8f8d9b] truncate">
             {footerLeft}
           </div>
         )}
@@ -133,7 +133,7 @@ export const Grid = ({ children }) => (
 );
 
 export const Empty = ({ text }) => (
-  <div className={`${PANEL} text-center py-16 px-6 text-[#8b91b5]`}>{text}</div>
+  <div className={`${PANEL} text-center py-16 px-6 text-[#8f8d9b]`}>{text}</div>
 );
 
 export const Avatar = ({ name, avatar, size = "w-10 h-10", text = "text-sm" }) => (
@@ -242,7 +242,7 @@ export function SubTabs({
               aria-selected={selected}
               onClick={() => onChange(t.id)}
               className={`relative flex-1 sm:flex-none ${itemClass} h-10 px-3 rounded-full inline-flex items-center justify-center gap-1.5 text-sm font-bold transition-colors duration-300 ${
-                selected ? "text-[#ffb08c]" : "text-[#aeb3d6] hover:text-white"
+                selected ? "text-[#ffb08c]" : "text-[#b4b2bf] hover:text-white"
               }`}
             >
               {t.label}

@@ -142,14 +142,14 @@ export default function PersonPage({ person, movies, onClose, onOpenMovie, histo
       role="dialog"
       aria-modal="true"
       aria-label={name}
-      className={`fixed inset-0 z-50 bg-[#080a16] overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"} ${covered ? "mg-page-covered" : ""}`}
+      className={`fixed inset-0 z-50 bg-mg-ink overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"} ${covered ? "mg-page-covered" : ""}`}
     >
       {/* Фон: фото сверху, слегка размыто и уходит в тёмный фон */}
       <div className="absolute inset-x-0 top-0 h-[70vh] overflow-hidden" aria-hidden="true">
         {photo && (
           <img src={photo} alt="" className="mg-page-bg absolute inset-0 w-full h-full object-cover object-top blur-[6px]" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#080a16]/45 via-[#080a16]/60 via-45% to-[#080a16]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-mg-ink/45 via-mg-ink/60 via-45% to-mg-ink" />
       </div>
 
       <div className="relative h-full overflow-y-auto scroll-contain">
@@ -210,7 +210,7 @@ export default function PersonPage({ person, movies, onClose, onOpenMovie, histo
               </p>
             ) : (
               <section className="mx-auto max-w-[760px] mg-glass-panel rounded-[24px] p-5 sm:p-7">
-                <h2 className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4]">Биография</h2>
+                <h2 className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a19fad]">Биография</h2>
                 {loading ? (
                   <div className="space-y-2.5 animate-pulse" aria-hidden="true">
                     <div className="h-3 rounded bg-white/10 w-full" />
@@ -220,7 +220,7 @@ export default function PersonPage({ person, movies, onClose, onOpenMovie, histo
                 ) : data?.biography ? (
                   <>
                     <p
-                      className={`text-sm sm:text-[15px] text-[#e2e4f3] leading-[1.75] whitespace-pre-line ${bioOpen ? "" : "line-clamp-5"}`}
+                      className={`text-sm sm:text-[15px] text-[#ecebf1] leading-[1.75] whitespace-pre-line ${bioOpen ? "" : "line-clamp-5"}`}
                     >
                       {data.biography}
                     </p>
@@ -235,7 +235,7 @@ export default function PersonPage({ person, movies, onClose, onOpenMovie, histo
                     )}
                   </>
                 ) : (
-                  <p className="text-sm text-[#aeb3d6]">Биографии пока нет.</p>
+                  <p className="text-sm text-[#b4b2bf]">Биографии пока нет.</p>
                 )}
               </section>
             )}
@@ -244,7 +244,7 @@ export default function PersonPage({ person, movies, onClose, onOpenMovie, histo
               <section>
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <h2 className="font-display text-[19px] font-semibold text-white">
-                    Фильмография <span className="text-[#9aa0c4]">· {activeTab.items.length}</span>
+                    Фильмография <span className="text-[#a19fad]">· {activeTab.items.length}</span>
                   </h2>
                   {tabs.length > 1 && (
                     <SubTabs

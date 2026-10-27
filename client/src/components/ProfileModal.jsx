@@ -37,7 +37,7 @@ function CountTile({ value, label }) {
   return (
     <div className="mg-glass-chip flex-col !items-start !gap-0 !rounded-[18px] !px-3.5 !py-3 min-w-0">
       <div className="font-display text-[22px] sm:text-[26px] font-bold text-white leading-none">{value ?? 0}</div>
-      <div className="mt-1.5 text-[11px] sm:text-xs font-bold text-[#aeb3d6] truncate max-w-full">{label}</div>
+      <div className="mt-1.5 text-[11px] sm:text-xs font-bold text-[#b4b2bf] truncate max-w-full">{label}</div>
     </div>
   );
 }
@@ -48,7 +48,7 @@ function RecentSection({ movies, reviewsHidden, onOpenMovie }) {
   return (
     <section className="mg-glass-panel rounded-[24px] p-5">
       <h2 className="mb-3 font-display text-[17px] font-semibold text-white">Недавно</h2>
-      {reviewsHidden && <p className="mb-3 text-xs text-[#9aa0c4]">Отзывы видны только друзьям</p>}
+      {reviewsHidden && <p className="mb-3 text-xs text-[#a19fad]">Отзывы видны только друзьям</p>}
       <ul className="space-y-1">
         {movies.map((m) => {
           const watched = m.status === "WATCHED";
@@ -70,7 +70,7 @@ function RecentSection({ movies, reviewsHidden, onOpenMovie }) {
                       <span className="mg-glass-chip mg-glass-chip--orange !py-0.5 !px-2 !text-xs shrink-0">★ {m.rating}</span>
                     )}
                   </div>
-                  <div className="mt-0.5 text-xs text-[#9aa0c4]">
+                  <div className="mt-0.5 text-xs text-[#a19fad]">
                     <span className={watched ? "text-[#58dcaa]" : "text-[#86b8ff]"}>
                       {watched ? "Просмотрено" : "Буду смотреть"}
                     </span>
@@ -78,7 +78,7 @@ function RecentSection({ movies, reviewsHidden, onOpenMovie }) {
                     {shortDate(watched && m.watchedAt ? m.watchedAt : m.updatedAt)}
                   </div>
                   {m.comment && (
-                    <p className="mt-1 text-[13px] leading-relaxed text-[#e2e4f3] line-clamp-2 break-words">{m.comment}</p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-[#ecebf1] line-clamp-2 break-words">{m.comment}</p>
                   )}
                 </div>
               </button>
@@ -147,7 +147,7 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
       role="dialog"
       aria-modal="true"
       aria-label={profile?.username || "Профиль"}
-      className={`fixed inset-0 z-50 bg-[#080a16] overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"}`}
+      className={`fixed inset-0 z-50 bg-mg-ink overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"}`}
     >
       <div className="relative h-full overflow-y-auto scroll-contain">
         <div className="sticky top-0 z-20 flex items-center justify-between px-4 sm:px-8 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3">
@@ -177,7 +177,7 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
 
         <div className="relative isolate mx-auto max-w-xl lg:max-w-6xl px-4 lg:px-8 pb-[calc(3rem+env(safe-area-inset-bottom))]">
           {loading ? (
-            <p className="py-16 text-center text-[#8b91b5] animate-pulse">Загрузка профиля…</p>
+            <p className="py-16 text-center text-[#8f8d9b] animate-pulse">Загрузка профиля…</p>
           ) : error || !profile ? (
             <p role="alert" className="mt-10 rounded-2xl border border-red-400/25 bg-red-500/15 px-4 py-3 text-sm text-red-200">
               Не удалось загрузить профиль{error ? `: ${error}` : ""}
@@ -185,19 +185,19 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
           ) : (
             <>
               <ProfileHero user={profile}>
-                <div className="mg-page-rise mt-1.5 text-xs text-[#9aa0c4]" style={{ animationDelay: "100ms" }}>
+                <div className="mg-page-rise mt-1.5 text-xs text-[#a19fad]" style={{ animationDelay: "100ms" }}>
                   На MovieGrade с {dateLabel(profile.createdAt)} ·{" "}
                   <span className={online ? "font-bold text-[#58dcaa]" : ""}>{lastSeenLabel(profile.lastSeen)}</span>
                 </div>
                 {profile.bio && (
-                  <p className="mg-page-rise mt-3 max-w-md text-sm text-[#c4c8e4] whitespace-pre-wrap break-words" style={{ animationDelay: "120ms" }}>
+                  <p className="mg-page-rise mt-3 max-w-md text-sm text-[#cfcdd8] whitespace-pre-wrap break-words" style={{ animationDelay: "120ms" }}>
                     {profile.bio}
                   </p>
                 )}
                 {!isOwnProfile && !isFriend && (
                   <div className="mt-4">
                     {requestStatus ? (
-                      <p role="status" className="text-sm text-[#c4c8e4]">{requestStatus}</p>
+                      <p role="status" className="text-sm text-[#cfcdd8]">{requestStatus}</p>
                     ) : (
                       <button
                         type="button"
@@ -229,7 +229,7 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
                       <CountTile value={friendsCount} label="Друзей" />
                     </div>
                     {!isOwnProfile && (
-                      <p className="mt-4 flex items-center gap-2 text-sm text-[#aeb3d6]">
+                      <p className="mt-4 flex items-center gap-2 text-sm text-[#b4b2bf]">
                         <Icon n="lock" className="w-4 h-4 opacity-70" />
                         Достижения и статистика видны только друзьям
                       </p>
@@ -241,10 +241,10 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
 
                 <section className="mg-glass-panel rounded-[24px] p-5">
                   <h2 className="mb-3 font-display text-[17px] font-semibold text-white">
-                    Друзья <span className="text-[#9aa0c4]">· {friends.length}</span>
+                    Друзья <span className="text-[#a19fad]">· {friends.length}</span>
                   </h2>
                   {friends.length === 0 ? (
-                    <p className="py-2 text-sm text-[#aeb3d6]">Список друзей пока пуст.</p>
+                    <p className="py-2 text-sm text-[#b4b2bf]">Список друзей пока пуст.</p>
                   ) : (
                     <ul className="space-y-1">
                       {visibleFriends.map((friend) => (

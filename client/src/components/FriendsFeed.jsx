@@ -24,7 +24,7 @@ function EntryHeader({ item, onUserClick }) {
       >
         {item.user.username}
       </button>
-      <span className="text-xs text-[#7b81a6] shrink-0">
+      <span className="text-xs text-[#7c7a88] shrink-0">
         {formatTimeAgo(item.at)}
       </span>
     </div>
@@ -77,7 +77,7 @@ function MovieEntry({ item, onUserClick }) {
         </div>
 
         {item.comment && (
-          <p className="mt-3 text-sm text-[#c4c8e4] leading-[1.65] whitespace-pre-line break-words line-clamp-6">
+          <p className="mt-3 text-sm text-[#cfcdd8] leading-[1.65] whitespace-pre-line break-words line-clamp-6">
             {item.comment}
           </p>
         )}
@@ -95,7 +95,7 @@ function BulkEntry({ item, onUserClick }) {
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {statusChip(item.status)}
-        <span className="text-sm text-[#c9cce6]">
+        <span className="text-sm text-[#c4c2cd]">
           Добавлено {item.count}{" "}
           {pluralize(item.count, "запись", "записи", "записей")}
         </span>
@@ -110,7 +110,7 @@ function BulkEntry({ item, onUserClick }) {
           />
         ))}
         {hidden > 0 && (
-          <div className="w-12 sm:w-14 aspect-[2/3] rounded-xl bg-white/5 text-[#8b91b5] text-xs flex items-center justify-center shrink-0">
+          <div className="w-12 sm:w-14 aspect-[2/3] rounded-xl bg-white/5 text-[#8f8d9b] text-xs flex items-center justify-center shrink-0">
             +{hidden}
           </div>
         )}
@@ -178,7 +178,7 @@ export default function FriendsFeed({ token, onUserClick, onOpenFriends }) {
         <div>
           <div className={`${EYEBROW} mb-2.5`}>Активность</div>
           <h1 className={PAGE_TITLE}>Лента друзей</h1>
-          <p className="mt-2.5 text-sm text-[#8b91b5]">
+          <p className="mt-2.5 text-sm text-[#8f8d9b]">
             Что смотрят, оценивают и добавляют ваши друзья
           </p>
         </div>
@@ -202,13 +202,13 @@ export default function FriendsFeed({ token, onUserClick, onOpenFriends }) {
       )}
 
       {loading && items.length === 0 && !error ? (
-        <div className={`${PANEL} text-center py-16 text-[#8b91b5] animate-pulse`}>
+        <div className={`${PANEL} text-center py-16 text-[#8f8d9b] animate-pulse`}>
           Загружаю ленту...
         </div>
       ) : !hasFriends ? (
         <div className={`${PANEL} text-center py-14 px-6`}>
           <p className="text-white font-bold mb-1.5">Здесь появится активность друзей</p>
-          <p className="text-sm text-[#8b91b5] mb-5">
+          <p className="text-sm text-[#8f8d9b] mb-5">
             Найдите друзей по нику и отправьте заявку.
           </p>
           <button
@@ -220,7 +220,7 @@ export default function FriendsFeed({ token, onUserClick, onOpenFriends }) {
           </button>
         </div>
       ) : items.length === 0 && !error ? (
-        <div className={`${PANEL} text-center py-16 text-[#8b91b5]`}>
+        <div className={`${PANEL} text-center py-16 text-[#8f8d9b]`}>
           Пока тихо: друзья ещё ничего не добавляли.
         </div>
       ) : (

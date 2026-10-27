@@ -125,7 +125,7 @@ function PosterWall() {
             {[...col, ...col].map((p, i) => (
               <div
                 key={`${p.id}-${i}`}
-                className="aspect-[2/3] rounded-xl overflow-hidden border border-white/[0.06] bg-[#151833]"
+                className="aspect-[2/3] rounded-xl overflow-hidden border border-white/[0.06] bg-mg-raised"
                 style={
                   p.src
                     ? undefined
@@ -156,7 +156,7 @@ function PosterWall() {
 
 export default function Landing() {
   return (
-    <div className="min-h-app bg-[#0a0c18] text-white">
+    <div className="min-h-app mg-canvas text-white">
       <section className="relative min-h-[100svh] flex flex-col overflow-hidden">
         <PosterWall />
 
@@ -166,7 +166,7 @@ export default function Landing() {
             <nav className="flex items-center gap-2">
               <a
                 href={LOGIN_HASH}
-                className="h-10 px-4 rounded-xl text-sm font-bold text-[#c4c8e4] hover:text-white transition-colors flex items-center"
+                className="h-10 px-4 rounded-xl text-sm font-bold text-[#cfcdd8] hover:text-white transition-colors flex items-center"
               >
                 Войти
               </a>
@@ -183,7 +183,7 @@ export default function Landing() {
         <div className="relative z-10 flex-1 flex items-center">
           <div className="max-w-6xl mx-auto w-full px-4 sm:px-8 py-16">
             <div className="max-w-2xl mg-tab-enter">
-              <span className="mg-glass-btn inline-flex items-center gap-2 h-8 px-3.5 rounded-full text-xs font-bold text-[#e9ebf7]">
+              <span className="mg-glass-btn inline-flex items-center gap-2 h-8 px-3.5 rounded-full text-xs font-bold text-[#ecebf1]">
                 <Icon n="clapperboard" className={`w-3.5 h-3.5 ${ORANGE_FILTER}`} />
                 Дневник киномана
               </span>
@@ -191,7 +191,7 @@ export default function Landing() {
                 Всё, что ты посмотрел,{" "}
                 <span className="text-[#ff7a45]">в одном журнале</span>
               </h1>
-              <p className="mt-5 text-base sm:text-lg leading-relaxed text-[#c4c8e4] max-w-xl">
+              <p className="mt-5 text-base sm:text-lg leading-relaxed text-[#cfcdd8] max-w-xl">
                 Отмечай фильмы и сериалы, ставь оценки, пиши отзывы и смотри,
                 что советуют друзья. Это бесплатно.
               </p>
@@ -225,20 +225,20 @@ export default function Landing() {
         <h2 className="font-display text-[26px] sm:text-[34px] font-semibold max-w-xl">
           Что умеет MovieGrade
         </h2>
-        <p className="mt-3 text-[15px] text-[#8b91b5] max-w-xl">
+        <p className="mt-3 text-[15px] text-[#8f8d9b] max-w-xl">
           Всё, чтобы не забывать хорошее кино и всегда знать, что посмотреть дальше.
         </p>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
             <div
               key={f.title}
-              className="rounded-[20px] border border-white/[0.07] bg-[#11142a] p-6 mg-glow-corner"
+              className="rounded-[20px] border border-white/[0.07] bg-mg-sunken p-6 mg-glow-corner"
             >
               <div className="w-11 h-11 rounded-xl bg-[#ff7a45]/[0.14] flex items-center justify-center">
                 <Icon n={f.icon} className={`w-5 h-5 ${ORANGE_FILTER}`} />
               </div>
               <h3 className="mt-5 text-lg font-extrabold">{f.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-[#9aa0c6]">{f.text}</p>
+              <p className="mt-2 text-sm leading-relaxed text-[#a19fad]">{f.text}</p>
             </div>
           ))}
         </div>
@@ -250,23 +250,23 @@ export default function Landing() {
         </h2>
         <ol className="mt-10 grid gap-4 sm:grid-cols-3">
           {STEPS.map((s, i) => (
-            <li key={s.title} className="rounded-[20px] border border-white/[0.07] bg-[#0f1226] p-6">
+            <li key={s.title} className="rounded-[20px] border border-white/[0.07] bg-mg-sunken p-6">
               <span className="font-display text-3xl font-semibold text-[#ff7a45]">
                 {i + 1}
               </span>
               <h3 className="mt-3 text-lg font-extrabold">{s.title}</h3>
-              <p className="mt-1.5 text-sm text-[#9aa0c6]">{s.text}</p>
+              <p className="mt-1.5 text-sm text-[#a19fad]">{s.text}</p>
             </li>
           ))}
         </ol>
       </section>
 
       <section className="max-w-6xl mx-auto px-4 sm:px-8 pb-16">
-        <div className="rounded-[28px] mg-glow-banner bg-[#151833] border border-white/[0.08] px-6 py-12 sm:px-12 text-center">
+        <div className="rounded-[28px] mg-glow-banner bg-mg-raised border border-white/[0.08] px-6 py-12 sm:px-12 text-center">
           <h2 className="font-display text-[24px] sm:text-[32px] font-semibold">
             Начни свой киножурнал сегодня
           </h2>
-          <p className="mt-3 text-[15px] text-[#e0e3f5]">Регистрация занимает меньше минуты.</p>
+          <p className="mt-3 text-[15px] text-[#ecebf1]">Регистрация занимает меньше минуты.</p>
           <a href={REGISTER_HASH} className={`${BTN_PRIMARY} mt-8`}>
             Создать аккаунт
           </a>

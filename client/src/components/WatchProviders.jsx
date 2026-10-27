@@ -77,7 +77,7 @@ export default function WatchProviders({ results, loading, titles }) {
   return (
     <section className="mg-glass-panel rounded-[24px] p-5 sm:p-7">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4]">
+        <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a19fad]">
           Где смотреть
         </h2>
         <label className="mg-glass-chip !py-0 !pl-3 !pr-1 h-9 !text-xs !font-bold">
@@ -90,7 +90,7 @@ export default function WatchProviders({ results, loading, titles }) {
               saveRegion(e.target.value);
             }}
             aria-label="Регион"
-            className="h-8 bg-transparent pr-1 text-xs font-bold text-white focus:outline-none [&>option]:bg-[#12152a]"
+            className="h-8 bg-transparent pr-1 text-xs font-bold text-white focus:outline-none [&>option]:bg-mg-pop"
           >
             {REGIONS.map((r) => (
               <option key={r.code} value={r.code}>
@@ -102,17 +102,17 @@ export default function WatchProviders({ results, loading, titles }) {
       </div>
 
       {loading ? (
-        <p className="text-sm text-[#aeb3d6] animate-pulse">Ищу, где можно посмотреть…</p>
+        <p className="text-sm text-[#b4b2bf] animate-pulse">Ищу, где можно посмотреть…</p>
       ) : (
         <div className="space-y-4">
           {groups.length === 0 && (
-            <p className="text-sm text-[#aeb3d6]">
+            <p className="text-sm text-[#b4b2bf]">
               Для региона «{regionLabel}» нет данных о сервисах. Попробуйте другой регион.
             </p>
           )}
           {groups.map((group) => (
             <div key={group.key}>
-              <div className="mb-2 text-xs font-bold text-[#9aa0c4]">{group.label}</div>
+              <div className="mb-2 text-xs font-bold text-[#a19fad]">{group.label}</div>
               <div className="flex flex-wrap gap-2">
                 {providers[group.key].map((p) => (
                   <a
@@ -138,7 +138,7 @@ export default function WatchProviders({ results, loading, titles }) {
           ))}
 
           {providers && (
-          <p className="text-[11px] text-[#8b91b5]">
+          <p className="text-[11px] text-[#8f8d9b]">
             Данные о доступности предоставлены JustWatch через TMDB.
             {providers.link && (
               <>

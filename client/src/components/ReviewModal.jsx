@@ -46,7 +46,7 @@ function FriendsReviews({ movie }) {
   return (
     <section className="mg-glass-panel rounded-[24px] p-5">
       <h2 className="mb-4 font-display text-[17px] font-semibold text-white">
-        Отзывы друзей {items.length > 0 && <span className="text-[#9aa0c4]">· {items.length}</span>}
+        Отзывы друзей {items.length > 0 && <span className="text-[#a19fad]">· {items.length}</span>}
       </h2>
       {loading ? (
         <div className="space-y-3 animate-pulse" aria-hidden="true">
@@ -63,7 +63,7 @@ function FriendsReviews({ movie }) {
       ) : error ? (
         <p className="text-sm text-red-300">{error}</p>
       ) : items.length === 0 ? (
-        <p className="text-sm text-[#aeb3d6]">Друзья ещё не оценили этот фильм.</p>
+        <p className="text-sm text-[#b4b2bf]">Друзья ещё не оценили этот фильм.</p>
       ) : (
         <ul className="space-y-4">
           {items.map((r) => (
@@ -77,10 +77,10 @@ function FriendsReviews({ movie }) {
                       ★ {r.rating}
                     </span>
                   )}
-                  <span className="ml-auto shrink-0 text-[11px] text-[#8b91b5]">{formatDate(r.updatedAt)}</span>
+                  <span className="ml-auto shrink-0 text-[11px] text-[#8f8d9b]">{formatDate(r.updatedAt)}</span>
                 </div>
                 {r.comment && (
-                  <p className="mt-1.5 text-sm leading-relaxed text-[#e2e4f3] whitespace-pre-line break-words">
+                  <p className="mt-1.5 text-sm leading-relaxed text-[#ecebf1] whitespace-pre-line break-words">
                     {r.comment}
                   </p>
                 )}
@@ -150,7 +150,7 @@ export default function ReviewModal({
       role="dialog"
       aria-modal="true"
       aria-label={`Оценка: ${movie.title}`}
-      className={`fixed inset-0 z-50 bg-[#080a16] overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"} ${covered ? "mg-page-covered" : ""}`}
+      className={`fixed inset-0 z-50 bg-mg-ink overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"} ${covered ? "mg-page-covered" : ""}`}
     >
       {/* Фон: постер сверху, слегка размыт и уходит в тёмный фон */}
       <div className="absolute inset-x-0 top-0 h-[70vh] overflow-hidden" aria-hidden="true">
@@ -161,7 +161,7 @@ export default function ReviewModal({
             className="mg-page-bg absolute inset-0 w-full h-full object-cover object-center blur-[6px]"
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#080a16]/45 via-[#080a16]/60 via-45% to-[#080a16]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-mg-ink/45 via-mg-ink/60 via-45% to-mg-ink" />
       </div>
 
       <div className="relative h-full overflow-y-auto scroll-contain">
@@ -241,15 +241,15 @@ export default function ReviewModal({
             <section className="mg-glass-panel rounded-[24px] p-5">
               <div className="mb-4 flex items-end justify-between gap-3">
                 <div>
-                  <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4]">Ваша оценка</h2>
+                  <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a19fad]">Ваша оценка</h2>
                   <div className="mt-1 font-display text-white leading-none">
                     {rating ? (
                       <>
                         <span key={rating} className="mg-nav-pop inline-block text-[44px] font-bold text-[#ffb08c]">{rating}</span>
-                        <span className="ml-1 text-lg font-bold text-[#9aa0c4]">/ 10</span>
+                        <span className="ml-1 text-lg font-bold text-[#a19fad]">/ 10</span>
                       </>
                     ) : (
-                      <span className="text-lg font-bold text-[#aeb3d6]">Не поставлена</span>
+                      <span className="text-lg font-bold text-[#b4b2bf]">Не поставлена</span>
                     )}
                   </div>
                 </div>
@@ -257,7 +257,7 @@ export default function ReviewModal({
                   <button
                     type="button"
                     onClick={() => setRating(null)}
-                    className="min-h-[36px] px-2 text-[13px] font-bold text-[#aeb3d6] hover:text-white"
+                    className="min-h-[36px] px-2 text-[13px] font-bold text-[#b4b2bf] hover:text-white"
                   >
                     Сбросить
                   </button>
@@ -274,7 +274,7 @@ export default function ReviewModal({
                       aria-pressed={rating === n}
                       aria-label={`Оценка ${n}`}
                       className={`mg-glass-btn mg-glass-btn--wide aspect-square rounded-full text-[15px] font-extrabold ${
-                        filled ? "mg-glass-btn--orange text-white" : "text-[#c4c8e4]"
+                        filled ? "mg-glass-btn--orange text-white" : "text-[#cfcdd8]"
                       }`}
                       style={{ transitionDelay: filled ? `${n * 18}ms` : "0ms" }}
                     >
@@ -284,7 +284,7 @@ export default function ReviewModal({
                 })}
               </div>
               {!isWatched && rating && (
-                <p className="mt-3 text-xs text-[#aeb3d6]">С оценкой фильм перейдёт в «Просмотрено».</p>
+                <p className="mt-3 text-xs text-[#b4b2bf]">С оценкой фильм перейдёт в «Просмотрено».</p>
               )}
             </section>
 
@@ -312,9 +312,9 @@ export default function ReviewModal({
                   maxLength={MAX_COMMENT}
                   rows={5}
                   placeholder="Что думаете о фильме? Отзыв видите вы и ваши друзья."
-                  className="w-full rounded-[18px] bg-black/25 border border-white/[0.14] px-4 py-3.5 text-base sm:text-sm leading-relaxed text-white placeholder:text-[#8b91b5] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] focus:outline-none focus:border-[#ff7a45]/70 focus:ring-[3px] focus:ring-[#ff7a45]/20 resize-y"
+                  className="w-full rounded-[18px] bg-black/25 border border-white/[0.14] px-4 py-3.5 text-base sm:text-sm leading-relaxed text-white placeholder:text-[#8f8d9b] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] focus:outline-none focus:border-[#ff7a45]/70 focus:ring-[3px] focus:ring-[#ff7a45]/20 resize-y"
                 />
-                <div className="mt-1.5 text-right text-xs text-[#8b91b5]">
+                <div className="mt-1.5 text-right text-xs text-[#8f8d9b]">
                   {comment.length}/{MAX_COMMENT}
                 </div>
               </section>
@@ -330,7 +330,7 @@ export default function ReviewModal({
                     <Icon n="pencil" className="w-3.5 h-3.5" /> Изменить
                   </span>
                 </div>
-                <p className="text-sm leading-relaxed text-[#e2e4f3] whitespace-pre-line break-words line-clamp-4">
+                <p className="text-sm leading-relaxed text-[#ecebf1] whitespace-pre-line break-words line-clamp-4">
                   {comment}
                 </p>
               </button>
@@ -363,7 +363,7 @@ export default function ReviewModal({
             type="button"
             onClick={handleSave}
             disabled={saving || !changed}
-            className="w-full h-12 rounded-full inline-flex items-center justify-center gap-2 text-[15px] font-extrabold text-[#1b0d07] bg-[#ff7a45] hover:bg-[#ff8a5a] disabled:bg-white/[0.08] disabled:text-[#8b91b5] transition-colors"
+            className="w-full h-12 rounded-full inline-flex items-center justify-center gap-2 text-[15px] font-extrabold text-[#1b0d07] bg-[#ff7a45] hover:bg-[#ff8a5a] disabled:bg-white/[0.08] disabled:text-[#8f8d9b] transition-colors"
           >
             <Icon n="check" className={`w-[18px] h-[18px] ${saving || !changed ? "opacity-60" : "[filter:brightness(0.1)]"}`} />
             {saving ? "Сохраняю…" : changed ? "Сохранить" : "Нет изменений"}

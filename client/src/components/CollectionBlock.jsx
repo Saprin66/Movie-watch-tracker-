@@ -26,7 +26,7 @@ export default function CollectionBlock({ collectionId, currentId, movies, onOpe
   return (
     <section className="mg-glass-panel rounded-[24px] p-5 sm:p-7">
       <div className="mb-1 flex items-center justify-between gap-3">
-        <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4]">Коллекция</h2>
+        <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a19fad]">Коллекция</h2>
         {progress.total > 0 && (
           <span className={`mg-glass-chip !py-1 !px-2.5 !text-xs ${progress.done ? "mg-glass-chip--green" : ""}`}>
             {progress.done && <Icon n="check" className="w-3.5 h-3.5" />}
@@ -35,7 +35,7 @@ export default function CollectionBlock({ collectionId, currentId, movies, onOpe
         )}
       </div>
       <h3 className="font-display text-[19px] font-semibold text-white">{progress.name}</h3>
-      <p className="mt-1 text-xs text-[#9aa0c4]">По порядку выхода</p>
+      <p className="mt-1 text-xs text-[#a19fad]">По порядку выхода</p>
 
       {progress.total > 0 && (
         <div className="mt-3 h-2 rounded-full bg-white/[0.08] overflow-hidden">
@@ -80,7 +80,7 @@ export default function CollectionBlock({ collectionId, currentId, movies, onOpe
                   } ${part.released ? "" : "opacity-60"}`}
                 >
                   <Poster src={part.poster_path ? `${POSTER}${part.poster_path}` : null} title={part.title} small />
-                  <span className="absolute top-1.5 left-1.5 rounded-full bg-[#080a16]/80 px-2 py-0.5 text-[11px] font-extrabold text-white">
+                  <span className="absolute top-1.5 left-1.5 rounded-full bg-mg-ink/80 px-2 py-0.5 text-[11px] font-extrabold text-white">
                     {i + 1}
                   </span>
                   {watched && (
@@ -95,7 +95,7 @@ export default function CollectionBlock({ collectionId, currentId, movies, onOpe
                   )}
                 </div>
                 <div className="mt-1.5 text-xs font-bold leading-tight text-white line-clamp-2">{part.title}</div>
-                <div className="text-[11px] text-[#9aa0c4]">
+                <div className="text-[11px] text-[#a19fad]">
                   {part.released ? part.release_date.slice(0, 4) : "Скоро"}
                   {current ? " · этот фильм" : ""}
                 </div>

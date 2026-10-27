@@ -19,9 +19,9 @@ function Tile({ value, unit, label }) {
     <div className="mg-glass-chip flex-col !items-start !gap-0 !rounded-[18px] !px-4 !py-3.5 min-w-0">
       <div className="font-display text-[24px] sm:text-[28px] font-bold text-white leading-none">
         {value}
-        {unit && <span className="ml-1 text-sm font-bold text-[#c4c8e4]">{unit}</span>}
+        {unit && <span className="ml-1 text-sm font-bold text-[#cfcdd8]">{unit}</span>}
       </div>
-      <div className="mt-1.5 text-xs font-bold text-[#aeb3d6]">{label}</div>
+      <div className="mt-1.5 text-xs font-bold text-[#b4b2bf]">{label}</div>
     </div>
   );
 }
@@ -72,7 +72,7 @@ function WatchCalendar({ watched, onOpenMovie }) {
           <div className="font-display text-[17px] font-semibold text-white">
             {MONTHS[cursor.m]} {cursor.y}
           </div>
-          <div className="text-xs text-[#aeb3d6]">Дней с просмотрами: {activeDays}</div>
+          <div className="text-xs text-[#b4b2bf]">Дней с просмотрами: {activeDays}</div>
         </div>
         <button type="button" onClick={() => shift(1)} disabled={isFuture} aria-label="Следующий месяц" className="mg-glass-btn w-10 h-10 rounded-full flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none">
           <Icon n="chevron-right" className="w-4 h-4" />
@@ -81,7 +81,7 @@ function WatchCalendar({ watched, onOpenMovie }) {
 
       <div className="grid grid-cols-7 gap-1.5 text-center">
         {WEEKDAYS.map((w) => (
-          <div key={w} className="pb-1 text-[11px] font-extrabold text-[#7b81a6]">{w}</div>
+          <div key={w} className="pb-1 text-[11px] font-extrabold text-[#7c7a88]">{w}</div>
         ))}
         {cells.map((d, i) => {
           if (!d) return <div key={`e${i}`} />;
@@ -100,7 +100,7 @@ function WatchCalendar({ watched, onOpenMovie }) {
               className={`relative aspect-square rounded-xl text-[13px] font-bold transition ${
                 count
                   ? `text-[#1b0d07] ${count > 1 ? "bg-[#ff7a45]" : "bg-[#ff7a45]/70"} hover:scale-105 shadow-[0_4px_14px_rgba(255,122,69,0.35)]`
-                  : "text-[#8b91b5] bg-white/[0.04]"
+                  : "text-[#8f8d9b] bg-white/[0.04]"
               } ${selected ? "ring-2 ring-white" : ""} ${isToday && !count ? "ring-1 ring-white/40" : ""}`}
             >
               {d.getDate()}
@@ -164,7 +164,7 @@ export default function StatsPage({ movies, onBack, onOpenMovie }) {
       </div>
 
       <section className="mg-page-rise mg-glass-panel rounded-[24px] p-5" style={{ animationDelay: "60ms" }}>
-        <h2 className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4]">Любимый жанр</h2>
+        <h2 className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a19fad]">Любимый жанр</h2>
         {genres.length ? (
           <>
             <div className="font-display text-[26px] font-bold text-white">{genres[0].name}</div>
@@ -172,8 +172,8 @@ export default function StatsPage({ movies, onBack, onOpenMovie }) {
               {genres.map((g) => (
                 <li key={g.name}>
                   <div className="mb-1 flex justify-between text-xs font-bold">
-                    <span className="text-[#e2e4f3]">{g.name}</span>
-                    <span className="text-[#9aa0c4]">{g.count}</span>
+                    <span className="text-[#ecebf1]">{g.name}</span>
+                    <span className="text-[#a19fad]">{g.count}</span>
                   </div>
                   <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden">
                     <div
@@ -186,7 +186,7 @@ export default function StatsPage({ movies, onBack, onOpenMovie }) {
             </ul>
           </>
         ) : (
-          <p className="mt-2 text-sm text-[#aeb3d6]">Отметь несколько фильмов просмотренными — и здесь появится любимый жанр.</p>
+          <p className="mt-2 text-sm text-[#b4b2bf]">Отметь несколько фильмов просмотренными — и здесь появится любимый жанр.</p>
         )}
       </section>
 

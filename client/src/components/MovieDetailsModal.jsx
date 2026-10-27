@@ -81,7 +81,7 @@ function Skeleton() {
 function Fact({ label, children }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4] mb-1.5">
+      <dt className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a19fad] mb-1.5">
         {label}
       </dt>
       <dd className="text-[15px] font-bold text-white break-words">{children}</dd>
@@ -110,11 +110,11 @@ function CastMember({ person, onOpen }) {
           {person.name?.[0] || "?"}
         </div>
       )}
-      <div className="mt-2.5 text-xs font-bold leading-tight text-[#e9ebf7] line-clamp-2">
+      <div className="mt-2.5 text-xs font-bold leading-tight text-[#ecebf1] line-clamp-2">
         {person.name}
       </div>
       {person.character && (
-        <div className="mt-0.5 text-[11px] leading-tight text-[#9aa0c4] line-clamp-2">
+        <div className="mt-0.5 text-[11px] leading-tight text-[#a19fad] line-clamp-2">
           {person.character}
         </div>
       )}
@@ -124,7 +124,7 @@ function CastMember({ person, onOpen }) {
 }
 
 const SECTION_LABEL =
-  "text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4] mb-3";
+  "text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a19fad] mb-3";
 
 // Страница фильма или сериала из TMDB, открывается поверх приложения на весь экран.
 // movie: результат поиска TMDB. existing: запись пользователя, если фильм уже в журнале.
@@ -242,7 +242,7 @@ export default function MovieDetailsModal({
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className={`fixed inset-0 z-50 bg-[#080a16] overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"} ${covered ? "mg-page-covered" : ""}`}
+      className={`fixed inset-0 z-50 bg-mg-ink overflow-hidden ${leaving ? "mg-page-leave" : "mg-page-enter"} ${covered ? "mg-page-covered" : ""}`}
     >
       {/* Фон: постер сверху, слегка размыт, чтобы не спорить с постером по центру,
           и плавно уходит в тёмный фон к описанию */}
@@ -254,7 +254,7 @@ export default function MovieDetailsModal({
             className="mg-page-bg absolute inset-0 w-full h-full object-cover object-center blur-[6px]"
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#080a16]/45 via-[#080a16]/55 via-45% to-[#080a16]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-mg-ink/45 via-mg-ink/55 via-45% to-mg-ink" />
       </div>
 
       <div className="relative h-full overflow-y-auto scroll-contain">
@@ -292,7 +292,7 @@ export default function MovieDetailsModal({
                 {title}
               </h1>
               {originalTitle && originalTitle !== title && (
-                <div className="mt-2 text-[13px] sm:text-sm text-[#b8bddb] break-words">
+                <div className="mt-2 text-[13px] sm:text-sm text-[#c4c2cd] break-words">
                   {originalTitle}
                 </div>
               )}
@@ -350,7 +350,7 @@ export default function MovieDetailsModal({
           >
             <section className="mg-glass-panel rounded-[24px] p-5 sm:p-7">
               {details?.tagline && (
-                <p className="mb-4 text-sm sm:text-[15px] italic text-[#c4c8e4]">
+                <p className="mb-4 text-sm sm:text-[15px] italic text-[#cfcdd8]">
                   {/* TMDB иногда присылает слоган уже в кавычках */}
                   «{details.tagline.replace(/^[«"“„]+|[»"”]+$/g, "")}»
                 </p>
@@ -368,7 +368,7 @@ export default function MovieDetailsModal({
               {loading && !overview ? (
                 <Skeleton />
               ) : (
-                <p className="text-sm sm:text-[15px] text-[#e2e4f3] leading-[1.75] whitespace-pre-line">
+                <p className="text-sm sm:text-[15px] text-[#ecebf1] leading-[1.75] whitespace-pre-line">
                   {overview || "Описание отсутствует"}
                 </p>
               )}
@@ -403,7 +403,7 @@ export default function MovieDetailsModal({
                   onChanged={onEpisodesChanged}
                 />
               ) : (
-                <p className="mg-glass-panel rounded-[24px] px-5 py-4 text-sm text-[#c4c8e4]">
+                <p className="mg-glass-panel rounded-[24px] px-5 py-4 text-sm text-[#cfcdd8]">
                   <Icon n="list-checks" className="w-4 h-4 inline -mt-0.5 mr-1.5 opacity-70" />
                   Добавьте сериал в «Буду смотреть», чтобы отмечать просмотренные серии.
                 </p>
@@ -449,17 +449,17 @@ export default function MovieDetailsModal({
         {listsOpen && (
           <div className="mg-glass-nav mg-page-rise mb-2 rounded-[24px] p-4 max-h-[45dvh] overflow-y-auto scroll-contain">
             <div className="flex items-center justify-between gap-3 mb-3">
-              <h3 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#c4c8e4]">Добавить в общий список</h3>
+              <h3 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#cfcdd8]">Добавить в общий список</h3>
               <button type="button" onClick={() => setListsOpen(false)} aria-label="Скрыть общие списки" className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/[0.1]">
                 <Icon n="x" className="w-4 h-4 opacity-70" />
               </button>
             </div>
             {lists === null ? (
-              <p className="text-sm text-[#c4c8e4]">Загружаю списки…</p>
+              <p className="text-sm text-[#cfcdd8]">Загружаю списки…</p>
             ) : listsError ? (
               <p className="text-sm text-red-300">{listsError}</p>
             ) : lists.length === 0 ? (
-              <p className="text-sm text-[#c4c8e4]">Общих списков пока нет. Создай их во вкладке «Смотрим вместе».</p>
+              <p className="text-sm text-[#cfcdd8]">Общих списков пока нет. Создай их во вкладке «Смотрим вместе».</p>
             ) : (
               <ul className="space-y-1.5">
                 {lists.map((l) => {
@@ -469,7 +469,7 @@ export default function MovieDetailsModal({
                     <li key={l.id} className="flex items-center gap-3 rounded-2xl bg-white/[0.06] p-2 pl-3.5">
                       <span className="flex-1 min-w-0">
                         <span className="block text-sm font-bold text-white truncate">{l.name}</span>
-                        <span className={`block text-xs ${st && !done && st !== "adding" ? "text-red-300" : "text-[#aeb3d6]"}`}>
+                        <span className={`block text-xs ${st && !done && st !== "adding" ? "text-red-300" : "text-[#b4b2bf]"}`}>
                           {st === "added" ? "Добавлено" : st === "exists" ? "Уже есть в этом списке" : st && st !== "adding" ? st : `${l.members.length} участн.`}
                         </span>
                       </span>

@@ -225,14 +225,14 @@ export default function PrivacyPolicy() {
   }, []);
 
   return (
-    <div className="min-h-app bg-[#0a0c18] text-[#c4c8e4] safe-x">
-      <header className="sticky top-0 z-40 bg-[#0a0c18]/90 backdrop-blur-xl border-b border-white/[0.06] safe-top">
+    <div className="min-h-app mg-canvas text-[#cfcdd8] safe-x">
+      <header className="sticky top-0 z-40 bg-mg-bg/70 backdrop-blur-xl border-b border-white/[0.06] safe-top">
         <div className="max-w-[1240px] mx-auto flex items-center justify-between gap-3 px-4 sm:px-10 h-[72px]">
           <Logo />
           <button
             type="button"
             onClick={leaveHashRoute}
-            className="inline-flex items-center gap-2 h-11 px-4 rounded-xl text-sm font-bold bg-white/[0.07] hover:bg-white/[0.12] text-[#e9ebf7]"
+            className="inline-flex items-center gap-2 h-11 px-4 rounded-xl text-sm font-bold bg-white/[0.07] hover:bg-white/[0.12] text-[#ecebf1]"
           >
             <Icon n="arrow-left" className="w-4 h-4 opacity-70" />
             Назад на сайт
@@ -242,7 +242,7 @@ export default function PrivacyPolicy() {
 
       <div className="max-w-[1240px] mx-auto px-4 sm:px-10 py-8 sm:py-12 pb-[calc(2rem+env(safe-area-inset-bottom))] flex flex-col lg:flex-row gap-8 lg:gap-12 items-start">
         <nav aria-label="Содержание" className="hidden lg:block w-[280px] shrink-0 sticky top-24">
-          <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#7b81a6] px-3.5 pb-3">Содержание</div>
+          <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#7c7a88] px-3.5 pb-3">Содержание</div>
           {SECTIONS.map((s) => (
             <a
               key={s.id}
@@ -251,7 +251,7 @@ export default function PrivacyPolicy() {
                 e.preventDefault();
                 document.getElementById(`policy-${s.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
               }}
-              className="block px-3.5 py-2.5 rounded-[10px] text-sm font-semibold leading-snug text-[#8b91b5] hover:bg-white/5 hover:text-white"
+              className="block px-3.5 py-2.5 rounded-[10px] text-sm font-semibold leading-snug text-[#8f8d9b] hover:bg-white/5 hover:text-white"
             >
               {s.title}
             </a>
@@ -263,7 +263,7 @@ export default function PrivacyPolicy() {
           <h1 className="mt-3 font-display text-[28px] sm:text-[36px] font-bold leading-tight text-white">
             Политика конфиденциальности
           </h1>
-          <p className="mt-3.5 text-sm text-[#8b91b5]">
+          <p className="mt-3.5 text-sm text-[#8f8d9b]">
             Редакция от {POLICY_DATE_LABEL}
           </p>
 
@@ -280,7 +280,7 @@ export default function PrivacyPolicy() {
                 >
                   {s.title}
                 </h2>
-                <div className="space-y-3 text-[15px] leading-[1.75] text-[#c4c8e4] [&_ul]:space-y-2.5 [&_li]:relative [&_li]:pl-[22px] [&_li]:before:content-[''] [&_li]:before:absolute [&_li]:before:left-0.5 [&_li]:before:top-[11px] [&_li]:before:w-[7px] [&_li]:before:h-[7px] [&_li]:before:rounded-full [&_li]:before:bg-[#ff7a45] [&_strong]:text-white">
+                <div className="space-y-3 text-[15px] leading-[1.75] text-[#cfcdd8] [&_ul]:space-y-2.5 [&_li]:relative [&_li]:pl-[22px] [&_li]:before:content-[''] [&_li]:before:absolute [&_li]:before:left-0.5 [&_li]:before:top-[11px] [&_li]:before:w-[7px] [&_li]:before:h-[7px] [&_li]:before:rounded-full [&_li]:before:bg-[#ff7a45] [&_strong]:text-white">
                   {s.body}
                 </div>
               </section>

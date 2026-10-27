@@ -18,7 +18,7 @@ export default function FranchisesSection({ franchises, loading, onOpenMovie }) 
     <section className="mg-glass-panel rounded-[24px] p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="font-display text-[17px] font-semibold text-white">
-          Франшизы {franchises.length > 0 && <span className="text-[#9aa0c4]">· {franchises.length}</span>}
+          Франшизы {franchises.length > 0 && <span className="text-[#a19fad]">· {franchises.length}</span>}
         </h2>
         {done > 0 && (
           <span className="mg-glass-chip mg-glass-chip--green !py-1 !px-2.5 !text-[11px]">
@@ -28,7 +28,7 @@ export default function FranchisesSection({ franchises, loading, onOpenMovie }) 
       </div>
 
       {!franchises.length ? (
-        <p className="text-sm text-[#aeb3d6] animate-pulse">Ищу серии фильмов в журнале…</p>
+        <p className="text-sm text-[#b4b2bf] animate-pulse">Ищу серии фильмов в журнале…</p>
       ) : (
         <ul className="space-y-2.5">
           {visible.map((f) => {
@@ -57,11 +57,11 @@ export default function FranchisesSection({ franchises, loading, onOpenMovie }) 
                           style={{ width: `${(f.watched / f.total) * 100}%` }}
                         />
                       </div>
-                      <span className="shrink-0 text-xs font-bold text-[#c4c8e4]">
+                      <span className="shrink-0 text-xs font-bold text-[#cfcdd8]">
                         {f.watched}/{f.total}
                       </span>
                     </div>
-                    <div className="mt-1 truncate text-xs text-[#9aa0c4]">
+                    <div className="mt-1 truncate text-xs text-[#a19fad]">
                       {f.done ? "Досмотрено целиком" : f.next ? `Следующий: ${f.next.title}` : ""}
                     </div>
                   </div>

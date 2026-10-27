@@ -77,7 +77,7 @@ export default function ProfilePage({
             Upgrade to Premium
           </button>
           {premiumNote && (
-            <p role="status" className="mt-2 text-center text-xs text-[#c4c8e4]">
+            <p role="status" className="mt-2 text-center text-xs text-[#cfcdd8]">
               Premium скоро появится — следи за обновлениями
             </p>
           )}
@@ -103,14 +103,14 @@ export default function ProfilePage({
           <section className="mg-glass-panel rounded-[24px] p-5">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="font-display text-[17px] font-semibold text-white">
-                Друзья <span className="text-[#9aa0c4]">· {friends.length}</span>
+                Друзья <span className="text-[#a19fad]">· {friends.length}</span>
               </h2>
               <button type="button" onClick={onManageFriends} className="text-sm font-bold text-[#ff935f] hover:text-[#ffb08c]">
                 Управлять
               </button>
             </div>
             {friends.length === 0 ? (
-              <p className="py-2 text-sm text-[#aeb3d6]">Пока друзей нет. Их можно найти во вкладке «Друзья».</p>
+              <p className="py-2 text-sm text-[#b4b2bf]">Пока друзей нет. Их можно найти во вкладке «Друзья».</p>
             ) : (
               <ul className="space-y-1">
                 {visibleFriends.map((friend) => (

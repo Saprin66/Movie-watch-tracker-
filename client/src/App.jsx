@@ -50,7 +50,7 @@ import { API_URL, TMDB_API_KEY, TMDB, POSTER } from "./config";
 function MovieTracker() {
   const [friendsLastWatched, setFriendsLastWatched] = useState({});
   const { user, token, logout, getFriends, getFriendRequests, handleFriendRequest, updateAvatar, deleteAccount } = useAuth();
-  const [activeTab, setActiveTab] = useState("movies");
+  const [activeTab, setActiveTab] = useState("home");
   const [requestsCount, setRequestsCount] = useState(0);
   const [movies, setMovies] = useState([]);
   const [friends, setFriends] = useState([]);
@@ -221,7 +221,8 @@ function MovieTracker() {
   useEffect(() => {
     if (
       token &&
-      (activeTab === "movies" ||
+      (activeTab === "home" ||
+        activeTab === "movies" ||
         activeTab === "search" ||
         activeTab === "discover")
     )
@@ -485,6 +486,26 @@ function MovieTracker() {
     }
     if (existing.status !== "WATCHED") await updateMovieStatus(existing.id, "WATCHED");
     setReviewMovieId(existing.id);
+  };
+
+  // «Быстрый лог» на главной: добавить (если нужно) и сразу сохранить оценку.
+  // Оценка сама переводит фильм в «Просмотрено» на сервере
+  const quickLog = async (movie, review) => {
+    const type = movie.media_type === "tv" ? "tv" : "movie";
+    const existing = movies.find((m) => m.tmdbId === movie.id && (m.mediaType === "tv" ? "tv" : "movie") === type);
+    const id = existing?.id || (await addMovie(tmdbToEntry({ ...movie, media_type: type }, "WATCHED")))?.id;
+    if (!id) return { ok: false, error: "Не удалось добавить фильм в журнал" };
+    return saveReview(id, review);
+  };
+
+  // Кнопка «Отметить просмотр» в сайдбаре: на главную и сразу в поле «Быстрого лога»
+  const openQuickLog = () => {
+    setActiveTab("home");
+    setTimeout(() => {
+      const input = document.getElementById("quicklog-input");
+      input?.focus({ preventScroll: true });
+      input?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
   };
 
   const updateMovieStatus = async (id, status) => {
@@ -867,9 +888,9 @@ function MovieTracker() {
   ];
 
   return (
-    <div className="min-h-app bg-[#0a0c18] text-[#c4c8e4]">
+    <div className="min-h-app mg-canvas text-[#cfcdd8]">
       <div className="flex">
-        <aside className="hidden lg:flex w-64 shrink-0 sticky top-0 h-[100dvh] flex-col gap-6 overflow-y-auto border-r border-white/[0.06] bg-[#0d1021] px-[18px] py-6">
+        <aside className="hidden lg:flex w-64 shrink-0 sticky top-0 h-[100dvh] flex-col gap-6 overflow-y-auto border-r border-white/[0.06] bg-mg-sunken px-[18px] py-6">
           <button
             type="button"
             onClick={() => setActiveTab("home")}
@@ -888,18 +909,27 @@ function MovieTracker() {
               <Avatar name={user?.username} avatar={user?.avatar} size="w-12 h-12" text="text-lg" />
               <span className="min-w-0">
                 <span className="block font-extrabold text-white truncate">{user?.username}</span>
-                <span className="block text-xs text-[#8b91b5] truncate">{user?.email}</span>
+                <span className="block text-xs text-[#8f8d9b] truncate">{user?.email}</span>
               </span>
             </button>
             <div className="grid grid-cols-3 gap-1.5 text-center">
               {statItems.map((s) => (
                 <div key={s.l}>
                   <div className={`font-display text-lg font-semibold ${s.c}`}>{s.v}</div>
-                  <div className="text-[11px] text-[#8b91b5] mt-0.5">{s.l}</div>
+                  <div className="text-[11px] text-[#8f8d9b] mt-0.5">{s.l}</div>
                 </div>
               ))}
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={openQuickLog}
+            className={`w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl text-sm ${BTN_ORANGE}`}
+          >
+            <Icon n="plus" className={`w-4 h-4 ${DARK_ICON}`} />
+            Отметить просмотр
+          </button>
 
           <nav className="space-y-1" aria-label="Разделы">
             {navItems.map((item) => {
@@ -912,7 +942,7 @@ function MovieTracker() {
                   className={`w-full min-h-[44px] flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-semibold transition-colors ${
                     active
                       ? "bg-[#ff7a45]/[0.14] text-[#ff935f]"
-                      : "text-[#9aa0c6] hover:bg-white/5 hover:text-white"
+                      : "text-[#a19fad] hover:bg-white/5 hover:text-white"
                   }`}
                 >
                   <Icon
@@ -935,7 +965,7 @@ function MovieTracker() {
         </aside>
 
         <div className="flex-1 min-w-0 flex flex-col">
-      <header className="sticky top-0 z-40 bg-[#0a0c18]/90 backdrop-blur-xl border-b border-white/[0.06] safe-top safe-x">
+      <header className="sticky top-0 z-40 bg-mg-bg/60 backdrop-blur-2xl backdrop-saturate-150 lg:bg-mg-bg lg:backdrop-blur-none border-b border-white/[0.06] safe-top safe-x">
         <div className="flex items-center gap-2.5 sm:gap-3 px-4 lg:px-8 h-[72px]">
           <button
             type="button"
@@ -965,30 +995,30 @@ function MovieTracker() {
               aria-label="Открыть меню аккаунта"
               aria-haspopup="menu"
               aria-expanded={avatarMenuOpen}
-              className="relative rounded-full outline-none ring-offset-2 ring-offset-[#0a0c18] focus-visible:ring-2 focus-visible:ring-[#ff7a45]"
+              className="relative rounded-full outline-none ring-offset-2 ring-offset-mg-bg focus-visible:ring-2 focus-visible:ring-[#ff7a45]"
             >
               <Avatar name={user?.username} avatar={user?.avatar} size="w-11 h-11" />
             </button>
             {avatarMenuOpen && (
-              <div role="menu" aria-label="Меню аккаунта" className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-64 overflow-hidden rounded-2xl border border-white/10 bg-[#12152a] p-2 shadow-2xl shadow-black/50">
+              <div role="menu" aria-label="Меню аккаунта" className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-64 overflow-hidden rounded-2xl border border-white/10 bg-mg-pop mg-pop-glass p-2 shadow-2xl shadow-black/50">
                 <div className="flex items-center gap-3 border-b border-white/[0.08] px-3 py-3 mb-1">
                   <Avatar name={user?.username} avatar={user?.avatar} size="w-11 h-11" text="text-base" />
                   <div className="min-w-0">
                     <div className="font-extrabold text-white truncate">{user?.username}</div>
-                    <div className="text-xs text-[#8b91b5] truncate">{user?.email}</div>
+                    <div className="text-xs text-[#8f8d9b] truncate">{user?.email}</div>
                   </div>
                 </div>
-                <button role="menuitem" onClick={() => { setActiveTab("profile"); setAvatarMenuOpen(false); }} className="w-full min-h-[44px] flex items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[#c4c8e4] hover:bg-white/[0.06] hover:text-white text-left transition-colors">
+                <button role="menuitem" onClick={() => { setActiveTab("profile"); setAvatarMenuOpen(false); }} className="w-full min-h-[44px] flex items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[#cfcdd8] hover:bg-white/[0.06] hover:text-white text-left transition-colors">
                   <Icon n="user-round" className="w-4 h-4" /> Профиль
                 </button>
-                <button role="menuitem" onClick={() => { setActiveTab("friends"); setAvatarMenuOpen(false); }} className="lg:hidden w-full min-h-[44px] flex items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[#c4c8e4] hover:bg-white/[0.06] hover:text-white text-left transition-colors">
+                <button role="menuitem" onClick={() => { setActiveTab("friends"); setAvatarMenuOpen(false); }} className="lg:hidden w-full min-h-[44px] flex items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[#cfcdd8] hover:bg-white/[0.06] hover:text-white text-left transition-colors">
                   <Icon n="users" className="w-4 h-4" /> Друзья
                   {requestsCount > 0 && <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-[#ff7a45] text-[#1b0d07] text-[11px] font-extrabold flex items-center justify-center">{requestsCount}</span>}
                 </button>
-                <button role="menuitem" onClick={() => { setActiveTab("profile-settings"); setAvatarMenuOpen(false); }} className="w-full min-h-[44px] flex items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[#c4c8e4] hover:bg-white/[0.06] hover:text-white text-left transition-colors">
+                <button role="menuitem" onClick={() => { setActiveTab("profile-settings"); setAvatarMenuOpen(false); }} className="w-full min-h-[44px] flex items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[#cfcdd8] hover:bg-white/[0.06] hover:text-white text-left transition-colors">
                   <Icon n="settings" className="w-4 h-4" /> Настройки профиля
                 </button>
-                <a role="menuitem" href={`mailto:${CONTACT_EMAIL}`} onClick={() => setAvatarMenuOpen(false)} className="w-full min-h-[44px] flex items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[#c4c8e4] hover:bg-white/[0.06] hover:text-white transition-colors">
+                <a role="menuitem" href={`mailto:${CONTACT_EMAIL}`} onClick={() => setAvatarMenuOpen(false)} className="w-full min-h-[44px] flex items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[#cfcdd8] hover:bg-white/[0.06] hover:text-white transition-colors">
                   <Icon n="life-buoy" className="w-4 h-4" /> Поддержка
                 </a>
                 <div className="my-1 border-t border-white/[0.08]" />
@@ -1010,8 +1040,22 @@ function MovieTracker() {
           <div key={activeTab} className="mg-tab-enter">
           {activeTab === "home" && (
             <HomeFeed
+              movies={movies}
               onOpenMovie={setSelectedMovie}
+              onOpenEntry={(movie) =>
+                movie.tmdbId
+                  ? setSelectedMovie({
+                      id: movie.tmdbId,
+                      media_type: movie.mediaType,
+                      title: movie.title,
+                      posterUrl: movie.posterUrl,
+                    })
+                  : setReviewMovieId(movie.id)
+              }
               onBrowse={() => setActiveTab("search")}
+              onQuickLog={quickLog}
+              onOpenStats={() => setActiveTab("profile-stats")}
+              onOpenJournal={() => setActiveTab("movies")}
             />
           )}
           {activeTab === "movies" && (
@@ -1025,9 +1069,9 @@ function MovieTracker() {
                 <div className={`${PANEL} p-4`}>
                   <div className="flex justify-between text-sm mb-2.5">
                     <span className="font-bold text-white">Импорт фильмов</span>
-                    <span className="text-[#8b91b5]">{importProgress.current} из {importProgress.total}</span>
+                    <span className="text-[#8f8d9b]">{importProgress.current} из {importProgress.total}</span>
                   </div>
-                  <div className="h-2 bg-[#0a0c18] rounded-full overflow-hidden">
+                  <div className="h-2 bg-mg-sunken rounded-full overflow-hidden">
                     <div
                       className="h-full bg-[#ff7a45] rounded-full transition-all"
                       style={{
@@ -1057,14 +1101,14 @@ function MovieTracker() {
                     className="flex flex-1 sm:flex-none min-w-0"
                     itemClass="sm:w-[120px]"
                   />
-                  <label className="mg-glass-chip relative !p-0 sm:!pl-4 sm:!pr-1 w-12 sm:w-auto h-12 !justify-center ml-auto shrink-0 text-[13px] !font-bold text-[#aeb3d6]" title="Сортировка">
+                  <label className="mg-glass-chip relative !p-0 sm:!pl-4 sm:!pr-1 w-12 sm:w-auto h-12 !justify-center ml-auto shrink-0 text-[13px] !font-bold text-[#b4b2bf]" title="Сортировка">
                     <Icon n="arrow-down-up" className="w-[18px] h-[18px] sm:w-4 sm:h-4 sm:opacity-70" />
                     <span className="sr-only">Сортировка</span>
                     <select
                       value={sortMode}
                       onChange={(e) => changeSort(e.target.value)}
                       aria-label="Сортировка"
-                      className="absolute inset-0 opacity-0 sm:static sm:opacity-100 h-12 sm:h-10 w-full sm:w-auto bg-transparent pr-2 text-sm font-bold text-white focus:outline-none [&>option]:bg-[#12152a]"
+                      className="absolute inset-0 opacity-0 sm:static sm:opacity-100 h-12 sm:h-10 w-full sm:w-auto bg-transparent pr-2 text-sm font-bold text-white focus:outline-none [&>option]:bg-mg-pop"
                     >
                       {SORT_OPTIONS.map((o) => (
                         <option key={o.id} value={o.id}>
@@ -1088,7 +1132,7 @@ function MovieTracker() {
               {filteredMovies.length === 0 ? (
                 isFiltering(filters) && byStatus.length > 0 ? (
                   <div className={`${PANEL} text-center py-14 px-6`}>
-                    <p className="text-[#c4c8e4] mb-4">
+                    <p className="text-[#cfcdd8] mb-4">
                       По этим условиям ничего не нашлось.
                     </p>
                     <button
@@ -1172,7 +1216,7 @@ function MovieTracker() {
               <div>
                 <div className={`${EYEBROW} mb-2.5`}>Каталог TMDB</div>
                 <h1 className={PAGE_TITLE}>Открыть новое</h1>
-                <p className="mt-2.5 text-sm text-[#8b91b5]">Ищи по названию или подбери фильмы и сериалы по параметрам</p>
+                <p className="mt-2.5 text-sm text-[#8f8d9b]">Ищи по названию или подбери фильмы и сериалы по параметрам</p>
               </div>
 
               <form
@@ -1198,7 +1242,7 @@ function MovieTracker() {
                     setSearchQuery(e.target.value);
                     searchMoviesDebounced(e.target.value);
                   }}
-                  className="flex-1 min-w-0 h-11 bg-transparent text-base font-semibold text-white placeholder:text-[#8b91b5] placeholder:font-medium focus:outline-none"
+                  className="flex-1 min-w-0 h-11 bg-transparent text-base font-semibold text-white placeholder:text-[#8f8d9b] placeholder:font-medium focus:outline-none"
                 />
                 <button type="submit" className={`h-11 px-5 rounded-full text-sm shrink-0 active:scale-95 ${BTN_ORANGE}`}>
                   Найти
@@ -1209,7 +1253,7 @@ function MovieTracker() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className={SECTION_TITLE}>Подбор по фильтрам</h2>
-                    <p className="mt-1.5 text-[13px] text-[#8b91b5]">Фильтры применяются ко всему каталогу TMDB, а не только к загруженным карточкам</p>
+                    <p className="mt-1.5 text-[13px] text-[#8f8d9b]">Фильтры применяются ко всему каталогу TMDB, а не только к загруженным карточкам</p>
                   </div>
                   <button type="button" onClick={() => setFiltersOpen((v) => !v)} aria-expanded={filtersOpen} className={`h-10 px-4 rounded-xl text-sm ${BTN_SOFT}`}>
                     {filtersOpen ? "Свернуть" : "Показать фильтры"}
@@ -1217,38 +1261,38 @@ function MovieTracker() {
                 </div>
                 {filtersOpen && <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
-                    <div className="text-xs font-bold text-[#aeb3d6] space-y-2">
+                    <div className="text-xs font-bold text-[#b4b2bf] space-y-2">
                       <span className="block">Тип контента</span>
-                      <div className="flex gap-1 p-[3px] rounded-xl bg-[#0d1021] border border-white/[0.08]" role="group" aria-label="Тип контента">
+                      <div className="flex gap-1 p-[3px] rounded-xl bg-mg-sunken border border-white/[0.08]" role="group" aria-label="Тип контента">
                         {[{ v: "movie", l: "Фильмы" }, { v: "tv", l: "Сериалы" }].map((o) => (
-                          <button key={o.v} type="button" aria-pressed={catalogType === o.v} onClick={() => { setCatalogType(o.v); setSelectedGenres([]); }} className={`flex-1 h-9 rounded-[9px] text-[13px] font-bold transition-colors ${catalogType === o.v ? "bg-[#1d2140] text-white" : "text-[#8b91b5] hover:text-white"}`}>{o.l}</button>
+                          <button key={o.v} type="button" aria-pressed={catalogType === o.v} onClick={() => { setCatalogType(o.v); setSelectedGenres([]); }} className={`flex-1 h-9 rounded-[9px] text-[13px] font-bold transition-colors ${catalogType === o.v ? "bg-mg-raised text-white" : "text-[#8f8d9b] hover:text-white"}`}>{o.l}</button>
                         ))}
                       </div>
                     </div>
-                    <label className="text-xs font-bold text-[#aeb3d6] space-y-2 block">Год от
-                      <input type="number" min="1900" max="2026" placeholder="Например, 2000" value={yearFrom} onChange={(e) => setYearFrom(e.target.value)} className="w-full h-11 rounded-xl bg-[#0d1021] border border-white/[0.09] px-3.5 text-sm font-medium text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45]" />
+                    <label className="text-xs font-bold text-[#b4b2bf] space-y-2 block">Год от
+                      <input type="number" min="1900" max="2026" placeholder="Например, 2000" value={yearFrom} onChange={(e) => setYearFrom(e.target.value)} className="w-full h-11 rounded-xl bg-mg-sunken border border-white/[0.09] px-3.5 text-sm font-medium text-white placeholder:text-[#6f6d7b] focus:outline-none focus:border-[#ff7a45]" />
                     </label>
-                    <label className="text-xs font-bold text-[#aeb3d6] space-y-2 block">Год до
-                      <input type="number" min="1900" max="2026" placeholder="Например, 2026" value={yearTo} onChange={(e) => setYearTo(e.target.value)} className="w-full h-11 rounded-xl bg-[#0d1021] border border-white/[0.09] px-3.5 text-sm font-medium text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45]" />
+                    <label className="text-xs font-bold text-[#b4b2bf] space-y-2 block">Год до
+                      <input type="number" min="1900" max="2026" placeholder="Например, 2026" value={yearTo} onChange={(e) => setYearTo(e.target.value)} className="w-full h-11 rounded-xl bg-mg-sunken border border-white/[0.09] px-3.5 text-sm font-medium text-white placeholder:text-[#6f6d7b] focus:outline-none focus:border-[#ff7a45]" />
                     </label>
-                    <label className="text-xs font-bold text-[#aeb3d6] space-y-2 block">Минимальный рейтинг
-                      <select value={minRating} onChange={(e) => setMinRating(e.target.value)} className="w-full h-11 rounded-xl bg-[#0d1021] border border-white/[0.09] px-3 text-sm font-medium text-white focus:outline-none focus:border-[#ff7a45]">
+                    <label className="text-xs font-bold text-[#b4b2bf] space-y-2 block">Минимальный рейтинг
+                      <select value={minRating} onChange={(e) => setMinRating(e.target.value)} className="w-full h-11 rounded-xl bg-mg-sunken border border-white/[0.09] px-3 text-sm font-medium text-white focus:outline-none focus:border-[#ff7a45]">
                         <option value="0">Любой рейтинг</option><option value="5">От 5.0</option><option value="6">От 6.0</option><option value="7">От 7.0</option><option value="7.5">От 7.5</option><option value="8">От 8.0</option><option value="8.5">От 8.5</option>
                       </select>
                     </label>
                   </div>
-                  <div className="text-xs font-bold text-[#aeb3d6] space-y-2.5">
-                    <span className="block">Жанры <span className="font-medium text-[#6f759e]">можно выбрать несколько</span></span>
+                  <div className="text-xs font-bold text-[#b4b2bf] space-y-2.5">
+                    <span className="block">Жанры <span className="font-medium text-[#6f6d7b]">можно выбрать несколько</span></span>
                     <div className="flex flex-wrap gap-2">
                       {catalogGenres.map((genre) => {
                         const active = selectedGenres.includes(genre.id);
-                        return <button type="button" key={genre.id} aria-pressed={active} onClick={() => setSelectedGenres((prev) => active ? prev.filter((id) => id !== genre.id) : [...prev, genre.id])} className={`min-h-[38px] rounded-full border px-4 text-[13px] font-bold transition ${active ? "border-[#ff7a45] bg-[#ff7a45]/15 text-[#ffa27d]" : "border-white/10 bg-[#0d1021] text-[#aeb3d6] hover:border-white/30"}`}>{genre.name}</button>;
+                        return <button type="button" key={genre.id} aria-pressed={active} onClick={() => setSelectedGenres((prev) => active ? prev.filter((id) => id !== genre.id) : [...prev, genre.id])} className={`min-h-[38px] rounded-full border px-4 text-[13px] font-bold transition ${active ? "border-[#ff7a45] bg-[#ff7a45]/15 text-[#ffa27d]" : "border-white/10 bg-mg-sunken text-[#b4b2bf] hover:border-white/30"}`}>{genre.name}</button>;
                       })}
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
-                    <label className="text-xs font-bold text-[#aeb3d6] space-y-2 flex-1 block">Сортировка
-                      <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="w-full h-11 rounded-xl bg-[#0d1021] border border-white/[0.09] px-3 text-sm font-medium text-white focus:outline-none focus:border-[#ff7a45]">
+                    <label className="text-xs font-bold text-[#b4b2bf] space-y-2 flex-1 block">Сортировка
+                      <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="w-full h-11 rounded-xl bg-mg-sunken border border-white/[0.09] px-3 text-sm font-medium text-white focus:outline-none focus:border-[#ff7a45]">
                         <option value="popularity.desc">Сначала популярные</option><option value="vote_average.desc">По рейтингу</option><option value={catalogType === "tv" ? "first_air_date.desc" : "primary_release_date.desc"}>Сначала новые</option><option value="vote_count.desc">По количеству оценок</option>
                       </select>
                     </label>
@@ -1260,7 +1304,7 @@ function MovieTracker() {
                 </>}
               </section>
               {catalogError && <p role="alert" className="rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{catalogError}</p>}
-              {catalogLoading && <p className="py-4 text-center text-sm text-[#aeb3d6]">Загружаем результаты из TMDB…</p>}
+              {catalogLoading && <p className="py-4 text-center text-sm text-[#b4b2bf]">Загружаем результаты из TMDB…</p>}
 
               {searchResults.length > 0 ? (
                 <>
@@ -1352,7 +1396,7 @@ function MovieTracker() {
               {searchMode === "filters" && searchResults.length > 0 && (
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                   <button type="button" disabled={catalogPage <= 1 || catalogLoading} onClick={() => discoverMovies(catalogPage - 1)} className={`h-11 px-5 rounded-xl text-sm disabled:opacity-40 ${BTN_SOFT}`}>← Назад</button>
-                  <span className="text-sm text-[#8b91b5]">Страница {catalogPage} из {catalogTotalPages}</span>
+                  <span className="text-sm text-[#8f8d9b]">Страница {catalogPage} из {catalogTotalPages}</span>
                   <button type="button" disabled={catalogPage >= catalogTotalPages || catalogLoading} onClick={() => discoverMovies(catalogPage + 1)} className={`h-11 px-5 rounded-xl text-sm disabled:opacity-40 ${BTN_SOFT}`}>Вперёд →</button>
                 </div>
               )}
@@ -1454,11 +1498,11 @@ function MovieTracker() {
 
           {activeTab === "profile-settings" && (
             <div className="max-w-3xl space-y-5 pb-28">
-              <button onClick={() => setActiveTab("profile")} className="inline-flex items-center gap-2 min-h-[44px] text-sm font-bold text-[#8b91b5] hover:text-white"><Icon n="arrow-left" className="w-4 h-4" /> Назад в профиль</button>
-              <div><h1 className={PAGE_TITLE}>Настройки профиля</h1><p className="text-sm text-[#8b91b5] mt-2.5">Управление аккаунтом и данными журнала.</p></div>
+              <button onClick={() => setActiveTab("profile")} className="inline-flex items-center gap-2 min-h-[44px] text-sm font-bold text-[#8f8d9b] hover:text-white"><Icon n="arrow-left" className="w-4 h-4" /> Назад в профиль</button>
+              <div><h1 className={PAGE_TITLE}>Настройки профиля</h1><p className="text-sm text-[#8f8d9b] mt-2.5">Управление аккаунтом и данными журнала.</p></div>
               <div className={`${PANEL} p-5 sm:p-6`}>
                 <h2 className={`flex items-center gap-3 ${SECTION_TITLE} mb-2.5`}><span className="w-[38px] h-[38px] rounded-xl bg-[#ff7a45]/[0.14] flex items-center justify-center shrink-0"><Icon n="image" className={`w-[18px] h-[18px] ${ORANGE_FILTER}`} /></span>Аватар профиля</h2>
-                <p className="text-sm text-[#8b91b5] mb-5 leading-relaxed">Загрузи изображение с устройства. Оно будет автоматически обрезано по размеру и сжато.</p>
+                <p className="text-sm text-[#8f8d9b] mb-5 leading-relaxed">Загрузи изображение с устройства. Оно будет автоматически обрезано по размеру и сжато.</p>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                   <div className="w-[88px] h-[88px] shrink-0 rounded-3xl overflow-hidden bg-gradient-to-br from-[#ff7a45] to-[#8b5cf6] flex items-center justify-center">
                     {user?.avatar ? <img src={user.avatar} alt="Текущий аватар" className="w-full h-full object-cover" /> : <span className="font-display text-4xl font-bold text-white">{user?.username?.[0]?.toUpperCase() || "U"}</span>}
@@ -1481,31 +1525,31 @@ function MovieTracker() {
                 </div>
                 {avatarMessage && <p role="status" className="mt-3 text-sm text-emerald-300">{avatarMessage}</p>}
                 {avatarError && <p role="alert" className="mt-3 rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-200">{avatarError}</p>}
-                <p className="text-xs text-[#8b91b5] mt-3">Поддерживаются изображения JPG, PNG, WebP и другие форматы, которые открывает браузер. Исходный файл — до 10 МБ.</p>
+                <p className="text-xs text-[#8f8d9b] mt-3">Поддерживаются изображения JPG, PNG, WebP и другие форматы, которые открывает браузер. Исходный файл — до 10 МБ.</p>
               </div>
               <div className={`${PANEL} p-5 sm:p-6`}>
                 <h2 className={`flex items-center gap-3 ${SECTION_TITLE} mb-2.5`}><span className="w-[38px] h-[38px] rounded-xl bg-[#ff7a45]/[0.14] flex items-center justify-center shrink-0"><Icon n="user-round-pen" className={`w-[18px] h-[18px] ${ORANGE_FILTER}`} /></span>Личные данные</h2>
-                <p className="text-sm text-[#8b91b5] mb-4">Измени никнейм и данные профиля.</p>
+                <p className="text-sm text-[#8f8d9b] mb-4">Измени никнейм и данные профиля.</p>
                 <button onClick={() => setSelectedUserId(user?.id)} className={`w-full h-11 rounded-xl text-sm ${BTN_SOFT}`}>Редактировать профиль</button>
               </div>
               <div className={`${PANEL} p-5 sm:p-6`}>
                 <h2 className={`flex items-center gap-3 ${SECTION_TITLE} mb-2.5`}><span className="w-[38px] h-[38px] rounded-xl bg-[#ff7a45]/[0.14] flex items-center justify-center shrink-0"><Icon n="download" className={`w-[18px] h-[18px] ${ORANGE_FILTER}`} /></span>Импорт из файла</h2>
-                <p className="text-sm text-[#8b91b5] mb-5 leading-relaxed">Загрузите .txt или .docx файл со списком фильмов. Каждая строка — название и, если хотите, оценка в конце.</p>
+                <p className="text-sm text-[#8f8d9b] mb-5 leading-relaxed">Загрузите .txt или .docx файл со списком фильмов. Каждая строка — название и, если хотите, оценка в конце.</p>
                 <div className="rounded-2xl border-[1.5px] border-dashed border-white/[0.16] p-6 sm:p-7 flex flex-col items-center gap-3 text-center">
                   <Icon n="file-up" className={`w-7 h-7 ${ORANGE_FILTER}`} />
-                  <label className={`inline-flex items-center justify-center h-11 px-6 rounded-xl text-sm cursor-pointer ${importing ? "bg-[#1d2140] text-[#8b91b5] cursor-not-allowed font-bold" : BTN_ORANGE}`}>
+                  <label className={`inline-flex items-center justify-center h-11 px-6 rounded-xl text-sm cursor-pointer ${importing ? "bg-mg-raised text-[#8f8d9b] cursor-not-allowed font-bold" : BTN_ORANGE}`}>
                     {importing ? `Импорт... ${importProgress.current}/${importProgress.total}` : "Выбрать файл"}
                     <input type="file" accept=".txt,.docx" onChange={handleDocxImport} disabled={importing} className="hidden" />
                   </label>
                 </div>
               </div>
               <div className={`${PANEL} p-5 sm:p-6`}>
-                <h2 className={`${SECTION_TITLE} mb-2`}>Сессия</h2><p className="text-sm text-[#8b91b5] mb-5">Выйти из текущего аккаунта на этом устройстве.</p>
+                <h2 className={`${SECTION_TITLE} mb-2`}>Сессия</h2><p className="text-sm text-[#8f8d9b] mb-5">Выйти из текущего аккаунта на этом устройстве.</p>
                 <button onClick={logout} className={`w-full h-11 flex items-center justify-center gap-2 rounded-xl text-sm ${BTN_RED}`}><Icon n="log-out" /> Выйти из аккаунта</button>
               </div>
               <div className="rounded-[20px] border border-red-400/25 bg-red-500/[0.06] p-5 sm:p-6">
                 <h2 className={`flex items-center gap-3 ${SECTION_TITLE} mb-2.5`}><span className="w-[38px] h-[38px] rounded-xl bg-red-400/[0.14] flex items-center justify-center shrink-0"><Icon n="trash-2" className="w-[18px] h-[18px] [filter:invert(1)_sepia(1)_saturate(5)_hue-rotate(310deg)_brightness(1.1)]" /></span>Удалить аккаунт</h2>
-                <p className="text-sm text-[#aeb3d6] mb-5 leading-relaxed">Аккаунт удалится навсегда вместе с журналом, оценками, отзывами, друзьями и созданными тобой общими списками. Восстановить его будет нельзя.</p>
+                <p className="text-sm text-[#b4b2bf] mb-5 leading-relaxed">Аккаунт удалится навсегда вместе с журналом, оценками, отзывами, друзьями и созданными тобой общими списками. Восстановить его будет нельзя.</p>
                 <button
                   type="button"
                   onClick={() => { setDeletePassword(""); setDeleteError(""); setDeleteAccountOpen(true); }}
@@ -1530,7 +1574,7 @@ function MovieTracker() {
           </div>
 
           {friends.length === 0 ? (
-            <p className={`${PANEL} text-sm text-[#8b91b5] text-center py-6 px-4`}>
+            <p className={`${PANEL} text-sm text-[#8f8d9b] text-center py-6 px-4`}>
               Пока никого. Найди друзей во вкладке «Друзья».
             </p>
           ) : (
@@ -1562,8 +1606,8 @@ function MovieTracker() {
                   <div className="relative shrink-0">
                     <Avatar name={f.username} avatar={f.avatar} />
                     <span
-                      className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#12152a] ${
-                        isOnline ? "bg-[#4fd6a0]" : "bg-[#565c80]"
+                      className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-mg-pop ${
+                        isOnline ? "bg-[#4fd6a0]" : "bg-[#55535f]"
                       }`}
                     />
                   </div>
@@ -1572,7 +1616,7 @@ function MovieTracker() {
                     <div className="text-sm font-extrabold text-white truncate group-hover:text-[#ff935f] transition-colors">
                       {f.username}
                     </div>
-                    <div className={`text-xs mt-0.5 ${isOnline ? "text-[#58dcaa] font-semibold" : "text-[#7b81a6]"}`}>
+                    <div className={`text-xs mt-0.5 ${isOnline ? "text-[#58dcaa] font-semibold" : "text-[#7c7a88]"}`}>
                       {isOnline ? "Онлайн" : formatLastSeen()}
                     </div>
 
@@ -1582,8 +1626,8 @@ function MovieTracker() {
                           <Poster src={lastMovie.posterUrl} title={lastMovie.title} small />
                         </div>
                         <div className="min-w-0 flex-1 leading-tight">
-                          <div className="text-[11px] text-[#8b91b5]">Смотрел</div>
-                          <div className="text-xs font-bold text-[#e9ebf7] truncate" title={lastMovie.title}>
+                          <div className="text-[11px] text-[#8f8d9b]">Смотрел</div>
+                          <div className="text-xs font-bold text-[#ecebf1] truncate" title={lastMovie.title}>
                             {lastMovie.title}
                           </div>
                           {lastMovie.rating && (
@@ -1602,7 +1646,7 @@ function MovieTracker() {
 
           <button
             onClick={() => setActiveTab("friends")}
-            className={`w-full min-h-[44px] flex items-center gap-2 rounded-xl px-4 text-sm ${BTN_SOFT} !text-[#8b91b5] hover:!text-white`}
+            className={`w-full min-h-[44px] flex items-center gap-2 rounded-xl px-4 text-sm ${BTN_SOFT} !text-[#8f8d9b] hover:!text-white`}
           >
             <Icon n="search" className="w-4 h-4 opacity-60" />
             Поиск и добавление
@@ -1654,7 +1698,7 @@ function MovieTracker() {
                     )}
                   </span>
                   <span
-                    className={`max-w-full truncate text-[10px] font-semibold tracking-[-0.01em] transition-colors duration-300 ${active ? "text-[#ff935f]" : "text-[#aeb3d6]/70"}`}
+                    className={`max-w-full truncate text-[10px] font-semibold tracking-[-0.01em] transition-colors duration-300 ${active ? "text-[#ff935f]" : "text-[#b4b2bf]/70"}`}
                   >
                     {item.short ?? item.label}
                   </span>
@@ -1738,7 +1782,7 @@ function MovieTracker() {
           }}
         >
           <label className="block">
-            <span className="block text-[13px] font-bold text-[#aeb3d6] mb-2">Введите пароль для подтверждения</span>
+            <span className="block text-[13px] font-bold text-[#b4b2bf] mb-2">Введите пароль для подтверждения</span>
             <input
               type="password"
               autoComplete="current-password"
@@ -1772,8 +1816,8 @@ function MovieTracker() {
       )}
 
       {importResult && (
-        <div className="fixed inset-0 bg-[#04050c]/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#12152a] border border-white/10 rounded-[24px] max-w-lg w-full max-h-[80vh] overflow-y-auto p-6 sm:p-7 shadow-[0_40px_120px_rgba(0,0,0,0.7)]">
+        <div className="fixed inset-0 bg-mg-ink/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-mg-pop mg-pop-glass border border-white/10 rounded-[24px] max-w-lg w-full max-h-[80vh] overflow-y-auto p-6 sm:p-7 shadow-[0_40px_120px_rgba(0,0,0,0.7)]">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-display text-xl font-semibold text-white">
                 Результаты импорта
@@ -1806,12 +1850,12 @@ function MovieTracker() {
               ].map((s) => (
                 <div
                   key={s.label}
-                  className="bg-[#171b38] rounded-2xl p-4 text-center"
+                  className="bg-mg-raised rounded-2xl p-4 text-center"
                 >
                   <div className={`font-display text-3xl font-bold ${s.color}`}>
                     {s.n}
                   </div>
-                  <div className="text-xs text-[#8b91b5]">{s.label}</div>
+                  <div className="text-xs text-[#8f8d9b]">{s.label}</div>
                 </div>
               ))}
             </div>
@@ -1819,7 +1863,7 @@ function MovieTracker() {
             {importResult.failed.length > 0 && (
               <div className="mb-5">
                 <h4 className="text-sm text-red-300 mb-2">Не найдено:</h4>
-                <div className="bg-[#0a0c18] rounded-lg p-3 max-h-32 overflow-y-auto space-y-1">
+                <div className="bg-mg-sunken rounded-lg p-3 max-h-32 overflow-y-auto space-y-1">
                   {importResult.failed.map((m, i) => (
                     <div key={i} className="text-xs truncate">
                       {m.title}

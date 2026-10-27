@@ -135,7 +135,7 @@ export default function FriendsPanel({ onUserClick, onRequestsChange, onFriendsC
 
   const sectionTitle = 'font-display text-base sm:text-[17px] font-semibold text-white flex items-center gap-2.5';
   const countPill = (n, hot) => (
-    <span className={`font-sans text-xs font-extrabold min-w-[22px] h-[22px] px-2 rounded-full inline-flex items-center justify-center ${hot ? 'bg-[#ff7a45] text-[#1b0d07]' : 'bg-white/[0.08] text-[#aeb3d6]'}`}>
+    <span className={`font-sans text-xs font-extrabold min-w-[22px] h-[22px] px-2 rounded-full inline-flex items-center justify-center ${hot ? 'bg-[#ff7a45] text-[#1b0d07]' : 'bg-white/[0.08] text-[#b4b2bf]'}`}>
       {n}
     </span>
   );
@@ -146,21 +146,21 @@ export default function FriendsPanel({ onUserClick, onRequestsChange, onFriendsC
       <section className="space-y-3.5">
         <h2 className={sectionTitle}>Заявки в друзья {countPill(requests.length, requests.length > 0)}</h2>
         {requests.length === 0 ? (
-          <div className="bg-[#12152a] border border-white/[0.07] rounded-[20px] flex items-center gap-4 p-5">
+          <div className="bg-mg-panel border border-white/[0.07] rounded-[20px] flex items-center gap-4 p-5">
             <div className="w-11 h-11 rounded-[14px] bg-white/[0.05] flex items-center justify-center shrink-0">
               <Icon n="inbox" className="w-5 h-5 opacity-50" />
             </div>
-            <p className="text-[#8b91b5] text-sm">Нет новых заявок</p>
+            <p className="text-[#8f8d9b] text-sm">Нет новых заявок</p>
           </div>
         ) : (
-          <div className="bg-[#12152a] border border-white/[0.07] rounded-[20px] p-2 divide-y divide-white/[0.06]">
+          <div className="bg-mg-panel border border-white/[0.07] rounded-[20px] p-2 divide-y divide-white/[0.06]">
             {requests.map(request => (
               <div key={request.id} className="flex flex-wrap items-center gap-3.5 p-3">
                 <button type="button" onClick={() => onUserClick(request.id)} className="flex items-center gap-3.5 flex-1 min-w-[180px] text-left">
                   <Avatar name={request.username} avatar={request.avatar} size="w-11 h-11" />
                   <span className="min-w-0">
                     <span className="block text-[15px] font-extrabold text-white truncate">{request.username}</span>
-                    <span className="block text-xs text-[#8b91b5] mt-0.5">Хочет добавить вас в друзья</span>
+                    <span className="block text-xs text-[#8f8d9b] mt-0.5">Хочет добавить вас в друзья</span>
                   </span>
                 </button>
                 <div className="flex gap-2">
@@ -193,7 +193,7 @@ export default function FriendsPanel({ onUserClick, onRequestsChange, onFriendsC
             {[0, 1].map((i) => <div key={i} className="h-[84px] rounded-[20px] bg-white/[0.04] animate-pulse" />)}
           </div>
         ) : friends.length === 0 ? (
-          <p className="bg-[#12152a] border border-white/[0.07] rounded-[20px] text-[#8b91b5] text-sm text-center py-8 px-4">Пока нет друзей. Найди их через поиск ниже.</p>
+          <p className="bg-mg-panel border border-white/[0.07] rounded-[20px] text-[#8f8d9b] text-sm text-center py-8 px-4">Пока нет друзей. Найди их через поиск ниже.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {friends.map(friend => {
@@ -205,7 +205,7 @@ export default function FriendsPanel({ onUserClick, onRequestsChange, onFriendsC
               return (
                 <div
                   key={friend.id}
-                  className="flex items-center gap-2 p-2 pr-2.5 bg-[#12152a] border border-white/[0.07] rounded-[20px] hover:border-[#ff7a45]/40 transition-colors group"
+                  className="flex items-center gap-2 p-2 pr-2.5 bg-mg-panel border border-white/[0.07] rounded-[20px] hover:border-[#ff7a45]/40 transition-colors group"
                 >
                 <button
                   type="button"
@@ -214,16 +214,16 @@ export default function FriendsPanel({ onUserClick, onRequestsChange, onFriendsC
                 >
                   <span className="relative shrink-0">
                     <Avatar name={friend.username} avatar={friend.avatar} size="w-12 h-12" />
-                    <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-[#12152a] ${isOnline ? 'bg-[#4fd6a0]' : 'bg-[#565c80]'}`} />
+                    <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-mg-pop ${isOnline ? 'bg-[#4fd6a0]' : 'bg-[#55535f]'}`} />
                   </span>
                   <span className="flex-1 min-w-0">
                     <span className="block text-[15px] font-extrabold text-white truncate group-hover:text-[#ff935f] transition-colors">{friend.username}</span>
-                    <span className={`block text-xs mt-0.5 ${isOnline ? 'text-[#58dcaa] font-semibold' : 'text-[#7b81a6]'}`}>
+                    <span className={`block text-xs mt-0.5 ${isOnline ? 'text-[#58dcaa] font-semibold' : 'text-[#7c7a88]'}`}>
                       {isOnline ? 'Онлайн' : formatLastSeen(friend.lastSeen)}
                     </span>
                     {lastMovie && (
-                      <span className="block text-xs text-[#8b91b5] mt-1.5 truncate">
-                        Последнее: <span className="text-[#c4c8e4] font-semibold">{lastMovie.title}</span>
+                      <span className="block text-xs text-[#8f8d9b] mt-1.5 truncate">
+                        Последнее: <span className="text-[#cfcdd8] font-semibold">{lastMovie.title}</span>
                         {lastMovie.rating && <span className="text-[#ff935f] font-bold"> · {lastMovie.rating}/10</span>}
                       </span>
                     )}
@@ -261,7 +261,7 @@ export default function FriendsPanel({ onUserClick, onRequestsChange, onFriendsC
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Имя пользователя"
               aria-label="Имя пользователя"
-              className="w-full h-12 bg-[#12152a] border border-white/[0.09] rounded-2xl pl-11 pr-4 text-base sm:text-sm text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45] focus:ring-[3px] focus:ring-[#ff7a45]/20 transition"
+              className="w-full h-12 bg-mg-panel border border-white/[0.09] rounded-2xl pl-11 pr-4 text-base sm:text-sm text-white placeholder:text-[#6f6d7b] focus:outline-none focus:border-[#ff7a45] focus:ring-[3px] focus:ring-[#ff7a45]/20 transition"
             />
           </div>
           <button
@@ -275,20 +275,20 @@ export default function FriendsPanel({ onUserClick, onRequestsChange, onFriendsC
         </form>
 
         {searchResults.length > 0 && (
-          <div className="bg-[#12152a] border border-white/[0.07] rounded-[20px] p-2 divide-y divide-white/[0.06] max-h-80 overflow-y-auto">
+          <div className="bg-mg-panel border border-white/[0.07] rounded-[20px] p-2 divide-y divide-white/[0.06] max-h-80 overflow-y-auto">
             {searchResults.map(user => (
               <div key={user.id} className="flex items-center gap-3.5 p-3">
                 <Avatar name={user.username} avatar={user.avatar} size="w-11 h-11" />
                 <div className="flex-1 min-w-0">
                   <div className="text-[15px] font-extrabold text-white truncate">{user.username}</div>
-                  <div className="text-xs text-[#8b91b5] mt-0.5">
+                  <div className="text-xs text-[#8f8d9b] mt-0.5">
                     {user._count?.movies || 0} фильмов в журнале
                   </div>
                 </div>
                 <button
                   onClick={(e) => handleAddFriend(user.id, e)}
                   aria-label={`Добавить ${user.username} в друзья`}
-                  className="h-11 px-3.5 sm:px-4 bg-white/[0.07] hover:bg-[#ff7a45]/20 text-[#e9ebf7] rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
+                  className="h-11 px-3.5 sm:px-4 bg-white/[0.07] hover:bg-[#ff7a45]/20 text-[#ecebf1] rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
                 >
                   <Icon n="user-plus" className="w-4 h-4" />
                   <span className="hidden sm:inline">Добавить</span>

@@ -43,7 +43,7 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-6 bg-[#04050c]/80 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-6 bg-mg-ink/80 backdrop-blur-sm"
       onClick={(e) => {
         e.stopPropagation();
         if (!busy) onClose();
@@ -60,7 +60,7 @@ export default function ConfirmDialog({
           e.preventDefault();
           if (!busy && !confirmDisabled) onConfirm();
         }}
-        className="w-full sm:max-w-[440px] bg-[#12152a] border border-white/10 rounded-t-[26px] sm:rounded-[24px] p-6 sm:p-7 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-7 shadow-[0_40px_120px_rgba(0,0,0,0.7)]"
+        className="w-full sm:max-w-[440px] bg-mg-pop mg-pop-glass border border-white/10 rounded-t-[26px] sm:rounded-[24px] p-6 sm:p-7 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-7 shadow-[0_40px_120px_rgba(0,0,0,0.7)]"
       >
         <div className="w-12 h-12 rounded-2xl bg-red-400/[0.14] flex items-center justify-center mb-5">
           <Icon
@@ -71,7 +71,7 @@ export default function ConfirmDialog({
         <h2 id="confirm-title" className="font-display text-xl font-semibold text-white">
           {title}
         </h2>
-        <div id="confirm-message" className="mt-2.5 text-sm leading-relaxed text-[#aeb3d6]">
+        <div id="confirm-message" className="mt-2.5 text-sm leading-relaxed text-[#b4b2bf]">
           {message}
         </div>
 
