@@ -1,6 +1,9 @@
 import { useId } from "react";
 import { PANEL } from "./styles";
 import Icon from "./Icon";
+import { useEffect, useRef, useState } from "react";
+import { useCardView } from "../hooks/useCardView";
+import { loadOverview } from "../utils/tmdb";
 
 export function Chip({ children, tone = "soft" }) {
   const tones = {
@@ -87,7 +90,110 @@ export function CornerButton({ icon, label, active, tone = "orange", onClick }) 
   );
 }
 
-export function MovieCard({ poster, title, chips, footerLeft, actions, onClick, topLeft, topRight }) {
+// Карточка-строка для вида «Список»: постер слева, справа название, детали,
+// описание фильма, твой отзыв (note) и кнопки статуса. Вся карточка открывает фильм.
+// tmdb: { id, type } — если описания нет в данных, оно подгрузится из TMDB,
+// когда карточка появится на экране.
+function MovieRow({ poster, title, chips, footerLeft, actions, onClick, topLeft, topRight, description, note, tmdb }) {
+  const ref = useRef(null);
+  // null — ещё не загружали, "" — в TMDB описания нет
+  const [loaded, setLoaded] = useState(null);
+  const text = description || loaded;
+
+  useEffect(() => {
+    if (description || !tmdb?.id || !ref.current) return undefined;
+    let cancelled = false;
+    let started = false;
+    const load = () => {
+      if (started) return;
+      started = true;
+      observer?.disconnect();
+      loadOverview(tmdb.type, tmdb.id).then((overview) => !cancelled && setLoaded(overview));
+    };
+    // Карточка уже на экране — грузим сразу, остальные — когда до них долистают
+    const rect = ref.current.getBoundingClientRect();
+    const observer =
+      typeof IntersectionObserver === "function"
+        ? new IntersectionObserver(([entry]) => entry.isIntersecting && load(), { rootMargin: "300px" })
+        : null;
+    if (!observer || (rect.top < window.innerHeight + 300 && rect.bottom > -300)) load();
+    else observer.observe(ref.current);
+    return () => {
+      cancelled = true;
+      observer?.disconnect();
+    };
+  }, [description, tmdb?.id, tmdb?.type]);
+
+  return (
+    <div
+      ref={ref}
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
+      className="group relative flex gap-3.5 sm:gap-4 min-w-0 cursor-pointer rounded-[18px] border border-white/[0.07] bg-[#12152a] p-2.5 sm:p-3 text-left outline-none transition-colors duration-200 hover:border-[#ff7a45]/40 hover:bg-[#151934] focus-visible:border-[#ff7a45]"
+    >
+      <div className="relative w-[72px] sm:w-[86px] shrink-0 aspect-[2/3] overflow-hidden rounded-[12px] border border-white/[0.08] bg-[#1d2140] shadow-[0_8px_20px_rgba(0,0,0,0.35)]">
+        <Poster src={poster} title={title} small />
+      </div>
+      <div className="min-w-0 flex-1 flex flex-col py-0.5">
+        <div className="flex items-start gap-2">
+          <h3
+            className="min-w-0 flex-1 text-[15px] font-extrabold leading-snug text-white line-clamp-2 transition-colors group-hover:text-[#ffb08c]"
+            title={title}
+          >
+            {title}
+          </h3>
+          {(topLeft || topRight) && (
+            <div className="flex shrink-0 gap-1.5">
+              {topLeft}
+              {topRight}
+            </div>
+          )}
+        </div>
+        {footerLeft && (
+          <div className="mt-1 flex items-center gap-1 text-xs text-[#8b91b5] truncate">{footerLeft}</div>
+        )}
+        {text ? (
+          <p className="mt-1.5 text-[13px] leading-relaxed text-[#aeb3d6] line-clamp-2 break-words">{text}</p>
+        ) : (
+          tmdb?.id && !description && loaded === null && (
+            <div className="mt-2 space-y-1.5" aria-hidden="true">
+              <div className="h-2.5 w-full max-w-[420px] rounded-full bg-white/[0.06]" />
+              <div className="h-2.5 w-2/3 max-w-[280px] rounded-full bg-white/[0.06]" />
+            </div>
+          )
+        )}
+        {note && (
+          <p className="mt-1.5 flex items-start gap-1.5 text-[13px] text-[#e2e4f3] line-clamp-1 break-words">
+            <Icon n="message-square-quote" className="mt-0.5 w-3.5 h-3.5 shrink-0 opacity-60" />
+            <span className="truncate">{note}</span>
+          </p>
+        )}
+        {chips && <div className="mt-auto pt-2 flex flex-wrap items-center gap-1.5">{chips}</div>}
+        {actions && (
+          <div className="mt-2 flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+            {actions}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// view: принудительный вид (например, плитка в горизонтальной ленте);
+// иначе берётся выбор из настроек. description показывается только в списке.
+export function MovieCard({ view, ...props }) {
+  const selected = useCardView();
+  return (view || selected) === "list" ? <MovieRow {...props} /> : <MovieTile {...props} />;
+}
+
+function MovieTile({ poster, title, chips, footerLeft, actions, onClick, topLeft, topRight }) {
   const hasCorners = topLeft || topRight;
   return (
     <div className="group relative min-w-0">
@@ -126,16 +232,27 @@ export function MovieCard({ poster, title, chips, footerLeft, actions, onClick, 
   );
 }
 
-// withSidebar: сетка стоит рядом с панелью фильтров, поэтому колонок меньше
-export const Grid = ({ children, withSidebar = false }) => (
-  <div
-    className={`grid grid-cols-3 sm:grid-cols-4 ${
-      withSidebar ? "lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6" : "lg:grid-cols-5 2xl:grid-cols-6"
-    } gap-x-3 sm:gap-x-4 gap-y-5 sm:gap-y-6`}
-  >
-    {children}
-  </div>
-);
+// withSidebar: сетка стоит рядом с панелью фильтров, поэтому колонок меньше.
+// В виде «Список» карточки идут строками: одна колонка, на широких экранах две.
+export function Grid({ children, withSidebar = false }) {
+  const view = useCardView();
+  if (view === "list") {
+    return (
+      <div className={`grid grid-cols-1 gap-3 ${withSidebar ? "2xl:grid-cols-2" : "lg:grid-cols-2"}`}>
+        {children}
+      </div>
+    );
+  }
+  return (
+    <div
+      className={`grid grid-cols-3 sm:grid-cols-4 ${
+        withSidebar ? "lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6" : "lg:grid-cols-5 2xl:grid-cols-6"
+      } gap-x-3 sm:gap-x-4 gap-y-5 sm:gap-y-6`}
+    >
+      {children}
+    </div>
+  );
+}
 
 // Номера страниц вокруг текущей: 1 … 4 5 6 … 20
 const pageList = (page, total) => {

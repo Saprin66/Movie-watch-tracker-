@@ -69,3 +69,47 @@ export async function fetchTranslatedPage(urlOf, page) {
   const tmdbPages = Math.min(firstData.total_pages || 1, TMDB_MAX_PAGE);
   return { results, totalPages: Math.max(1, Math.ceil(tmdbPages / TMDB_PAGES_PER_PAGE)) };
 }
+
+// Описание фильма для карточки-строки, когда в данных его нет (записи журнала).
+// Запоминаем на время сессии и грузим не больше 4 запросов одновременно,
+// чтобы длинный список не завалил TMDB сотней запросов сразу.
+const overviewCache = new Map();
+const overviewQueue = [];
+let overviewActive = 0;
+
+const pumpOverviews = () => {
+  while (overviewActive < 4 && overviewQueue.length) {
+    const { key, type, id, resolve } = overviewQueue.shift();
+    overviewActive += 1;
+    fetchTmdb(type, id, "", "&language=ru-RU")
+      .then((found) => {
+        const text = (found?.data.overview || "").trim();
+        overviewCache.set(key, Promise.resolve(text));
+        return text;
+      })
+      .catch(() => {
+        // Сбой сети не запоминаем: при следующем показе карточки попробуем снова
+        overviewCache.delete(key);
+        return "";
+      })
+      .then((text) => {
+        resolve(text);
+        overviewActive -= 1;
+        pumpOverviews();
+      });
+  }
+};
+
+export function loadOverview(type, id) {
+  const key = `${type === "tv" ? "tv" : "movie"}-${id}`;
+  if (!overviewCache.has(key)) {
+    overviewCache.set(
+      key,
+      new Promise((resolve) => {
+        overviewQueue.push({ key, type, id, resolve });
+        pumpOverviews();
+      }),
+    );
+  }
+  return overviewCache.get(key);
+}

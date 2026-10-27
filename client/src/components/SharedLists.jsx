@@ -319,6 +319,7 @@ function ListDetail({ listId, token, friends, onBack, onChanged, onOpenMovie }) 
       key={item.id}
       poster={item.posterUrl}
       title={item.title}
+      tmdb={item.tmdbId ? { id: item.tmdbId, type: item.mediaType } : null}
       onClick={() => onOpenMovie({ id: item.tmdbId, media_type: item.mediaType, title: item.title })}
       chips={
         <>

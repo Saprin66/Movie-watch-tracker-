@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import Icon from "./Icon";
 import { UI_STYLES } from "../hooks/useUiStyle";
+import { CARD_VIEWS, setCardView, useCardView } from "../hooks/useCardView";
 import { CONTACT_EMAIL, POLICY_HASH, SUPPORT_TELEGRAM } from "../legal";
 import { PLAN_NAMES, PROFILE_THEMES, themeOf } from "../utils/plans";
 
@@ -192,6 +193,7 @@ export default function SettingsPage({
   onDeleteAccount,
 }) {
   const [page, setPage] = useState("root");
+  const cardView = useCardView();
   const avatarInput = useRef(null);
   const importInput = useRef(null);
   const letterboxdInput = useRef(null);
@@ -231,6 +233,27 @@ export default function SettingsPage({
       <div key="appearance" className="mg-page-rise mx-auto max-w-2xl space-y-7 pb-28">
         {fileInputs}
         <NavBar title="Внешний вид" backLabel="Настройки" onBack={() => open("root")} />
+        <Group header="Вид карточек фильмов" footer="Сетка — крупные постеры. Список — строки с описанием фильма или твоим отзывом.">
+          <div role="radiogroup" aria-label="Вид карточек фильмов" className="mg-ios-group">
+            {CARD_VIEWS.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                role="radio"
+                aria-checked={cardView === v.id}
+                onClick={() => setCardView(v.id)}
+                className={ROW}
+                data-icon=""
+              >
+                <IconTile icon={v.icon} tint={v.id === "grid" ? "orange" : "teal"} />
+                <span className="min-w-0 flex-1 text-[15px] text-white">{v.label}</span>
+                {cardView === v.id && (
+                  <Icon n="check" className="w-5 h-5 shrink-0 [filter:invert(1)_sepia(1)_saturate(6)_hue-rotate(335deg)]" />
+                )}
+              </button>
+            ))}
+          </div>
+        </Group>
         {[
           { id: "desktop", label: "На компьютере" },
           { id: "mobile", label: "На телефоне" },
@@ -401,7 +424,7 @@ export default function SettingsPage({
             icon="palette"
             tint="indigo"
             label="Внешний вид"
-            value={`${styleLabel(uiStyles.desktop)} · ${styleLabel(uiStyles.mobile)}`}
+            value={`${styleLabel(uiStyles.desktop)} · ${CARD_VIEWS.find((v) => v.id === cardView)?.label}`}
             chevron
             onClick={() => open("appearance")}
           />

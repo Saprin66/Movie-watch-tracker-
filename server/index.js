@@ -511,6 +511,10 @@ app.post('/api/movies', authMiddleware, async (req, res) => {
     });
     res.status(201).json(newMovie);
   } catch (error) {
+    // Два одновременных запроса: второй упирается в уникальность записи
+    if (error.code === 'P2002') {
+      return res.status(409).json({ error: 'Уже есть в журнале' });
+    }
     console.error('Ошибка добавления фильма:', error);
     res.status(500).json({ error: 'Не удалось добавить фильм' });
   }
@@ -655,6 +659,9 @@ app.put('/api/movies/:id/meta', authMiddleware, async (req, res) => {
     const updated = await prisma.userMovie.update({ where: { id }, data });
     res.json(updated);
   } catch (error) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({ error: 'Такая запись уже есть в журнале' });
+    }
     console.error('Ошибка обновления данных фильма:', error);
     res.status(500).json({ error: 'Не удалось обновить данные фильма' });
   }

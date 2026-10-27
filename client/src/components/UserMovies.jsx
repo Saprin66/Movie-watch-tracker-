@@ -121,6 +121,8 @@ export default function UserMovies({ userId, token, username, onOpenMovie }) {
               key={m.id}
               poster={m.posterUrl}
               title={m.title}
+              note={m.comment}
+              tmdb={m.tmdbId ? { id: m.tmdbId, type: m.mediaType } : null}
               onClick={() =>
                 m.tmdbId &&
                 onOpenMovie({

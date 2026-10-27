@@ -20,6 +20,7 @@ function MovieRow({ title, subtitle, items, onOpenMovie, loading, emptyText }) {
           {items.map((movie, index) => (
             <div key={`${movie.media_type || "movie"}-${movie.id}`} className="w-[112px] sm:w-[136px] shrink-0 snap-start">
               <MovieCard
+                view="grid"
                 poster={IMAGE(movie.poster_path)}
                 title={movie.title || movie.name}
                 chips={<><Chip tone="orange">★ {Number(movie.vote_average || 0).toFixed(1)}</Chip>{index < 3 && <Chip>#{index + 1}</Chip>}</>}

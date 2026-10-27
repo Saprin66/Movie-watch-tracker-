@@ -85,7 +85,7 @@ export default function Roulette({ movies, onOpenMovie, onMarkWatched }) {
 
   return (
     <section className="mg-glass-panel relative overflow-hidden rounded-[24px] p-5 sm:p-7">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-5 flex flex-col items-center gap-3 text-center">
         <div>
           <h2 className="font-display text-[19px] font-semibold text-white">Рулетка</h2>
           <p className="mt-1 text-[13px] text-[#aeb3d6]">Случайный фильм из «Буду смотреть»</p>
@@ -99,7 +99,7 @@ export default function Roulette({ movies, onOpenMovie, onMarkWatched }) {
             setReel([]);
             setWinner(null);
           }}
-          className="flex w-full sm:w-auto"
+          className="flex w-full sm:w-auto justify-center"
           itemClass="sm:w-[100px]"
         />
       </div>

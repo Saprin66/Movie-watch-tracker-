@@ -265,6 +265,7 @@ export default function PersonPage({ person, movies, onClose, onOpenMovie, histo
                         key={`${item.media_type}-${item.id}`}
                         poster={item.poster_path ? `${POSTER}${item.poster_path}` : null}
                         title={item.title || item.name}
+                        description={item.character ? `Роль: ${item.character}` : item.job || item.overview}
                         chips={
                           <>
                             {entry?.status === "WATCHED" && (

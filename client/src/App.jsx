@@ -33,7 +33,7 @@ import { metaFromTmdb } from "./utils/genres";
 import { useMetaBackfill } from "./hooks/useMetaBackfill";
 import { useUiStyle } from "./hooks/useUiStyle";
 import { parseLetterboxd } from "./utils/letterboxd";
-import { fetchTranslatedPage } from "./utils/tmdb";
+import { fetchTmdb, fetchTranslatedPage } from "./utils/tmdb";
 import { planOf } from "./utils/plans";
 import AdBanner from "./components/AdBanner";
 import SettingsPage from "./components/SettingsPage";
@@ -901,14 +901,27 @@ function MovieTracker() {
       movies={movies}
       onOpenMovie={(next) => setPageStack((stack) => [...stack, { kind: "movie", movie: next }])}
       onAddToWatchlist={addToWatchlist}
-      onAdd={async (status, details) => {
+      onAdd={async (status, details, foundType) => {
+        // Фильм могли открыть из журнала друга, франшизы или рулетки: там нет
+        // poster_path, а только готовый posterUrl. Если детали ещё не успели
+        // загрузиться, догружаем их, чтобы не сохранить пустую карточку.
+        let info = details;
+        let type = foundType || (movie.media_type === "tv" ? "tv" : "movie");
+        if (!info) {
+          const found = await fetchTmdb(type, movie.id, "", "&language=ru-RU").catch(() => null);
+          if (found) {
+            info = found.data;
+            type = found.type;
+          }
+        }
+        const posterPath = info?.poster_path || movie.poster_path;
         const created = await addMovie({
           tmdbId: movie.id,
-          title: movie.title || movie.name,
-          posterUrl: movie.poster_path ? `${POSTER}${movie.poster_path}` : null,
+          title: info?.title || info?.name || movie.title || movie.name,
+          posterUrl: posterPath ? `${POSTER}${posterPath}` : movie.posterUrl || null,
           status,
-          mediaType: movie.media_type === "tv" ? "tv" : "movie",
-          ...metaFromTmdb(details || movie),
+          mediaType: type,
+          ...metaFromTmdb(info || movie),
         });
         // «Смотрел» сразу открывает оценку, как и кнопка на карточке
         if (status === "WATCHED" && created?.id) setReviewMovieId(created.id);
@@ -1243,6 +1256,8 @@ function MovieTracker() {
                   {filteredMovies.map((movie) => (
                     <MovieCard
                       key={movie.id}
+                      note={movie.comment}
+                      tmdb={movie.tmdbId ? { id: movie.tmdbId, type: movie.mediaType } : null}
                       poster={movie.posterUrl}
                       title={movie.title}
                       onClick={() =>
@@ -1436,6 +1451,7 @@ function MovieTracker() {
                               ? `${POSTER}${movie.poster_path}`
                               : null
                           }
+                          description={movie.overview}
                           title={title}
                           chips={
                             <>
@@ -1514,6 +1530,7 @@ function MovieTracker() {
               movies={movies}
               onOpenMovie={setSelectedMovie}
               onMarkWatched={(id) => updateMovieStatus(id, "WATCHED")}
+              onWant={(item) => toggleWatchlist(item, null)}
             />
           )}
 

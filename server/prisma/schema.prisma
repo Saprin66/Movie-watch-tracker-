@@ -84,6 +84,9 @@ model UserMovie {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Один фильм или сериал в журнале пользователя — одна запись. Защищает от
+  // дублей при двойном нажатии, когда два запроса проходят проверку одновременно.
+  @@unique([userId, tmdbId, mediaType])
   @@index([userId])
 }
 

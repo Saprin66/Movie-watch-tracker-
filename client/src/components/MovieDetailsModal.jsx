@@ -145,27 +145,29 @@ export default function MovieDetailsModal({
 }) {
   useScrollLock();
 
-  const type = movie.media_type === "tv" ? "tv" : "movie";
-  const [state, setState] = useState({ loading: true, details: null });
+  const requestedType = movie.media_type === "tv" ? "tv" : "movie";
+  // foundType — тип, под которым TMDB нашёл запись: у старых записей журнала
+  // сериал мог быть сохранён как фильм
+  const [state, setState] = useState({ loading: true, details: null, foundType: null });
   const { leaving, covered, close, handOver } = useBackClose(historyKey, onClose);
 
   useEffect(() => {
     let cancelled = false;
-    setState({ loading: true, details: null });
+    setState({ loading: true, details: null, foundType: null });
 
-    fetchTmdb(type, movie.id, "", DETAILS_PARAMS)
+    fetchTmdb(requestedType, movie.id, "", DETAILS_PARAMS)
       .then((found) => {
-        if (!cancelled) setState({ loading: false, details: found?.data || null });
+        if (!cancelled) setState({ loading: false, details: found?.data || null, foundType: found?.type || null });
       })
       .catch((error) => {
         console.error("Ошибка загрузки деталей:", error);
-        if (!cancelled) setState({ loading: false, details: null });
+        if (!cancelled) setState({ loading: false, details: null, foundType: null });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [movie.id, type]);
+  }, [movie.id, requestedType]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -176,6 +178,7 @@ export default function MovieDetailsModal({
   });
 
   const { loading, details } = state;
+  const type = state.foundType || requestedType;
   const isTv = type === "tv";
 
   // Пока детали грузятся (или не загрузились), показываем то, что уже есть из поиска
@@ -231,7 +234,7 @@ export default function MovieDetailsModal({
   };
 
   const handleAdd = (status) => {
-    onAdd(status, details);
+    onAdd(status, details, type);
     // «Смотрел» сразу открывает оценку — отдаём ей свою запись в истории
     if (status === "WATCHED") handOver("review");
     else close();

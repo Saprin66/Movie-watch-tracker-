@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "./Icon";
 import Roulette from "./Roulette";
+import TonightPicker from "./TonightPicker";
 import { Chip, Grid, MovieCard } from "./ui";
 import { BTN_SOFT, EYEBROW, PAGE_TITLE, SECTION_TITLE } from "./styles";
 import { POSTER, TMDB, TMDB_API_KEY } from "../config";
@@ -42,7 +43,7 @@ async function genreRecommendations(movies) {
 
 const typeOf = (movie) => (movie.mediaType === "tv" ? "tv" : "movie");
 
-export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched, plan = "free", onOpenPremium }) {
+export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched, onWant, plan = "free", onOpenPremium }) {
   const [recs, setRecs] = useState({ status: "idle", seeds: [], list: [] });
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -104,19 +105,21 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched, plan =
     .slice(0, 12);
 
   return (
-    <div className="max-w-5xl space-y-9">
-      <div>
+    <div className="max-w-5xl mx-auto space-y-9">
+      <div className="text-center">
         <div className={`${EYEBROW} mb-2.5`}>Выбор на вечер</div>
         <h1 className={PAGE_TITLE}>Что смотреть</h1>
         <p className="mt-2.5 text-sm text-[#8b91b5]">
-          Рулетка по вашему списку и подборка по вашим оценкам
+          Подбор под настроение, рулетка по вашему списку и рекомендации по оценкам
         </p>
       </div>
+
+      <TonightPicker movies={movies} onOpenMovie={onOpenMovie} onWant={onWant} />
 
       <Roulette movies={movies} onOpenMovie={onOpenMovie} onMarkWatched={onMarkWatched} />
 
       <section>
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+        <div className="flex flex-col items-center gap-3 mb-2 text-center">
           <div>
             <h2 className={SECTION_TITLE}>{REC_MODES[plan].title}</h2>
             <div className="mt-1 text-xs text-[#8b91b5]">
@@ -144,18 +147,18 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched, plan =
         </div>
 
         {!TMDB_API_KEY ? (
-          <p className="py-8 text-sm text-[#8b91b5]">
+          <p className="py-8 text-center text-sm text-[#8b91b5]">
             Не задан ключ TMDB, рекомендации недоступны.
           </p>
         ) : !hasWatched ? (
-          <p className="py-8 text-sm text-[#8b91b5]">
+          <p className="py-8 text-center text-sm text-[#8b91b5]">
             Отметьте несколько фильмов просмотренными и поставьте оценки, и здесь
             появятся рекомендации.
           </p>
         ) : (
           <>
             {recs.seeds.length > 0 && (
-              <p className="text-[13px] text-[#8b91b5] mt-1 mb-5">
+              <p className="text-[13px] text-[#8b91b5] mt-1 mb-5 text-center">
                 На основе:{" "}
                 {recs.seeds
                   .map((s) => (s.rating ? `${s.title} (${s.rating})` : s.title))
@@ -164,11 +167,11 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched, plan =
             )}
 
             {recs.status === "loading" && visibleRecs.length === 0 ? (
-              <p className="py-8 text-sm text-[#8b91b5] animate-pulse">
+              <p className="py-8 text-center text-sm text-[#8b91b5] animate-pulse">
                 Подбираю...
               </p>
             ) : visibleRecs.length === 0 ? (
-              <p className="py-8 text-sm text-[#8b91b5]">
+              <p className="py-8 text-center text-sm text-[#8b91b5]">
                 Новых рекомендаций не нашлось. Попробуйте другую подборку.
               </p>
             ) : (
@@ -185,6 +188,7 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched, plan =
                       key={key}
                       poster={item.poster_path ? `${POSTER}${item.poster_path}` : null}
                       title={title}
+                      description={item.overview}
                       chips={
                         <>
                           {year && <Chip>{year}</Chip>}
