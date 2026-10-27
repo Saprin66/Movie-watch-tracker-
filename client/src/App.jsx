@@ -33,6 +33,7 @@ import { metaFromTmdb } from "./utils/genres";
 import { useMetaBackfill } from "./hooks/useMetaBackfill";
 import { useUiStyle } from "./hooks/useUiStyle";
 import { parseLetterboxd } from "./utils/letterboxd";
+import { fetchTranslatedPage } from "./utils/tmdb";
 import { planOf } from "./utils/plans";
 import AdBanner from "./components/AdBanner";
 import SettingsPage from "./components/SettingsPage";
@@ -413,15 +414,15 @@ function MovieTracker() {
       return;
     }
     try {
-      const res = await fetch(
-        `${TMDB}/movie/popular?api_key=${TMDB_API_KEY}&language=ru-RU&page=${page}`,
+      // Только фильмы с русским переводом: без них в «популярном» попадается экзотика
+      const { results, totalPages } = await fetchTranslatedPage(
+        (p) => `${TMDB}/movie/popular?api_key=${TMDB_API_KEY}&language=ru-RU&page=${p}`,
+        page,
       );
-      const data = await res.json();
       if (seq !== searchSeq.current) return;
-      if (!res.ok) throw new Error(data.status_message || "Не удалось загрузить популярные фильмы TMDB");
-      setSearchResults(data.results || []);
+      setSearchResults(results);
       setCatalogPage(page);
-      setCatalogTotalPages(Math.min(data.total_pages || 1, 500));
+      setCatalogTotalPages(totalPages);
       setCatalogError("");
     } catch (error) {
       if (seq !== searchSeq.current) return;
@@ -622,7 +623,6 @@ function MovieTracker() {
     const params = new URLSearchParams({
       api_key: TMDB_API_KEY,
       language: "ru-RU",
-      page: String(page),
       sort_by: sortBy,
       "vote_count.gte": "10",
     });
@@ -631,15 +631,15 @@ function MovieTracker() {
     if (yearFrom) params.set(catalogType === "tv" ? "first_air_date.gte" : "primary_release_date.gte", `${yearFrom}-01-01`);
     if (yearTo) params.set(catalogType === "tv" ? "first_air_date.lte" : "primary_release_date.lte", `${yearTo}-12-31`);
     try {
-      const res = await fetch(`${TMDB}/discover/${catalogType}?${params.toString()}`);
-      const data = await res.json();
+      // В подборке по фильтрам — только переведённое на русский.
+      // Поиск по названию находит всё, этот отсев его не касается.
+      const { results, totalPages } = await fetchTranslatedPage((p) => {
+        params.set("page", String(p));
+        return `${TMDB}/discover/${catalogType}?${params.toString()}`;
+      }, page);
       if (seq !== searchSeq.current) return;
-      if (!res.ok) {
-        const message = data.status_message || "Не удалось выполнить подборку TMDB";
-        throw new Error(message);
-      }
-      setSearchResults((data.results || []).map((item) => ({ ...item, media_type: catalogType })));
-      setCatalogTotalPages(Math.min(data.total_pages || 1, 500));
+      setSearchResults(results.map((item) => ({ ...item, media_type: catalogType })));
+      setCatalogTotalPages(totalPages);
     } catch (error) {
       if (seq !== searchSeq.current) return;
       console.error("Ошибка подбора по фильтрам:", error);

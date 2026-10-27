@@ -30,3 +30,42 @@ export async function fetchTmdb(type, id, suffix = "", params = "") {
   }
   return null;
 }
+
+// Есть ли у фильма или сериала русский перевод. С language=ru-RU TMDB отдаёт
+// русское описание и название, только если перевод есть; иначе — оригинальное
+// название и пустое описание. Так отсеиваются картины, которые в России почти никто не видел.
+const CYRILLIC = /[а-яё]/i;
+export const hasRussianTranslation = (item) =>
+  item.original_language === "ru" ||
+  CYRILLIC.test(item.title || item.name || "") ||
+  Boolean((item.overview || "").trim());
+
+// На одну страницу сайта берём несколько страниц TMDB: после отсева
+// непереведённых в одной странице может остаться всего несколько фильмов
+export const TMDB_PAGES_PER_PAGE = 3;
+const TMDB_MAX_PAGE = 500;
+
+// urlOf(tmdbPage) → адрес запроса. Возвращает только переведённые результаты
+// без повторов и число страниц сайта.
+export async function fetchTranslatedPage(urlOf, page) {
+  const first = (page - 1) * TMDB_PAGES_PER_PAGE + 1;
+  const pages = Array.from({ length: TMDB_PAGES_PER_PAGE }, (_, i) => first + i).filter(
+    (p) => p <= TMDB_MAX_PAGE,
+  );
+  const responses = await Promise.all(pages.map((p) => fetchWithRetry(urlOf(p))));
+  const firstData = await responses[0].json();
+  if (!responses[0].ok) {
+    throw new Error(firstData.status_message || `TMDB ответил ${responses[0].status}`);
+  }
+  // Остальные страницы могут не существовать, если результатов мало
+  const rest = await Promise.all(
+    responses.slice(1).map((res) => (res.ok ? res.json() : { results: [] })),
+  );
+  const seen = new Set();
+  const results = [firstData, ...rest]
+    .flatMap((d) => d.results || [])
+    .filter((item) => !seen.has(item.id) && seen.add(item.id))
+    .filter(hasRussianTranslation);
+  const tmdbPages = Math.min(firstData.total_pages || 1, TMDB_MAX_PAGE);
+  return { results, totalPages: Math.max(1, Math.ceil(tmdbPages / TMDB_PAGES_PER_PAGE)) };
+}
