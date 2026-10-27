@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { PANEL } from "./styles";
 import Icon from "./Icon";
 
@@ -151,17 +152,48 @@ export const Avatar = ({ name, avatar, size = "w-10 h-10", text = "text-sm" }) =
   </div>
 );
 
-// Логотип: оранжевый квадрат с кнопкой «play» и надпись
+// Знак MovieGrade: стеклянный билет с буквой M и звездой оценки
+const TICKET = "M10 14H54a4 4 0 0 1 4 4V27a5 5 0 0 0 0 10V46a4 4 0 0 1-4 4H10a4 4 0 0 1-4-4V37a5 5 0 0 0 0-10V18a4 4 0 0 1 4-4Z";
+
+export const LogoMark = ({ className = "w-10 h-10" }) => {
+  // id у svg-фильтров должны быть уникальны, если логотипов на странице несколько
+  const id = useId().replace(/:/g, "");
+  return (
+    <svg viewBox="0 0 64 64" className={`${className} shrink-0 overflow-visible`} aria-hidden="true">
+      <defs>
+        <clipPath id={`${id}c`}><path d={TICKET} /></clipPath>
+        <linearGradient id={`${id}g`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity=".55" />
+          <stop offset="1" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id={`${id}e`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity=".9" />
+          <stop offset=".5" stopColor="#fff" stopOpacity=".15" />
+          <stop offset="1" stopColor="#fff" stopOpacity=".6" />
+        </linearGradient>
+        <filter id={`${id}b`} x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="5" />
+        </filter>
+      </defs>
+      <circle cx="22" cy="24" r="13" fill="#ff7a45" filter={`url(#${id}b)`} />
+      <circle cx="44" cy="40" r="12" fill="#E8577A" filter={`url(#${id}b)`} />
+      <path d={TICKET} fill="#fff" fillOpacity=".16" />
+      <g clipPath={`url(#${id}c)`}><rect y="14" width="64" height="14" fill={`url(#${id}g)`} opacity=".7" /></g>
+      <path d={TICKET} fill="none" stroke={`url(#${id}e)`} strokeWidth="1.2" />
+      <polyline points="15,41 15,23 25.5,34 36,23 36,41" fill="none" stroke="#fff" strokeWidth="4.5" strokeLinejoin="round" strokeLinecap="round" />
+      <line x1="43" y1="18" x2="43" y2="46" stroke="#fff" strokeOpacity=".6" strokeWidth="1.6" strokeDasharray="2.2 2.6" strokeLinecap="round" />
+      <polygon points="51,27 52.29,30.22 55.76,30.45 53.09,32.68 53.94,36.05 51,34.2 48.06,36.05 48.91,32.68 46.24,30.45 49.71,30.22" fill="#F2B35B" />
+    </svg>
+  );
+};
+
+// Логотип: стеклянный билет и надпись
 export const Logo = ({ size = "md", showText = true }) => {
-  const box = size === "lg" ? "w-10 h-10 rounded-xl" : "w-9 h-9 rounded-[11px]";
+  const mark = size === "lg" ? "w-12 h-12" : "w-10 h-10";
   const txt = size === "lg" ? "text-xl" : "text-lg";
   return (
-    <div className="flex items-center gap-3">
-      <div className={`${box} bg-[#ff7a45] flex items-center justify-center shrink-0`}>
-        <svg viewBox="0 0 24 24" className="w-4 h-4 ml-0.5" aria-hidden="true">
-          <path d="M7 4.5v15l13-7.5z" fill="#1b0d07" />
-        </svg>
-      </div>
+    <div className="flex items-center gap-2.5">
+      <LogoMark className={mark} />
       {showText && (
         <span className={`font-display ${txt} font-bold text-white`}>
           Movie<span className="text-[#ff7a45]">Grade</span>
