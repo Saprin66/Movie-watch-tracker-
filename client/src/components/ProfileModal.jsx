@@ -3,7 +3,8 @@ import { useAuth } from "../context/AuthContext";
 import ConfirmDialog from "./ConfirmDialog";
 import Icon from "./Icon";
 import { Avatar, Poster } from "./ui";
-import { AchievementsSection, ProfileHero, StatsSection } from "./ProfileParts";
+import { AchievementsSection, PrivateProfileNotice, ProfileHero, StatsSection } from "./ProfileParts";
+import UserMovies from "./UserMovies";
 import FranchisesSection from "./FranchisesSection";
 import { useProfileStats } from "../hooks/useProfileStats";
 import { useScrollLock } from "../hooks/useScrollLock";
@@ -102,6 +103,8 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
   const [removeError, setRemoveError] = useState("");
   const [requestStatus, setRequestStatus] = useState("");
   const [friendsExpanded, setFriendsExpanded] = useState(false);
+  // Экран со всем журналом друга поверх профиля
+  const [listOpen, setListOpen] = useState(false);
   const isOwnProfile = Boolean(user && user.id === userId);
 
   useEffect(() => {
@@ -122,7 +125,9 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
 
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === "Escape") close();
+      if (e.key !== "Escape") return;
+      if (listOpen) setListOpen(false);
+      else close();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -132,7 +137,9 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
   const journal = profile?.journal || null;
   const friendsCount = profile?.friendsCount ?? profile?.friends?.length ?? 0;
   const stats = useProfileStats(journal || [], friendsCount);
-  const isFriend = Boolean(profile && !isOwnProfile && !profile.reviewsHidden);
+  const locked = Boolean(profile?.locked);
+  const isFriend = Boolean(profile && !isOwnProfile && !locked && !profile.reviewsHidden);
+  const canSeeList = Boolean(profile && !locked && (isOwnProfile || isFriend));
   const online = isOnline(profile?.lastSeen);
   const friends = profile?.friends || [];
   const visibleFriends = friendsExpanded ? friends : friends.slice(0, FRIENDS_PREVIEW);
@@ -153,13 +160,13 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
         <div className="sticky top-0 z-20 flex items-center justify-between px-4 sm:px-8 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3">
           <button
             type="button"
-            onClick={close}
-            aria-label="Назад"
+            onClick={() => (listOpen ? setListOpen(false) : close())}
+            aria-label={listOpen ? "Назад в профиль" : "Назад"}
             className="mg-glass-btn w-11 h-11 rounded-full flex items-center justify-center"
           >
             <Icon n="arrow-left" className="w-5 h-5" />
           </button>
-          {isFriend && (
+          {isFriend && !listOpen && (
             <button
               type="button"
               onClick={() => {
@@ -182,6 +189,32 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
             <p role="alert" className="mt-10 rounded-2xl border border-red-400/25 bg-red-500/15 px-4 py-3 text-sm text-red-200">
               Не удалось загрузить профиль{error ? `: ${error}` : ""}
             </p>
+          ) : listOpen && canSeeList ? (
+            <div className="mg-page-rise">
+              <UserMovies userId={profile.id} token={token} username={profile.username} onOpenMovie={onOpenMovie} />
+            </div>
+          ) : locked ? (
+            <>
+              <ProfileHero user={profile} />
+              <div className="mg-page-rise mt-7 mx-auto max-w-2xl" style={{ animationDelay: "140ms" }}>
+                <PrivateProfileNotice
+                  username={profile.username}
+                  action={
+                    requestStatus ? (
+                      <p role="status" className="text-sm text-[#c4c8e4]">{requestStatus}</p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={addFriend}
+                        className="mg-glass-btn mg-glass-btn--wide mg-glass-btn--orange h-11 px-5 rounded-full inline-flex items-center gap-2 text-sm font-extrabold text-white"
+                      >
+                        <Icon n="user-plus" className="w-4 h-4" /> Добавить в друзья
+                      </button>
+                    )
+                  }
+                />
+              </div>
+            </>
           ) : (
             <>
               <ProfileHero user={profile}>
@@ -213,12 +246,33 @@ export default function ProfileModal({ userId, token, onClose, onUserClick, onFr
 
               {/* На телефоне — одна колонка, на компьютере — две */}
               <div className="mg-page-rise mt-7 grid grid-cols-1 gap-4 lg:grid-cols-2 items-start" style={{ animationDelay: "140ms" }}>
+                {canSeeList && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      setListOpen(true);
+                      e.currentTarget.closest(".overflow-y-auto")?.scrollTo({ top: 0 });
+                    }}
+                    className="mg-glass-panel group lg:col-span-2 w-full rounded-[24px] p-4 sm:p-5 flex items-center gap-4 text-left transition-colors hover:border-[#ff7a45]/40"
+                  >
+                    <span className="w-12 h-12 shrink-0 rounded-2xl bg-[#ff7a45]/[0.14] flex items-center justify-center">
+                      <Icon n="list-video" className="w-6 h-6 [filter:invert(1)_sepia(1)_saturate(6)_hue-rotate(335deg)]" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-display text-[17px] font-semibold text-white">Весь список фильмов</span>
+                      <span className="block mt-0.5 text-[13px] text-[#9aa0c4]">
+                        {profile.watchedCount ?? 0} просмотрено · {Math.max(0, (profile.moviesCount ?? 0) - (profile.watchedCount ?? 0))} в планах
+                      </span>
+                    </span>
+                    <Icon n="chevron-right" className="w-5 h-5 opacity-60 transition-transform group-hover:translate-x-0.5" />
+                  </button>
+                )}
                 {journal ? (
                   <>
-                    <div className="lg:col-span-2">
+                    <div className="space-y-4">
+                      <StatsSection total={stats.total} month={stats.month} loading={stats.loading} />
                       <AchievementsSection achievements={stats.achievements} />
                     </div>
-                    <StatsSection total={stats.total} month={stats.month} loading={stats.loading} />
                     <FranchisesSection franchises={stats.franchises} loading={stats.loading} onOpenMovie={onOpenMovie} />
                   </>
                 ) : (

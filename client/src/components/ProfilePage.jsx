@@ -20,9 +20,9 @@ export default function ProfilePage({
   onOpenFriend,
   onManageFriends,
   onOpenMovie,
+  onOpenPremium,
 }) {
   const [friendsExpanded, setFriendsExpanded] = useState(false);
-  const [premiumNote, setPremiumNote] = useState(false);
   const { total, month, achievements, franchises, loading } = useProfileStats(movies, friends.length);
   const visibleFriends = friendsExpanded ? friends : friends.slice(0, FRIENDS_PREVIEW);
 
@@ -60,29 +60,25 @@ export default function ProfilePage({
         {avatarError && <p role="alert" className="mt-2 max-w-xs text-xs text-red-300">{avatarError}</p>}
       </ProfileHero>
 
-      {/* На телефоне — одна колонка, на компьютере — две: статистика слева, франшизы и друзья справа */}
+      {/* На телефоне — одна колонка, на компьютере — две: статистика и достижения слева, франшизы и друзья справа */}
       <div className="mg-page-rise mt-7 grid grid-cols-1 gap-4 lg:grid-cols-2 items-start" style={{ animationDelay: "140ms" }}>
-        <div className="lg:col-span-2">
-          <AchievementsSection achievements={achievements} />
-        </div>
-
-        {/* Premium: пока без оплаты */}
+        {/* Premium: открывает страницу выбора подписки */}
         <div className="lg:col-span-2">
           <button
             type="button"
-            onClick={() => setPremiumNote(true)}
+            onClick={onOpenPremium}
             className="mg-premium-btn w-full h-14 rounded-full inline-flex items-center justify-center gap-2.5 text-[15px] font-extrabold text-[#2a1600]"
           >
-            <Icon n="crown" className="w-5 h-5 [filter:brightness(0.15)]" />
-            Upgrade to Premium
+            <Icon n={user?.plan === "brilliant" ? "gem" : "crown"} className="w-5 h-5 [filter:brightness(0.15)]" />
+            {user?.plan === "brilliant"
+              ? "Ваша подписка Brilliant"
+              : user?.plan === "gold"
+                ? "Перейти на Brilliant"
+                : "Upgrade to Premium"}
           </button>
-          {premiumNote && (
-            <p role="status" className="mt-2 text-center text-xs text-[#c4c8e4]">
-              Premium скоро появится — следи за обновлениями
-            </p>
-          )}
         </div>
 
+        <div className="space-y-4">
         {/* Статистика */}
         <StatsSection total={total} month={month} loading={loading}>
           <button
@@ -95,6 +91,9 @@ export default function ProfilePage({
             <Icon n="chevron-right" className="w-4 h-4 opacity-70" />
           </button>
         </StatsSection>
+
+        <AchievementsSection achievements={achievements} />
+        </div>
 
         <div className="space-y-4">
           <FranchisesSection franchises={franchises} loading={loading} onOpenMovie={onOpenMovie} />

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Icon from "./Icon";
-import { BTN_SOFT, ORANGE_FILTER, PANEL } from "./styles";
+import { BTN_SOFT, ORANGE_FILTER, PANEL, SECTION_TITLE } from "./styles";
 import {
   DEFAULT_FILTERS,
   RATING_OPTIONS,
@@ -20,7 +20,9 @@ function Labeled({ label, children }) {
   );
 }
 
-// Поиск по названию и фильтры для списка «Мой список»
+// Поиск по названию и фильтры для списка «Мой список».
+// На компьютере это боковая панель слева от карточек: всё раскрыто, плюс тип и сортировка.
+// На телефоне — строка поиска с кнопкой «Фильтры», тип и сортировка остаются над ней.
 export default function MovieFilters({
   filters,
   onChange,
@@ -28,6 +30,11 @@ export default function MovieFilters({
   shownCount,
   totalCount,
   metaPending,
+  kindOptions,
+  sortOptions,
+  sortMode,
+  onSortChange,
+  top,
 }) {
   const [open, setOpen] = useState(false);
   const active = countActiveFilters(filters);
@@ -35,9 +42,21 @@ export default function MovieFilters({
   const filtering = isFiltering(filters);
 
   return (
-    <div className="space-y-3">
+    <aside className="space-y-3 lg:space-y-5 lg:p-5 lg:sticky lg:top-[96px] lg:max-h-[calc(100dvh-120px)] lg:overflow-y-auto lg:bg-[#12152a] lg:border lg:border-white/[0.07] lg:rounded-[20px]">
+      {top && (
+        <div className="hidden lg:block space-y-4 pb-5 border-b border-white/[0.07]">{top}</div>
+      )}
+      <h2 className={`hidden lg:flex items-center gap-2.5 ${SECTION_TITLE}`}>
+        <Icon n="sliders-horizontal" className={`w-[18px] h-[18px] ${ORANGE_FILTER}`} />
+        Фильтры
+        {active > 0 && (
+          <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-[#ff7a45] text-[#1b0d07] text-[11px] font-extrabold flex items-center justify-center">
+            {active}
+          </span>
+        )}
+      </h2>
       <div className="flex gap-2.5">
-        <div className="relative flex-1 min-w-0 sm:max-w-sm">
+        <div className="relative flex-1 min-w-0 sm:max-w-sm lg:max-w-none">
           <Icon
             n="search"
             className="absolute left-3.5 top-1/2 -translate-y-1/2 opacity-50 w-[18px] h-[18px]"
@@ -51,7 +70,7 @@ export default function MovieFilters({
             onChange={(e) => set({ query: e.target.value })}
             placeholder="Поиск по моему списку"
             aria-label="Поиск по моему списку"
-            className="w-full min-w-0 h-11 bg-[#12152a] border border-white/[0.08] rounded-xl pl-11 pr-3 text-base sm:text-sm text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45] focus:ring-[3px] focus:ring-[#ff7a45]/20 transition"
+            className="w-full min-w-0 h-11 bg-[#12152a] lg:bg-[#0d1021] border border-white/[0.08] rounded-xl pl-11 pr-3 text-base sm:text-sm text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45] focus:ring-[3px] focus:ring-[#ff7a45]/20 transition"
           />
         </div>
 
@@ -59,7 +78,7 @@ export default function MovieFilters({
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          className={`shrink-0 inline-flex items-center gap-2 h-11 px-4 rounded-xl text-sm font-bold transition-colors ${
+          className={`lg:hidden shrink-0 inline-flex items-center gap-2 h-11 px-4 rounded-xl text-sm font-bold transition-colors ${
             open || active > 0
               ? "bg-[#ff7a45]/[0.14] text-[#ff9a6c]"
               : BTN_SOFT
@@ -78,9 +97,29 @@ export default function MovieFilters({
         </button>
       </div>
 
-      {open && (
-        <div className={`${PANEL} p-4 sm:p-5 space-y-4`}>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className={`${open ? "" : "hidden"} lg:block ${PANEL} lg:bg-transparent lg:border-0 lg:rounded-none p-4 sm:p-5 lg:p-0 space-y-4`}>
+          <div role="group" aria-label="Тип" className="hidden lg:block">
+            <span className="block text-xs font-bold text-[#aeb3d6] mb-2">Тип</span>
+            <div className="flex gap-1 p-1 bg-[#0d1021] border border-white/[0.08] rounded-xl">
+              {kindOptions.map((k) => (
+                <button
+                  key={k.id}
+                  type="button"
+                  onClick={() => set({ kind: k.id })}
+                  aria-pressed={filters.kind === k.id}
+                  className={`flex-1 h-9 px-2 rounded-[9px] text-[13px] font-bold transition-colors ${
+                    filters.kind === k.id
+                      ? "bg-[#1d2140] text-white"
+                      : "text-[#8b91b5] hover:text-white"
+                  }`}
+                >
+                  {k.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-4">
             <Labeled label="Жанр">
               <select
                 value={filters.genre}
@@ -124,6 +163,22 @@ export default function MovieFilters({
                 ))}
               </select>
             </Labeled>
+
+            <div className="hidden lg:block">
+              <Labeled label="Сортировка">
+                <select
+                  value={sortMode}
+                  onChange={(e) => onSortChange(e.target.value)}
+                  className={SELECT}
+                >
+                  {sortOptions.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </Labeled>
+            </div>
           </div>
 
           {metaPending > 0 && (
@@ -132,8 +187,7 @@ export default function MovieFilters({
               фильтров станет полнее через несколько секунд.
             </p>
           )}
-        </div>
-      )}
+      </div>
 
       {filtering && (
         <div className="flex items-center justify-between gap-3 text-[13px] text-[#8b91b5]">
@@ -149,6 +203,6 @@ export default function MovieFilters({
           </button>
         </div>
       )}
-    </div>
+    </aside>
   );
 }

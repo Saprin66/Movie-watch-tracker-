@@ -8,11 +8,13 @@ const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
 const { cleanPosterUrl, isPositiveInt } = require('../security');
 const { notify, usernameOf } = require('../push');
+const { LIST_LIMITS, PLAN_NAMES, PLAN_SELECT, planOf } = require('../plans');
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
-const MAX_OWNED_LISTS = 20;
+// «Безлимит» Brilliant всё же ограничен разумным потолком, чтобы базу нельзя было завалить
+const MAX_OWNED_LISTS_BRILLIANT = 200;
 const MAX_MEMBERS = 10;
 const MAX_ITEMS = 500;
 const NAME_MAX = 60;
@@ -111,9 +113,21 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: `Название от 1 до ${NAME_MAX} символов` });
     }
 
-    const owned = await prisma.sharedList.count({ where: { ownerId: req.userId } });
-    if (owned >= MAX_OWNED_LISTS) {
-      return res.status(400).json({ error: `Можно создать не больше ${MAX_OWNED_LISTS} списков` });
+    // Лимит зависит от подписки: Free — 2, Gold — 10, Brilliant — без ограничений
+    const [owned, owner] = await Promise.all([
+      prisma.sharedList.count({ where: { ownerId: req.userId } }),
+      prisma.user.findUnique({ where: { id: req.userId }, select: PLAN_SELECT }),
+    ]);
+    const plan = planOf(owner);
+    const limit = Math.min(LIST_LIMITS[plan], MAX_OWNED_LISTS_BRILLIANT);
+    if (owned >= limit) {
+      return res.status(403).json({
+        error:
+          plan === 'brilliant'
+            ? `Можно создать не больше ${limit} списков`
+            : `На тарифе ${PLAN_NAMES[plan]} можно создать до ${limit} общих списков. Больше — в ${plan === 'free' ? 'Gold и Brilliant' : 'Brilliant'}.`,
+        code: 'PLAN_LIMIT',
+      });
     }
 
     const requested = Array.isArray(req.body?.memberIds)

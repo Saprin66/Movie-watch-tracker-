@@ -9,6 +9,7 @@ const listRoutes = require('./routes/lists');
 const pushRoutes = require('./routes/push');
 const { authMiddleware } = require('./middleware/auth');
 const { buildFeed } = require('./feed');
+const { planOf } = require('./plans');
 const { parseMeta } = require('./movieMeta');
 const { corsOptions, securityHeaders, apiLimiter, cleanPosterUrl, isPositiveInt } = require('./security');
 
@@ -64,6 +65,7 @@ app.get('/api/users/search', authMiddleware, async (req, res) => {
         id: true,
         username: true,
         avatar: true,
+        isPrivate: true,
         _count: {
           select: { movies: true }
         }
@@ -71,7 +73,8 @@ app.get('/api/users/search', authMiddleware, async (req, res) => {
       take: 15 // Ограничиваем выдачу 15 результатами
     });
 
-    res.json(users);
+    // У приватных профилей не раскрываем даже размер журнала
+    res.json(users.map((u) => (u.isPrivate ? { ...u, _count: undefined } : u)));
   } catch (error) {
     console.error('Ошибка поиска пользователей:', error);
     res.status(500).json({ error: 'Не удалось выполнить поиск' });
@@ -87,10 +90,58 @@ app.use('/api/push', pushRoutes);
 
 // === ВСЕ МАРШРУТЫ /api/users/* ДОЛЖНЫ БЫТЬ ВЫШЕ app.use('/api/users', userRoutes) ===
 
+// Дружба подтверждена в любую сторону
+const areFriends = async (a, b) => {
+  const friendship = await prisma.friend.findFirst({
+    where: {
+      status: 'accepted',
+      OR: [
+        { userId: a, friendId: b },
+        { userId: b, friendId: a }
+      ]
+    },
+    select: { id: true }
+  });
+  return Boolean(friendship);
+};
+
+// Может ли viewerId видеть журнал targetId: себя и друзей — всегда,
+// остальных — только если профиль не приватный
+const canViewProfile = async (viewerId, targetId) => {
+  if (viewerId === targetId) return true;
+  const target = await prisma.user.findUnique({ where: { id: targetId }, select: { isPrivate: true } });
+  if (!target) return false;
+  return !target.isPrivate || areFriends(viewerId, targetId);
+};
+
+// Весь журнал пользователя с названиями и постерами: только себе и друзьям
+app.get('/api/users/:userId/movies', authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (userId !== req.userId && !(await areFriends(req.userId, userId))) {
+      return res.status(403).json({ error: 'Список фильмов виден только друзьям' });
+    }
+    const movies = await prisma.userMovie.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true, tmdbId: true, mediaType: true, title: true, posterUrl: true,
+        status: true, rating: true, comment: true, releaseYear: true, genres: true,
+        watchedAt: true, createdAt: true
+      }
+    });
+    res.json(movies);
+  } catch (error) {
+    console.error('Ошибка загрузки списка фильмов:', error);
+    res.status(500).json({ error: 'Не удалось загрузить список фильмов' });
+  }
+});
+
 // Последний просмотренный фильм
 app.get('/api/users/:userId/last-watched', authMiddleware, async (req, res) => {
   try {
     const { userId } = req.params;
+    if (!(await canViewProfile(req.userId, userId))) return res.json(null);
     const lastWatched = await prisma.userMovie.findFirst({
       where: { userId, status: 'WATCHED' },
       orderBy: [{ watchedAt: { sort: 'desc', nulls: 'last' } }, { updatedAt: 'desc' }],
@@ -179,7 +230,8 @@ app.get('/api/users/:userId', authMiddleware, async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { id: targetUserId },
       select: {
-        id: true, username: true, avatar: true, bio: true, lastSeen: true, createdAt: true
+        id: true, username: true, avatar: true, bio: true, lastSeen: true, createdAt: true, isPrivate: true,
+        plan: true, promoPlan: true, promoUntil: true, profileTheme: true
       }
     });
 
@@ -188,19 +240,20 @@ app.get('/api/users/:userId', authMiddleware, async (req, res) => {
     }
 
     // Комментарии к фильмам видны только самому пользователю и его друзьям
-    let canSeeReviews = targetUserId === req.userId;
-    if (!canSeeReviews) {
-      const friendship = await prisma.friend.findFirst({
-        where: {
-          status: 'accepted',
-          OR: [
-            { userId: req.userId, friendId: targetUserId },
-            { userId: targetUserId, friendId: req.userId }
-          ]
-        },
-        select: { id: true }
+    const canSeeReviews =
+      targetUserId === req.userId || (await areFriends(req.userId, targetUserId));
+
+    // Приватный профиль чужим: только имя и аватар, чтобы можно было отправить заявку
+    if (user.isPrivate && !canSeeReviews) {
+      return res.json({
+        id: user.id,
+        username: user.username,
+        avatar: user.avatar,
+        plan: planOf(user),
+        profileTheme: planOf(user) === 'brilliant' ? user.profileTheme : null,
+        isPrivate: true,
+        locked: true
       });
-      canSeeReviews = Boolean(friendship);
     }
 
     // 2. Считаем статистику ИМЕННО для targetUserId (а не req.userId!)
@@ -300,6 +353,9 @@ app.get('/api/users/:userId', authMiddleware, async (req, res) => {
       recentMovies,
       friends: friendsList,
       journal,
+      plan: planOf(user),
+      profileTheme: planOf(user) === 'brilliant' ? user.profileTheme : null,
+      isPrivate: user.isPrivate,
       reviewsHidden: !canSeeReviews
     });
   } catch (error) {

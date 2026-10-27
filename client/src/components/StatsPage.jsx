@@ -135,7 +135,132 @@ function WatchCalendar({ watched, onOpenMovie }) {
   );
 }
 
-export default function StatsPage({ movies, onBack, onOpenMovie }) {
+// Просмотры по месяцам за последний год: столбики
+function ActivityChart({ watched }) {
+  const now = new Date();
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
+    return { y: d.getFullYear(), m: d.getMonth(), count: 0 };
+  });
+  for (const movie of watched) {
+    const d = watchedDate(movie);
+    if (!d) continue;
+    const slot = months.find((x) => x.y === d.getFullYear() && x.m === d.getMonth());
+    if (slot) slot.count += 1;
+  }
+  const max = Math.max(1, ...months.map((x) => x.count));
+  const total = months.reduce((sum, x) => sum + x.count, 0);
+  const best = months.reduce((a, b) => (b.count > a.count ? b : a), months[0]);
+
+  return (
+    <section className="mg-glass-panel rounded-[24px] p-5">
+      <div className="mb-4 flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4]">Активность за год</h2>
+          <div className="mt-1 font-display text-[22px] font-bold text-white">{total} просмотров</div>
+        </div>
+        {best.count > 0 && (
+          <div className="text-right text-xs text-[#aeb3d6]">
+            Самый активный месяц
+            <div className="font-bold text-white">{MONTHS[best.m]} {best.y}</div>
+          </div>
+        )}
+      </div>
+      <div className="flex h-36 items-end gap-1.5" role="img" aria-label={`Просмотры по месяцам: ${months.map((x) => `${MONTHS[x.m]} ${x.count}`).join(", ")}`}>
+        {months.map((x) => (
+          <div key={`${x.y}-${x.m}`} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
+            <span className="text-[10px] font-bold text-[#aeb3d6]">{x.count || ""}</span>
+            <div
+              className="mg-bar w-full rounded-t-[6px] bg-gradient-to-t from-[#a78bfa] to-[#7ee8fa]"
+              style={{ height: `${Math.max(x.count ? 6 : 2, (x.count / max) * 100)}%`, opacity: x.count ? 1 : 0.25, transformOrigin: "bottom" }}
+            />
+            <span className="text-[10px] font-bold text-[#7b81a6]">{MONTHS[x.m].slice(0, 3)}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// Выгрузка журнала в файл (CSV для таблиц, JSON для программ)
+const EXPORT_FIELDS = ["title", "mediaType", "status", "rating", "comment", "releaseYear", "genres", "watchedAt", "createdAt", "tmdbId"];
+
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function exportJournal(movies, format) {
+  const rows = movies.map((m) =>
+    Object.fromEntries(EXPORT_FIELDS.map((f) => [f, f === "genres" ? (m.genres || []).join("; ") : m[f] ?? ""])),
+  );
+  const date = new Date().toISOString().slice(0, 10);
+  if (format === "json") {
+    download(`moviegrade-${date}.json`, JSON.stringify(rows, null, 2), "application/json");
+    return;
+  }
+  const escape = (v) => `"${String(v).replace(/"/g, '""')}"`;
+  const csv = [EXPORT_FIELDS.join(","), ...rows.map((r) => EXPORT_FIELDS.map((f) => escape(r[f])).join(","))].join("\r\n");
+  // BOM, чтобы Excel правильно открыл русские буквы
+  download(`moviegrade-${date}.csv`, "\uFEFF" + csv, "text/csv;charset=utf-8");
+}
+
+function ExportSection({ movies }) {
+  return (
+    <section className="mg-glass-panel rounded-[24px] p-5">
+      <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4]">Экспорт журнала</h2>
+      <p className="mt-1.5 text-sm text-[#aeb3d6]">Все {movies.length} записей с оценками, отзывами, жанрами и датами.</p>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {[
+          { id: "csv", label: "Скачать CSV", icon: "sheet" },
+          { id: "json", label: "Скачать JSON", icon: "braces" },
+        ].map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            disabled={!movies.length}
+            onClick={() => exportJournal(movies, f.id)}
+            className="mg-glass-btn mg-glass-btn--wide h-12 rounded-full inline-flex items-center justify-center gap-2 text-sm font-extrabold text-white disabled:opacity-40"
+          >
+            <Icon n={f.icon} className="w-4 h-4" />
+            {f.label}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// Расширенная статистика недоступна на Free: показываем, что даёт подписка
+function LockedStats({ onOpenPremium }) {
+  return (
+    <section className="mg-page-rise mg-glass-panel relative overflow-hidden rounded-[28px] px-6 py-10 text-center">
+      <div className="pointer-events-none absolute -top-20 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-[#ffb347]/20 blur-[80px]" aria-hidden="true" />
+      <div className="relative">
+        <span className="mx-auto w-16 h-16 rounded-[22px] flex items-center justify-center bg-gradient-to-br from-[#ffe08a] to-[#ff9a3d]">
+          <Icon n="chart-column" className="w-8 h-8 [filter:brightness(0.12)]" />
+        </span>
+        <h2 className="mt-5 font-display text-[22px] font-bold text-white">Расширенная статистика</h2>
+        <p className="mx-auto mt-2 max-w-sm text-sm text-[#aeb3d6]">
+          Топ жанров и часы просмотра — в Gold. Графики активности и экспорт журнала в CSV и JSON — в Brilliant.
+        </p>
+        <button
+          type="button"
+          onClick={onOpenPremium}
+          className="mt-6 h-12 px-6 rounded-full text-sm font-extrabold text-[#2a1600] bg-gradient-to-r from-[#ffe08a] via-[#ffb347] to-[#ff8a50]"
+        >
+          Посмотреть подписки
+        </button>
+      </div>
+    </section>
+  );
+}
+
+export default function StatsPage({ movies, onBack, onOpenMovie, plan = "free", onOpenPremium }) {
   const { runtimes, loading } = useRuntimes(movies);
   const watched = movies.filter((m) => m.status === "WATCHED");
   const total = summarize(timeEntries(movies), runtimes);
@@ -155,6 +280,11 @@ export default function StatsPage({ movies, onBack, onOpenMovie }) {
         </button>
         <h1 className="font-display text-[24px] sm:text-[28px] font-bold text-white">Статистика</h1>
       </div>
+
+      {plan === "free" ? (
+        <LockedStats onOpenPremium={onOpenPremium} />
+      ) : (
+      <>
 
       <div className="mg-page-rise grid grid-cols-2 gap-2">
         <Tile value={loading ? "…" : hours.value} unit={loading ? "" : hours.unit} label="Время просмотра" />
@@ -190,9 +320,37 @@ export default function StatsPage({ movies, onBack, onOpenMovie }) {
         )}
       </section>
 
-      <div className="mg-page-rise" style={{ animationDelay: "120ms" }}>
-        <WatchCalendar watched={watched} onOpenMovie={onOpenMovie} />
-      </div>
+      {plan === "brilliant" ? (
+        <>
+          <div className="mg-page-rise" style={{ animationDelay: "120ms" }}>
+            <ActivityChart watched={watched} />
+          </div>
+          <div className="mg-page-rise" style={{ animationDelay: "160ms" }}>
+            <WatchCalendar watched={watched} onOpenMovie={onOpenMovie} />
+          </div>
+          <div className="mg-page-rise" style={{ animationDelay: "200ms" }}>
+            <ExportSection movies={movies} />
+          </div>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={onOpenPremium}
+          className="mg-page-rise mg-glass-panel w-full rounded-[24px] p-5 flex items-center gap-4 text-left"
+          style={{ animationDelay: "120ms" }}
+        >
+          <span className="w-11 h-11 shrink-0 rounded-2xl flex items-center justify-center bg-gradient-to-br from-[#7ee8fa] via-[#a78bfa] to-[#f472b6]">
+            <Icon n="gem" className="w-5 h-5 [filter:brightness(0.12)]" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-extrabold text-white">Графики активности и экспорт</span>
+            <span className="block mt-0.5 text-xs text-[#aeb3d6]">Календарь просмотров, активность за год и выгрузка в CSV/JSON — в Brilliant</span>
+          </span>
+          <Icon n="chevron-right" className="w-5 h-5 opacity-60" />
+        </button>
+      )}
+      </>
+      )}
     </div>
   );
 }

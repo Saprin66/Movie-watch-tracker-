@@ -7,6 +7,7 @@ const { JWT_SECRET } = require('../config');
 const { authMiddleware, authAllowUnverified, readToken, signToken } = require('../middleware/auth');
 const { cleanUsername } = require('../security');
 const { rateLimit } = require('../middleware/rateLimit');
+const { planOf, planUntilOf } = require('../plans');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -252,6 +253,11 @@ router.get('/me', authAllowUnverified, async (req, res) => {
         email: true,
         avatar: true,
         bio: true,
+        isPrivate: true,
+        plan: true,
+        promoPlan: true,
+        promoUntil: true,
+        profileTheme: true,
         isVerified: true,
         createdAt: true
       }
@@ -261,7 +267,9 @@ router.get('/me', authAllowUnverified, async (req, res) => {
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
 
-    res.json(user);
+    // Наружу отдаём только действующий тариф и срок, без внутренних полей промо
+    const { promoPlan, promoUntil, ...rest } = user;
+    res.json({ ...rest, plan: planOf(user), planUntil: planUntilOf(user) });
   } catch (error) {
     console.error('Ошибка получения пользователя:', error);
     res.status(500).json({ error: 'Ошибка сервера' });

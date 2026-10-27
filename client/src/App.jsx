@@ -31,13 +31,18 @@ import {
 } from "./utils/filterMovies";
 import { metaFromTmdb } from "./utils/genres";
 import { useMetaBackfill } from "./hooks/useMetaBackfill";
+import { useUiStyle } from "./hooks/useUiStyle";
+import { parseLetterboxd } from "./utils/letterboxd";
+import { planOf } from "./utils/plans";
+import AdBanner from "./components/AdBanner";
+import SettingsPage from "./components/SettingsPage";
+import SubscriptionPage from "./components/SubscriptionPage";
 import Icon from "./components/Icon";
-import { Chip, MovieCard, CornerButton, Grid, Empty, Avatar, Logo, Poster, SubTabs } from "./components/ui";
+import { Chip, MovieCard, CornerButton, Grid, Empty, Avatar, Logo, Poster, SubTabs, Pagination } from "./components/ui";
 import {
   ORANGE_FILTER,
   BTN_ORANGE,
   BTN_SOFT,
-  BTN_RED,
   PANEL,
   DARK_ICON,
   EYEBROW,
@@ -49,8 +54,14 @@ import { API_URL, TMDB_API_KEY, TMDB, POSTER } from "./config";
 
 function MovieTracker() {
   const [friendsLastWatched, setFriendsLastWatched] = useState({});
-  const { user, token, logout, getFriends, getFriendRequests, handleFriendRequest, updateAvatar, deleteAccount } = useAuth();
+  const { user, token, logout, getFriends, getFriendRequests, handleFriendRequest, updateAvatar, updatePrivacy, redeemPromo, updateProfileTheme, deleteAccount } = useAuth();
+  const plan = planOf(user);
+  const openPremium = () => setActiveTab("profile-premium");
+  const [themeError, setThemeError] = useState("");
+  const [privacySaving, setPrivacySaving] = useState(false);
+  const [privacyError, setPrivacyError] = useState("");
   const [activeTab, setActiveTab] = useState("movies");
+  const { styles: uiStyles, setStyle: setUiStyle } = useUiStyle();
   const [requestsCount, setRequestsCount] = useState(0);
   const [movies, setMovies] = useState([]);
   const [friends, setFriends] = useState([]);
@@ -351,9 +362,12 @@ function MovieTracker() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      setMovies(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      setMovies(list);
+      return list;
     } catch (error) {
       console.error("Ошибка загрузки фильмов:", error);
+      return null;
     }
   };
 
@@ -390,7 +404,7 @@ function MovieTracker() {
     }
   };
 
-  const loadPopularMovies = async () => {
+  const loadPopularMovies = async (page = 1) => {
     // Защита от гонки запросов: ответ популярного каталога не должен
     // перезаписывать результаты фильтров, если они загрузились позже.
     const seq = ++searchSeq.current;
@@ -400,12 +414,14 @@ function MovieTracker() {
     }
     try {
       const res = await fetch(
-        `${TMDB}/movie/popular?api_key=${TMDB_API_KEY}&language=ru-RU&page=1`,
+        `${TMDB}/movie/popular?api_key=${TMDB_API_KEY}&language=ru-RU&page=${page}`,
       );
       const data = await res.json();
       if (seq !== searchSeq.current) return;
       if (!res.ok) throw new Error(data.status_message || "Не удалось загрузить популярные фильмы TMDB");
       setSearchResults(data.results || []);
+      setCatalogPage(page);
+      setCatalogTotalPages(Math.min(data.total_pages || 1, 500));
       setCatalogError("");
     } catch (error) {
       if (seq !== searchSeq.current) return;
@@ -414,7 +430,9 @@ function MovieTracker() {
     }
   };
 
-  // Возвращает созданную запись (или null), чтобы можно было сразу открыть отзыв
+  // Возвращает запись из журнала (или null), чтобы можно было сразу открыть отзыв.
+  // 409 значит, что фильм уже в журнале (например, после двойного нажатия, пока
+  // список ещё не обновился) — тогда возвращаем уже существующую запись.
   const addMovie = async (movie) => {
     try {
       const res = await fetch(`${API_URL}/api/movies`, {
@@ -423,7 +441,12 @@ function MovieTracker() {
         body: JSON.stringify(movie),
       });
       const created = res.ok ? await res.json().catch(() => null) : null;
-      await fetchMovies();
+      const list = await fetchMovies();
+      if (res.status === 409) {
+        return (list || []).find(
+          (m) => m.tmdbId === movie.tmdbId && m.mediaType === movie.mediaType,
+        ) || null;
+      }
       return created;
     } catch (error) {
       console.error("Ошибка добавления:", error);
@@ -469,23 +492,39 @@ function MovieTracker() {
     }
   };
 
-  // Кнопка «Посмотреть» на карточке: добавить в список / убрать из него
-  const toggleWatchlist = async (movie, existing) => {
-    if (!existing) await addMovie(tmdbToEntry(movie, "WATCHLIST"));
-    else if (existing.status === "WATCHLIST") await deleteMovie(existing.id);
-    else await updateMovieStatus(existing.id, "WATCHLIST");
+  // Карточки, по которым запрос ещё идёт: повторное нажатие в это время игнорируем,
+  // иначе второй запрос уйдёт со старым состоянием журнала
+  const pendingCards = useRef(new Set());
+  const once = async (key, action) => {
+    if (pendingCards.current.has(key)) return;
+    pendingCards.current.add(key);
+    try {
+      await action();
+    } finally {
+      pendingCards.current.delete(key);
+    }
   };
+  const cardKey = (movie, existing) =>
+    existing
+      ? `${existing.mediaType === "tv" ? "tv" : "movie"}-${existing.tmdbId}`
+      : `${movie.media_type === "tv" ? "tv" : "movie"}-${movie.id}`;
+
+  // Кнопка «Посмотреть» на карточке: добавить в список / убрать из него
+  const toggleWatchlist = (movie, existing) =>
+    once(cardKey(movie, existing), async () => {
+      if (!existing) await addMovie(tmdbToEntry(movie, "WATCHLIST"));
+      else if (existing.status === "WATCHLIST") await deleteMovie(existing.id);
+      else await updateMovieStatus(existing.id, "WATCHLIST");
+    });
 
   // Кнопка «Просмотрено»: отметить и сразу открыть оценку
-  const markWatchedAndRate = async (movie, existing) => {
-    if (!existing) {
-      const created = await addMovie(tmdbToEntry(movie, "WATCHED"));
-      if (created?.id) setReviewMovieId(created.id);
-      return;
-    }
-    if (existing.status !== "WATCHED") await updateMovieStatus(existing.id, "WATCHED");
-    setReviewMovieId(existing.id);
-  };
+  const markWatchedAndRate = (movie, existing) =>
+    once(cardKey(movie, existing), async () => {
+      const entry = existing || (await addMovie(tmdbToEntry(movie, "WATCHED")));
+      if (!entry?.id) return;
+      if (entry.status !== "WATCHED") await updateMovieStatus(entry.id, "WATCHED");
+      setReviewMovieId(entry.id);
+    });
 
   const updateMovieStatus = async (id, status) => {
     try {
@@ -530,26 +569,27 @@ function MovieTracker() {
   };
   const searchTimer = useRef(null);
 
-  const searchMovies = async (query) => {
+  const searchMovies = async (query, page = 1) => {
     clearTimeout(searchTimer.current);
     setSearchMode("text");
     setCatalogError("");
     const seq = ++searchSeq.current;
 
     if (!query.trim()) {
-      setSearchResults([]);
-      loadPopularMovies();
+      loadPopularMovies(page);
       return;
     }
     try {
       const res = await fetch(
-        `${TMDB}/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=ru-RU`,
+        `${TMDB}/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=ru-RU&page=${page}`,
       );
       const data = await res.json();
       if (seq !== searchSeq.current) return;
       setSearchResults(
         (data.results || []).filter((r) => r.media_type !== "person"),
       );
+      setCatalogPage(page);
+      setCatalogTotalPages(Math.min(data.total_pages || 1, 500));
     } catch (error) {
       console.error("Ошибка поиска:", error);
     }
@@ -616,7 +656,15 @@ function MovieTracker() {
     setYearTo("");
     setMinRating("0");
     setSortBy("popularity.desc");
-    setCatalogPage(1);
+    // После сброса снова показываем популярное вместо старой подборки
+    if (searchMode === "filters") searchMovies(searchQuery);
+  };
+
+  // Переход на другую страницу результатов в текущем режиме поиска
+  const goToCatalogPage = (page) => {
+    if (searchMode === "filters") discoverMovies(page);
+    else searchMovies(searchQuery, page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // Поиск при вводе: запрос уходит, когда человек на мгновение остановился
@@ -772,6 +820,64 @@ function MovieTracker() {
     }
   };
 
+  // Импорт из Letterboxd (ранний доступ Brilliant): CSV из экспорта Letterboxd
+  const handleLetterboxdImport = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportProgress({ current: 0, total: 0 });
+    setImportResult(null);
+    const success = [];
+    const failed = [];
+    const skipped = [];
+    try {
+      const entries = parseLetterboxd(await file.text(), file.name);
+      if (entries.length === 0) {
+        alert("Не удалось найти фильмы в файле. Загрузи ratings.csv, watched.csv, diary.csv или watchlist.csv из экспорта Letterboxd.");
+        return;
+      }
+      setImportProgress({ current: 0, total: entries.length });
+      for (let i = 0; i < entries.length; i++) {
+        const { title, year, status, rating } = entries[i];
+        try {
+          const params = new URLSearchParams({ api_key: TMDB_API_KEY, query: title, language: "ru-RU" });
+          if (year) params.set("year", String(year));
+          const res = await fetch(`${TMDB}/search/movie?${params}`);
+          const data = await res.json();
+          const item = (data.results || [])[0];
+          if (!item) {
+            failed.push({ title });
+          } else if (movies.some((m) => m.tmdbId === item.id && m.mediaType !== "tv")) {
+            skipped.push({ title, tmdbTitle: item.title });
+          } else {
+            await fetch(`${API_URL}/api/movies`, {
+              method: "POST",
+              headers: authHeaders,
+              body: JSON.stringify({
+                ...tmdbToEntry({ ...item, media_type: "movie" }, status),
+                ...(rating ? { rating } : {}),
+              }),
+            });
+            success.push({ title, tmdbTitle: item.title, status, mediaType: "movie" });
+          }
+        } catch (err) {
+          console.error("Ошибка импорта из Letterboxd:", title, err);
+          failed.push({ title });
+        }
+        setImportProgress((prev) => ({ ...prev, current: i + 1 }));
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+      await fetchMovies();
+      setImportResult({ success, failed, skipped });
+    } catch (error) {
+      console.error("Ошибка импорта из Letterboxd:", error);
+      alert(`Ошибка при чтении файла: ${error.message}`);
+    } finally {
+      setImporting(false);
+      event.target.value = "";
+    }
+  };
+
   const reviewMovie = movies.find((m) => m.id === reviewMovieId) || null;
 
   const openPerson = (person) =>
@@ -821,7 +927,7 @@ function MovieTracker() {
     movies.map((m) => `${m.mediaType === "tv" ? "tv" : "movie"}-${m.tmdbId}`),
   );
 
-  //БОКОВАЯ ПАНЕЛЬ С ВКЛАДКАМИ
+  // ВЕРХНЯЯ ПОЛОСКА С ВКЛАДКАМИ
 
   const navItems = [
     { id: "home", label: "Главная", short: "Главная", icon: "house" },
@@ -860,48 +966,22 @@ function MovieTracker() {
     { id: "watchlist", label: "Буду смотреть" },
   ];
 
-  const statItems = [
-    { v: movies.length, l: "Всего", c: "text-white" },
-    { v: watchedCount, l: "Смотрел", c: "text-[#58dcaa]" },
-    { v: watchlistCount, l: "В планах", c: "text-[#86b8ff]" },
-  ];
 
   return (
     <div className="min-h-app bg-[#0a0c18] text-[#c4c8e4]">
-      <div className="flex">
-        <aside className="hidden lg:flex w-64 shrink-0 sticky top-0 h-[100dvh] flex-col gap-6 overflow-y-auto border-r border-white/[0.06] bg-[#0d1021] px-[18px] py-6">
+      <div className="flex flex-col">
+      <header className="sticky top-0 z-40 bg-[#0a0c18]/90 backdrop-blur-xl border-b border-white/[0.06] safe-top safe-x">
+        <div className="flex items-center gap-2.5 sm:gap-3 px-4 lg:px-8 h-[72px] max-w-[1680px] mx-auto">
           <button
             type="button"
             onClick={() => setActiveTab("home")}
-            className="px-1.5 text-left"
+            className="shrink-0 lg:mr-6"
             aria-label="На главную"
           >
             <Logo />
           </button>
 
-          <div className={`${PANEL} p-4 space-y-3.5`}>
-            <button
-              type="button"
-              onClick={() => setActiveTab("profile")}
-              className="w-full flex items-center gap-3 text-left"
-            >
-              <Avatar name={user?.username} avatar={user?.avatar} size="w-12 h-12" text="text-lg" />
-              <span className="min-w-0">
-                <span className="block font-extrabold text-white truncate">{user?.username}</span>
-                <span className="block text-xs text-[#8b91b5] truncate">{user?.email}</span>
-              </span>
-            </button>
-            <div className="grid grid-cols-3 gap-1.5 text-center">
-              {statItems.map((s) => (
-                <div key={s.l}>
-                  <div className={`font-display text-lg font-semibold ${s.c}`}>{s.v}</div>
-                  <div className="text-[11px] text-[#8b91b5] mt-0.5">{s.l}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <nav className="space-y-1" aria-label="Разделы">
+          <nav className="hidden lg:flex items-center gap-1 self-stretch min-w-0" aria-label="Разделы">
             {navItems.map((item) => {
               const active = activeSection === item.id;
               return (
@@ -909,10 +989,10 @@ function MovieTracker() {
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
                   aria-current={active ? "page" : undefined}
-                  className={`w-full min-h-[44px] flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-semibold transition-colors ${
+                  className={`relative shrink-0 h-full flex items-center gap-2 px-3.5 text-sm font-semibold transition-colors after:absolute after:left-3 after:right-3 after:-bottom-px after:h-[2px] after:rounded-full after:transition-colors ${
                     active
-                      ? "bg-[#ff7a45]/[0.14] text-[#ff935f]"
-                      : "text-[#9aa0c6] hover:bg-white/5 hover:text-white"
+                      ? "text-[#ff935f] after:bg-[#ff7a45]"
+                      : "text-[#9aa0c6] hover:text-white after:bg-transparent"
                   }`}
                 >
                   <Icon
@@ -922,8 +1002,8 @@ function MovieTracker() {
                   {item.label}
                   {item.badge > 0 && (
                     <span
-                      className="ml-auto min-w-[22px] h-[22px] px-1.5 rounded-full bg-[#ff7a45] text-[#1b0d07] text-xs font-extrabold flex items-center justify-center"
-                      aria-label={`Новых заявок: ${item.badge}`}
+                      className="min-w-[20px] h-5 px-1.5 rounded-full bg-[#ff7a45] text-[#1b0d07] text-[11px] font-extrabold flex items-center justify-center"
+                      aria-label={`Новых уведомлений: ${item.badge}`}
                     >
                       {item.badge > 99 ? "99+" : item.badge}
                     </span>
@@ -932,19 +1012,6 @@ function MovieTracker() {
               );
             })}
           </nav>
-        </aside>
-
-        <div className="flex-1 min-w-0 flex flex-col">
-      <header className="sticky top-0 z-40 bg-[#0a0c18]/90 backdrop-blur-xl border-b border-white/[0.06] safe-top safe-x">
-        <div className="flex items-center gap-2.5 sm:gap-3 px-4 lg:px-8 h-[72px]">
-          <button
-            type="button"
-            onClick={() => setActiveTab("home")}
-            className="lg:hidden shrink-0"
-            aria-label="На главную"
-          >
-            <Logo />
-          </button>
 
           <div className="flex-1" />
 
@@ -1001,13 +1068,22 @@ function MovieTracker() {
         </div>
       </header>
 
-      <div className="flex flex-1">
+      <div className="flex flex-1 w-full max-w-[1680px] mx-auto">
         <main className="flex-1 min-w-0 px-4 lg:px-8 py-6 lg:py-8 pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
+          {/* На компьютере переключатель «Мой журнал / Что смотреть» в журнале живёт в боковой панели */}
           {subTabs && (
-            <SubTabs items={subTabs} active={activeTab} onChange={setActiveTab} />
+            <SubTabs
+              items={subTabs}
+              active={activeTab}
+              onChange={setActiveTab}
+              className={`mb-6 flex justify-center ${activeTab === "movies" ? "lg:hidden" : ""}`}
+            />
           )}
           {/* key пересоздаёт обёртку при смене вкладки, чтобы проиграть анимацию входа */}
           <div key={activeTab} className="mg-tab-enter">
+          {plan === "free" && ["home", "search"].includes(activeTab) && (
+            <AdBanner onOpenPremium={openPremium} className="mb-6" />
+          )}
           {activeTab === "home" && (
             <HomeFeed
               onOpenMovie={setSelectedMovie}
@@ -1016,7 +1092,7 @@ function MovieTracker() {
           )}
           {activeTab === "movies" && (
             <div className="space-y-6">
-              <div>
+              <div className="text-center lg:hidden">
                 <div className={`${EYEBROW} mb-2.5`}>Мой список</div>
                 <h1 className={PAGE_TITLE}>Журнал {user?.username}</h1>
               </div>
@@ -1038,7 +1114,7 @@ function MovieTracker() {
                 </div>
               )}
 
-              <div className="space-y-3">
+              <div className="space-y-3 lg:hidden">
                 <SubTabs
                   items={tabs.map((t) => ({
                     ...t,
@@ -1046,7 +1122,7 @@ function MovieTracker() {
                   }))}
                   active={movieFilter}
                   onChange={setMovieFilter}
-                  className="flex"
+                  className="flex justify-center"
                   itemClass="sm:w-[190px]"
                 />
                 <div className="flex flex-wrap items-center gap-3">
@@ -1076,6 +1152,7 @@ function MovieTracker() {
                 </div>
               </div>
 
+              <div className="lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8 lg:items-start space-y-6 lg:space-y-0">
               <MovieFilters
                 filters={filters}
                 onChange={setFilters}
@@ -1083,8 +1160,67 @@ function MovieTracker() {
                 shownCount={filteredMovies.length}
                 totalCount={byStatus.length}
                 metaPending={metaPending}
+                kindOptions={KIND_OPTIONS}
+                sortOptions={SORT_OPTIONS}
+                top={
+                  <>
+                    <div>
+                      <div className={`${EYEBROW} mb-1.5`}>Мой список</div>
+                      <h1 className="font-display text-[22px] font-bold leading-tight text-white truncate">
+                        Журнал {user?.username}
+                      </h1>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[#0d1021] border border-white/[0.08]" role="tablist">
+                      {subTabs.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={activeTab === t.id}
+                          onClick={() => setActiveTab(t.id)}
+                          className={`h-9 rounded-[9px] text-[13px] font-bold transition-colors ${
+                            activeTab === t.id ? "bg-[#ff7a45] text-[#1b0d07]" : "text-[#8b91b5] hover:text-white"
+                          }`}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="space-y-1" role="group" aria-label="Статус">
+                      {tabs.map((t) => {
+                        const selected = movieFilter === t.id;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => setMovieFilter(t.id)}
+                            aria-pressed={selected}
+                            className={`w-full h-11 flex items-center gap-3 px-3 rounded-xl text-sm font-bold transition-colors ${
+                              selected
+                                ? "bg-[#ff7a45]/[0.14] text-[#ff9a6c]"
+                                : "text-[#aeb3d6] hover:bg-white/[0.05] hover:text-white"
+                            }`}
+                          >
+                            <Icon
+                              n={t.id === "watched" ? "circle-check" : "bookmark"}
+                              className={`w-[18px] h-[18px] ${selected ? ORANGE_FILTER : "opacity-60"}`}
+                            />
+                            {t.label}
+                            <span className={`ml-auto min-w-[28px] h-6 px-2 rounded-full text-xs font-extrabold flex items-center justify-center ${selected ? "bg-[#ff7a45] text-[#1b0d07]" : "bg-white/[0.07] text-[#aeb3d6]"}`}>
+                              {t.id === "watched" ? watchedCount : watchlistCount}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                }
+                sortMode={sortMode}
+                onSortChange={changeSort}
               />
 
+              <section className="min-w-0 space-y-6">
+              {plan === "free" && <AdBanner onOpenPremium={openPremium} />}
               {filteredMovies.length === 0 ? (
                 isFiltering(filters) && byStatus.length > 0 ? (
                   <div className={`${PANEL} text-center py-14 px-6`}>
@@ -1103,7 +1239,7 @@ function MovieTracker() {
                   <Empty text="Здесь пока пусто. Найди фильм через лупу внизу или раздел «Искать» и добавь его." />
                 )
               ) : (
-                <Grid>
+                <Grid withSidebar>
                   {filteredMovies.map((movie) => (
                     <MovieCard
                       key={movie.id}
@@ -1164,6 +1300,8 @@ function MovieTracker() {
                   ))}
                 </Grid>
               )}
+              </section>
+              </div>
             </div>
           )}
 
@@ -1205,72 +1343,80 @@ function MovieTracker() {
                 </button>
               </form>
 
-              <section className={`${PANEL} p-4 sm:p-6 space-y-5`}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h2 className={SECTION_TITLE}>Подбор по фильтрам</h2>
-                    <p className="mt-1.5 text-[13px] text-[#8b91b5]">Фильтры применяются ко всему каталогу TMDB, а не только к загруженным карточкам</p>
-                  </div>
-                  <button type="button" onClick={() => setFiltersOpen((v) => !v)} aria-expanded={filtersOpen} className={`h-10 px-4 rounded-xl text-sm ${BTN_SOFT}`}>
-                    {filtersOpen ? "Свернуть" : "Показать фильтры"}
+              <div className="lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8 lg:items-start space-y-6 lg:space-y-0">
+              <aside className={`${PANEL} p-4 sm:p-5 space-y-5 lg:sticky lg:top-[96px] lg:max-h-[calc(100dvh-120px)] lg:overflow-y-auto`}>
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className={`flex items-center gap-2.5 ${SECTION_TITLE}`}>
+                    <Icon n="sliders-horizontal" className={`w-[18px] h-[18px] ${ORANGE_FILTER}`} />
+                    Фильтры
+                  </h2>
+                  <button type="button" onClick={() => setFiltersOpen((v) => !v)} aria-expanded={filtersOpen} className={`lg:hidden h-10 px-4 rounded-xl text-sm ${BTN_SOFT}`}>
+                    {filtersOpen ? "Свернуть" : "Показать"}
                   </button>
                 </div>
-                {filtersOpen && <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
-                    <div className="text-xs font-bold text-[#aeb3d6] space-y-2">
-                      <span className="block">Тип контента</span>
-                      <div className="flex gap-1 p-[3px] rounded-xl bg-[#0d1021] border border-white/[0.08]" role="group" aria-label="Тип контента">
-                        {[{ v: "movie", l: "Фильмы" }, { v: "tv", l: "Сериалы" }].map((o) => (
-                          <button key={o.v} type="button" aria-pressed={catalogType === o.v} onClick={() => { setCatalogType(o.v); setSelectedGenres([]); }} className={`flex-1 h-9 rounded-[9px] text-[13px] font-bold transition-colors ${catalogType === o.v ? "bg-[#1d2140] text-white" : "text-[#8b91b5] hover:text-white"}`}>{o.l}</button>
-                        ))}
-                      </div>
+                <div className={`${filtersOpen ? "" : "hidden"} lg:block space-y-5`}>
+                  <p className="text-[13px] text-[#8b91b5] -mt-2">Подбор идёт по всему каталогу TMDB</p>
+                  <div className="text-xs font-bold text-[#aeb3d6] space-y-2">
+                    <span className="block">Тип контента</span>
+                    <div className="flex gap-1 p-[3px] rounded-xl bg-[#0d1021] border border-white/[0.08]" role="group" aria-label="Тип контента">
+                      {[{ v: "movie", l: "Фильмы" }, { v: "tv", l: "Сериалы" }].map((o) => (
+                        <button key={o.v} type="button" aria-pressed={catalogType === o.v} onClick={() => { setCatalogType(o.v); setSelectedGenres([]); }} className={`flex-1 h-9 rounded-[9px] text-[13px] font-bold transition-colors ${catalogType === o.v ? "bg-[#1d2140] text-white" : "text-[#8b91b5] hover:text-white"}`}>{o.l}</button>
+                      ))}
                     </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
                     <label className="text-xs font-bold text-[#aeb3d6] space-y-2 block">Год от
-                      <input type="number" min="1900" max="2026" placeholder="Например, 2000" value={yearFrom} onChange={(e) => setYearFrom(e.target.value)} className="w-full h-11 rounded-xl bg-[#0d1021] border border-white/[0.09] px-3.5 text-sm font-medium text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45]" />
+                      <input type="number" min="1900" max="2026" placeholder="2000" value={yearFrom} onChange={(e) => setYearFrom(e.target.value)} className="w-full h-11 rounded-xl bg-[#0d1021] border border-white/[0.09] px-3.5 text-sm font-medium text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45]" />
                     </label>
                     <label className="text-xs font-bold text-[#aeb3d6] space-y-2 block">Год до
-                      <input type="number" min="1900" max="2026" placeholder="Например, 2026" value={yearTo} onChange={(e) => setYearTo(e.target.value)} className="w-full h-11 rounded-xl bg-[#0d1021] border border-white/[0.09] px-3.5 text-sm font-medium text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45]" />
-                    </label>
-                    <label className="text-xs font-bold text-[#aeb3d6] space-y-2 block">Минимальный рейтинг
-                      <select value={minRating} onChange={(e) => setMinRating(e.target.value)} className="w-full h-11 rounded-xl bg-[#0d1021] border border-white/[0.09] px-3 text-sm font-medium text-white focus:outline-none focus:border-[#ff7a45]">
-                        <option value="0">Любой рейтинг</option><option value="5">От 5.0</option><option value="6">От 6.0</option><option value="7">От 7.0</option><option value="7.5">От 7.5</option><option value="8">От 8.0</option><option value="8.5">От 8.5</option>
-                      </select>
+                      <input type="number" min="1900" max="2026" placeholder="2026" value={yearTo} onChange={(e) => setYearTo(e.target.value)} className="w-full h-11 rounded-xl bg-[#0d1021] border border-white/[0.09] px-3.5 text-sm font-medium text-white placeholder:text-[#6f759e] focus:outline-none focus:border-[#ff7a45]" />
                     </label>
                   </div>
+                  <label className="text-xs font-bold text-[#aeb3d6] space-y-2 block">Минимальный рейтинг
+                    <select value={minRating} onChange={(e) => setMinRating(e.target.value)} className="w-full h-11 rounded-xl bg-[#0d1021] border border-white/[0.09] px-3 text-sm font-medium text-white focus:outline-none focus:border-[#ff7a45]">
+                      <option value="0">Любой рейтинг</option><option value="5">От 5.0</option><option value="6">От 6.0</option><option value="7">От 7.0</option><option value="7.5">От 7.5</option><option value="8">От 8.0</option><option value="8.5">От 8.5</option>
+                    </select>
+                  </label>
+                  <label className="text-xs font-bold text-[#aeb3d6] space-y-2 block">Сортировка
+                    <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="w-full h-11 rounded-xl bg-[#0d1021] border border-white/[0.09] px-3 text-sm font-medium text-white focus:outline-none focus:border-[#ff7a45]">
+                      <option value="popularity.desc">Сначала популярные</option><option value="vote_average.desc">По рейтингу</option><option value={catalogType === "tv" ? "first_air_date.desc" : "primary_release_date.desc"}>Сначала новые</option><option value="vote_count.desc">По количеству оценок</option>
+                    </select>
+                  </label>
                   <div className="text-xs font-bold text-[#aeb3d6] space-y-2.5">
-                    <span className="block">Жанры <span className="font-medium text-[#6f759e]">можно выбрать несколько</span></span>
-                    <div className="flex flex-wrap gap-2">
+                    <span className="block">Жанры <span className="font-medium text-[#6f759e]">можно несколько</span></span>
+                    <div className="flex flex-wrap gap-1.5">
                       {catalogGenres.map((genre) => {
                         const active = selectedGenres.includes(genre.id);
-                        return <button type="button" key={genre.id} aria-pressed={active} onClick={() => setSelectedGenres((prev) => active ? prev.filter((id) => id !== genre.id) : [...prev, genre.id])} className={`min-h-[38px] rounded-full border px-4 text-[13px] font-bold transition ${active ? "border-[#ff7a45] bg-[#ff7a45]/15 text-[#ffa27d]" : "border-white/10 bg-[#0d1021] text-[#aeb3d6] hover:border-white/30"}`}>{genre.name}</button>;
+                        return <button type="button" key={genre.id} aria-pressed={active} onClick={() => setSelectedGenres((prev) => active ? prev.filter((id) => id !== genre.id) : [...prev, genre.id])} className={`min-h-[34px] rounded-full border px-3 text-[12px] font-bold transition ${active ? "border-[#ff7a45] bg-[#ff7a45]/15 text-[#ffa27d]" : "border-white/10 bg-[#0d1021] text-[#aeb3d6] hover:border-white/30"}`}>{genre.name}</button>;
                       })}
                     </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
-                    <label className="text-xs font-bold text-[#aeb3d6] space-y-2 flex-1 block">Сортировка
-                      <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="w-full h-11 rounded-xl bg-[#0d1021] border border-white/[0.09] px-3 text-sm font-medium text-white focus:outline-none focus:border-[#ff7a45]">
-                        <option value="popularity.desc">Сначала популярные</option><option value="vote_average.desc">По рейтингу</option><option value={catalogType === "tv" ? "first_air_date.desc" : "primary_release_date.desc"}>Сначала новые</option><option value="vote_count.desc">По количеству оценок</option>
-                      </select>
-                    </label>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => { resetCatalogFilters(); }} className={`flex-1 sm:flex-none h-11 px-5 rounded-xl text-sm ${BTN_SOFT}`}>Сбросить</button>
-                      <button type="button" disabled={catalogLoading} onClick={() => discoverMovies(1)} className={`flex-1 sm:flex-none h-11 px-6 rounded-xl text-sm disabled:opacity-50 ${BTN_ORANGE}`}>{catalogLoading ? "Ищем…" : "Подобрать"}</button>
-                    </div>
+                  <div className="flex gap-2 pt-1">
+                    <button type="button" onClick={resetCatalogFilters} className={`flex-1 h-11 px-4 rounded-xl text-sm ${BTN_SOFT}`}>Сбросить</button>
+                    <button type="button" disabled={catalogLoading} onClick={() => discoverMovies(1)} className={`flex-1 h-11 px-4 rounded-xl text-sm disabled:opacity-50 ${BTN_ORANGE}`}>{catalogLoading ? "Ищем…" : "Подобрать"}</button>
                   </div>
-                </>}
-              </section>
+                </div>
+              </aside>
+
+              <section className="min-w-0 space-y-5">
               {catalogError && <p role="alert" className="rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{catalogError}</p>}
-              {catalogLoading && <p className="py-4 text-center text-sm text-[#aeb3d6]">Загружаем результаты из TMDB…</p>}
 
               {searchResults.length > 0 ? (
                 <>
-                  {!searchQuery.trim() && searchMode !== "filters" && (
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <h2 className={`flex items-center gap-2.5 ${SECTION_TITLE}`}>
-                      <Icon n="flame" className={`w-5 h-5 ${ORANGE_FILTER}`} />
-                      Сейчас популярно
+                      {searchMode === "filters" ? (
+                        <><Icon n="sliders-horizontal" className={`w-5 h-5 ${ORANGE_FILTER}`} />Подборка по фильтрам</>
+                      ) : searchQuery.trim() ? (
+                        <><Icon n="search" className={`w-5 h-5 ${ORANGE_FILTER}`} />Результаты поиска</>
+                      ) : (
+                        <><Icon n="flame" className={`w-5 h-5 ${ORANGE_FILTER}`} />Сейчас популярно</>
+                      )}
                     </h2>
-                  )}
-                  <Grid>
+                    {catalogTotalPages > 1 && <span className="text-[13px] text-[#8b91b5]">Страница {catalogPage} из {catalogTotalPages}</span>}
+                  </div>
+                  <div className={`transition-opacity ${catalogLoading ? "opacity-50" : ""}`}>
+                  <Grid withSidebar>
                     {searchResults.map((movie) => {
                       const mediaType = movie.media_type === "tv" ? "tv" : "movie";
                       const existing = addedMovieIds.has(`${mediaType}-${movie.id}`)
@@ -1335,6 +1481,13 @@ function MovieTracker() {
                       );
                     })}
                   </Grid>
+                  </div>
+                  <Pagination
+                    page={catalogPage}
+                    totalPages={catalogTotalPages}
+                    disabled={catalogLoading}
+                    onChange={goToCatalogPage}
+                  />
                 </>
               ) : (
                 <Empty
@@ -1345,22 +1498,19 @@ function MovieTracker() {
                         ? "По этим фильтрам ничего не найдено. Попробуй изменить жанры или диапазон лет."
                         : searchQuery
                           ? "Ничего не найдено"
-                          : "Введите название для поиска или используйте фильтры выше"
+                          : "Введите название для поиска или используйте фильтры"
                   }
                 />
               )}
-              {searchMode === "filters" && searchResults.length > 0 && (
-                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                  <button type="button" disabled={catalogPage <= 1 || catalogLoading} onClick={() => discoverMovies(catalogPage - 1)} className={`h-11 px-5 rounded-xl text-sm disabled:opacity-40 ${BTN_SOFT}`}>← Назад</button>
-                  <span className="text-sm text-[#8b91b5]">Страница {catalogPage} из {catalogTotalPages}</span>
-                  <button type="button" disabled={catalogPage >= catalogTotalPages || catalogLoading} onClick={() => discoverMovies(catalogPage + 1)} className={`h-11 px-5 rounded-xl text-sm disabled:opacity-40 ${BTN_SOFT}`}>Вперёд →</button>
-                </div>
-              )}
+              </section>
+              </div>
             </div>
           )}
 
           {activeTab === "discover" && (
             <WhatToWatch
+              plan={plan}
+              onOpenPremium={openPremium}
               movies={movies}
               onOpenMovie={setSelectedMovie}
               onMarkWatched={(id) => updateMovieStatus(id, "WATCHED")}
@@ -1377,6 +1527,8 @@ function MovieTracker() {
 
           {activeTab === "together" && (
             <SharedLists
+              plan={plan}
+              onOpenPremium={openPremium}
               token={token}
               friends={friends}
               onOpenMovie={setSelectedMovie}
@@ -1390,7 +1542,7 @@ function MovieTracker() {
           )}
 
           {activeTab === "friends" && (
-            <div className="max-w-3xl">
+            <div className="max-w-3xl mx-auto">
               <div className={`${EYEBROW} mb-2.5`}>Люди</div>
               <h1 className={`${PAGE_TITLE} mb-7`}>Сообщество</h1>
               <FriendsPanel
@@ -1428,6 +1580,7 @@ function MovieTracker() {
                 }}
                 onOpenSettings={() => setActiveTab("profile-settings")}
                 onOpenStats={() => setActiveTab("profile-stats")}
+                onOpenPremium={openPremium}
                 onOpenFriend={setSelectedUserId}
                 onManageFriends={() => setActiveTab("friends")}
                 onOpenMovie={setSelectedMovie}
@@ -1437,6 +1590,8 @@ function MovieTracker() {
 
           {activeTab === "profile-stats" && (
             <StatsPage
+              plan={plan}
+              onOpenPremium={openPremium}
               movies={movies}
               onBack={() => setActiveTab("profile")}
               onOpenMovie={(movie) =>
@@ -1452,75 +1607,73 @@ function MovieTracker() {
             />
           )}
 
+          {activeTab === "profile-premium" && (
+            <SubscriptionPage
+              onBack={() => setActiveTab("profile")}
+              currentPlan={plan}
+              planUntil={user?.planUntil}
+              onRedeemPromo={redeemPromo}
+            />
+          )}
+
           {activeTab === "profile-settings" && (
-            <div className="max-w-3xl space-y-5 pb-28">
-              <button onClick={() => setActiveTab("profile")} className="inline-flex items-center gap-2 min-h-[44px] text-sm font-bold text-[#8b91b5] hover:text-white"><Icon n="arrow-left" className="w-4 h-4" /> Назад в профиль</button>
-              <div><h1 className={PAGE_TITLE}>Настройки профиля</h1><p className="text-sm text-[#8b91b5] mt-2.5">Управление аккаунтом и данными журнала.</p></div>
-              <div className={`${PANEL} p-5 sm:p-6`}>
-                <h2 className={`flex items-center gap-3 ${SECTION_TITLE} mb-2.5`}><span className="w-[38px] h-[38px] rounded-xl bg-[#ff7a45]/[0.14] flex items-center justify-center shrink-0"><Icon n="image" className={`w-[18px] h-[18px] ${ORANGE_FILTER}`} /></span>Аватар профиля</h2>
-                <p className="text-sm text-[#8b91b5] mb-5 leading-relaxed">Загрузи изображение с устройства. Оно будет автоматически обрезано по размеру и сжато.</p>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className="w-[88px] h-[88px] shrink-0 rounded-3xl overflow-hidden bg-gradient-to-br from-[#ff7a45] to-[#8b5cf6] flex items-center justify-center">
-                    {user?.avatar ? <img src={user.avatar} alt="Текущий аватар" className="w-full h-full object-cover" /> : <span className="font-display text-4xl font-bold text-white">{user?.username?.[0]?.toUpperCase() || "U"}</span>}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
-                    <button type="button" disabled={avatarSaving} onClick={() => avatarInputRef.current?.click()} className={`h-11 px-5 rounded-xl text-sm disabled:opacity-50 ${BTN_ORANGE}`}>
-                      {avatarSaving ? "Сохранение…" : "Выбрать изображение"}
-                    </button>
-                    {user?.avatar && <button type="button" disabled={avatarSaving} onClick={async () => {
-                      setAvatarSaving(true); setAvatarMessage(""); setAvatarError("");
-                      try {
-                        const result = await updateAvatar(null);
-                        if (!result.success) throw new Error(result.error || "Не удалось удалить аватар.");
-                        setAvatarMessage("Аватар удалён.");
-                      } catch (error) { setAvatarError(error.message || "Не удалось удалить аватар."); }
-                      finally { setAvatarSaving(false); }
-                    }} className={`h-11 px-5 rounded-xl text-sm ${BTN_SOFT} disabled:opacity-50`}>Удалить аватар</button>}
-                  </div>
-                </div>
-                {avatarMessage && <p role="status" className="mt-3 text-sm text-emerald-300">{avatarMessage}</p>}
-                {avatarError && <p role="alert" className="mt-3 rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-200">{avatarError}</p>}
-                <p className="text-xs text-[#8b91b5] mt-3">Поддерживаются изображения JPG, PNG, WebP и другие форматы, которые открывает браузер. Исходный файл — до 10 МБ.</p>
-              </div>
-              <div className={`${PANEL} p-5 sm:p-6`}>
-                <h2 className={`flex items-center gap-3 ${SECTION_TITLE} mb-2.5`}><span className="w-[38px] h-[38px] rounded-xl bg-[#ff7a45]/[0.14] flex items-center justify-center shrink-0"><Icon n="user-round-pen" className={`w-[18px] h-[18px] ${ORANGE_FILTER}`} /></span>Личные данные</h2>
-                <p className="text-sm text-[#8b91b5] mb-4">Измени никнейм и данные профиля.</p>
-                <button onClick={() => setSelectedUserId(user?.id)} className={`w-full h-11 rounded-xl text-sm ${BTN_SOFT}`}>Редактировать профиль</button>
-              </div>
-              <div className={`${PANEL} p-5 sm:p-6`}>
-                <h2 className={`flex items-center gap-3 ${SECTION_TITLE} mb-2.5`}><span className="w-[38px] h-[38px] rounded-xl bg-[#ff7a45]/[0.14] flex items-center justify-center shrink-0"><Icon n="download" className={`w-[18px] h-[18px] ${ORANGE_FILTER}`} /></span>Импорт из файла</h2>
-                <p className="text-sm text-[#8b91b5] mb-5 leading-relaxed">Загрузите .txt или .docx файл со списком фильмов. Каждая строка — название и, если хотите, оценка в конце.</p>
-                <div className="rounded-2xl border-[1.5px] border-dashed border-white/[0.16] p-6 sm:p-7 flex flex-col items-center gap-3 text-center">
-                  <Icon n="file-up" className={`w-7 h-7 ${ORANGE_FILTER}`} />
-                  <label className={`inline-flex items-center justify-center h-11 px-6 rounded-xl text-sm cursor-pointer ${importing ? "bg-[#1d2140] text-[#8b91b5] cursor-not-allowed font-bold" : BTN_ORANGE}`}>
-                    {importing ? `Импорт... ${importProgress.current}/${importProgress.total}` : "Выбрать файл"}
-                    <input type="file" accept=".txt,.docx" onChange={handleDocxImport} disabled={importing} className="hidden" />
-                  </label>
-                </div>
-              </div>
-              <div className={`${PANEL} p-5 sm:p-6`}>
-                <h2 className={`${SECTION_TITLE} mb-2`}>Сессия</h2><p className="text-sm text-[#8b91b5] mb-5">Выйти из текущего аккаунта на этом устройстве.</p>
-                <button onClick={logout} className={`w-full h-11 flex items-center justify-center gap-2 rounded-xl text-sm ${BTN_RED}`}><Icon n="log-out" /> Выйти из аккаунта</button>
-              </div>
-              <div className="rounded-[20px] border border-red-400/25 bg-red-500/[0.06] p-5 sm:p-6">
-                <h2 className={`flex items-center gap-3 ${SECTION_TITLE} mb-2.5`}><span className="w-[38px] h-[38px] rounded-xl bg-red-400/[0.14] flex items-center justify-center shrink-0"><Icon n="trash-2" className="w-[18px] h-[18px] [filter:invert(1)_sepia(1)_saturate(5)_hue-rotate(310deg)_brightness(1.1)]" /></span>Удалить аккаунт</h2>
-                <p className="text-sm text-[#aeb3d6] mb-5 leading-relaxed">Аккаунт удалится навсегда вместе с журналом, оценками, отзывами, друзьями и созданными тобой общими списками. Восстановить его будет нельзя.</p>
-                <button
-                  type="button"
-                  onClick={() => { setDeletePassword(""); setDeleteError(""); setDeleteAccountOpen(true); }}
-                  className="w-full sm:w-auto h-11 px-6 rounded-xl text-sm font-extrabold bg-red-500 hover:bg-red-400 text-white transition-colors"
-                >
-                  Удалить аккаунт
-                </button>
-              </div>
-            </div>
+            <SettingsPage
+              user={user}
+              onBack={() => setActiveTab("profile")}
+              uiStyles={uiStyles}
+              onUiStyleChange={setUiStyle}
+              privacy={{
+                isPrivate: Boolean(user?.isPrivate),
+                saving: privacySaving,
+                error: privacyError,
+                onChange: async (next) => {
+                  setPrivacySaving(true);
+                  setPrivacyError("");
+                  const result = await updatePrivacy(next);
+                  if (!result.success) setPrivacyError(result.error);
+                  setPrivacySaving(false);
+                },
+              }}
+              avatar={{
+                saving: avatarSaving,
+                message: avatarMessage,
+                error: avatarError,
+                onFile: handleAvatarChange,
+                onRemove: async () => {
+                  setAvatarSaving(true); setAvatarMessage(""); setAvatarError("");
+                  try {
+                    const result = await updateAvatar(null);
+                    if (!result.success) throw new Error(result.error || "Не удалось удалить аватар.");
+                    setAvatarMessage("Аватар удалён.");
+                  } catch (error) { setAvatarError(error.message || "Не удалось удалить аватар."); }
+                  finally { setAvatarSaving(false); }
+                },
+              }}
+              onEditProfile={() => setSelectedUserId(user?.id)}
+              onOpenPremium={openPremium}
+              plan={plan}
+              planUntil={user?.planUntil}
+              theme={{
+                value: user?.profileTheme || null,
+                error: themeError,
+                onChange: async (next) => {
+                  setThemeError("");
+                  const result = await updateProfileTheme(next);
+                  if (!result.success) setThemeError(result.error);
+                },
+              }}
+              onLetterboxdFile={handleLetterboxdImport}
+              importState={{ importing, current: importProgress.current, total: importProgress.total }}
+              onImportFile={handleDocxImport}
+              onLogout={logout}
+              onDeleteAccount={() => { setDeletePassword(""); setDeleteError(""); setDeleteAccountOpen(true); }}
+            />
           )}
           {activeTab === "profile-settings" && <Footer className="mt-12" />}
           </div>
         </main>
 
-        {["home", "movies", "feed"].includes(activeTab) && (
+        {["home", "feed"].includes(activeTab) && (
         <aside className="hidden xl:flex w-[300px] shrink-0 sticky top-[72px] h-[calc(100dvh-72px)] flex-col gap-4 overflow-y-auto py-8 pr-8">
           <div className="flex items-center justify-between">
             <h3 className="font-display text-base font-semibold text-white">Друзья</h3>
@@ -1610,7 +1763,6 @@ function MovieTracker() {
         </aside>
         )}
       </div>
-        </div>
       </div>
 
       {/* Нижний док на телефоне: панель разделов и отдельная кнопка поиска справа */}

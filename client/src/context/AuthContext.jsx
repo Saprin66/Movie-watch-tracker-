@@ -181,6 +181,75 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Промокод на временную подписку
+  const redeemPromo = async (code) => {
+    try {
+      const res = await fetch(`${API_URL}/api/users/promo`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data.error || "Не удалось активировать промокод" };
+      }
+      setUser((current) => current ? { ...current, plan: data.plan, planUntil: data.planUntil } : current);
+      return { success: true, message: data.message };
+    } catch (error) {
+      console.error("Ошибка активации промокода:", error);
+      return { success: false, error: "Ошибка соединения с сервером" };
+    }
+  };
+
+  // Тема профиля (Brilliant)
+  const updateProfileTheme = async (profileTheme) => {
+    try {
+      const res = await fetch(`${API_URL}/api/users/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ profileTheme }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data.error || "Не удалось сменить тему" };
+      }
+      setUser((current) => current ? { ...current, profileTheme: data.user?.profileTheme ?? profileTheme } : current);
+      return { success: true };
+    } catch (error) {
+      console.error("Ошибка смены темы профиля:", error);
+      return { success: false, error: "Ошибка соединения с сервером" };
+    }
+  };
+
+  // Приватный профиль: журнал, статистику и друзей видят только друзья
+  const updatePrivacy = async (isPrivate) => {
+    try {
+      const res = await fetch(`${API_URL}/api/users/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ isPrivate }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data.error || "Не удалось изменить приватность" };
+      }
+      setUser((current) => current ? { ...current, isPrivate: data.user?.isPrivate ?? isPrivate } : current);
+      return { success: true };
+    } catch (error) {
+      console.error("Ошибка изменения приватности:", error);
+      return { success: false, error: "Ошибка соединения с сервером" };
+    }
+  };
+
   const resendCode = async () => {
     try {
       const res = await fetch(`${API_URL}/api/auth/resend-code`, {
@@ -366,6 +435,9 @@ export const AuthProvider = ({ children }) => {
         verifyEmail,
         updateProfile,
         updateAvatar,
+        updatePrivacy,
+        redeemPromo,
+        updateProfileTheme,
         resendCode,
         forgotPassword,
         resetPassword,

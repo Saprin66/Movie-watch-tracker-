@@ -426,3 +426,115 @@ body {
     animation: none;
   }
 }
+
+/* ---- Обычный дизайн (без жидкого стекла) ----
+   Включается в настройках отдельно для компьютера и телефона */
+html[data-ui="plain"] .mg-glass-btn,
+html[data-ui="plain"] .mg-glass-btn--flat:not(.mg-glass-btn--orange):not(.mg-glass-btn--green) {
+  background: #1d2140;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+html[data-ui="plain"] .mg-glass-btn:hover {
+  background: #262b52;
+  transform: none;
+}
+html[data-ui="plain"] .mg-glass-btn:active { transform: scale(0.96); }
+html[data-ui="plain"] .mg-glass-btn--orange {
+  background: #ff7a45;
+  border-color: #ff7a45;
+  box-shadow: none;
+}
+html[data-ui="plain"] .mg-glass-btn--orange:hover { background: #ff9166; }
+html[data-ui="plain"] .mg-glass-btn--green {
+  background: #2fbf86;
+  border-color: #2fbf86;
+  box-shadow: none;
+}
+html[data-ui="plain"] .mg-glass-btn--green:hover { background: #3ad197; }
+
+html[data-ui="plain"] .mg-glass-chip {
+  background: #1d2140;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+html[data-ui="plain"] .mg-glass-chip--orange {
+  background: rgba(255, 122, 69, 0.16);
+  border-color: rgba(255, 122, 69, 0.3);
+}
+html[data-ui="plain"] .mg-glass-chip--green {
+  background: rgba(52, 211, 153, 0.14);
+  border-color: rgba(52, 211, 153, 0.3);
+}
+
+html[data-ui="plain"] .mg-glass-panel {
+  background: #12152a;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-color: rgba(255, 255, 255, 0.07);
+  box-shadow: none;
+}
+
+html[data-ui="plain"] .mg-glass-nav {
+  background: #12152a;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+html[data-ui="plain"] .mg-glass-nav--active {
+  background: rgba(255, 122, 69, 0.2);
+  border-color: rgba(255, 122, 69, 0.45);
+}
+html[data-ui="plain"] .mg-glass-pill {
+  background: rgba(255, 122, 69, 0.16);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* ---- Настройки в стиле iOS: разделитель начинается от текста строки ---- */
+.mg-ios-group > * + * {
+  position: relative;
+}
+.mg-ios-group > * + *::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 16px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+.mg-ios-group > [data-icon] + [data-icon]::before {
+  left: 60px;
+}
+
+/* ---- Подписка Brilliant: переливающаяся рамка аватара и значок ---- */
+.mg-brilliant-ring {
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(from 0deg, #7ee8fa, #a78bfa, #f472b6, #fbbf24, #7ee8fa);
+  animation: mg-spin 4s linear infinite;
+}
+.mg-brilliant-badge {
+  background: linear-gradient(90deg, #7ee8fa, #a78bfa, #f472b6, #7ee8fa);
+  background-size: 300% 100%;
+  animation: mg-shimmer 6s linear infinite;
+}
+@keyframes mg-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes mg-shimmer {
+  to { background-position: 300% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mg-brilliant-ring,
+  .mg-brilliant-badge {
+    animation: none;
+  }
+}

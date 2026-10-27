@@ -3,6 +3,8 @@ const { PrismaClient } = require('@prisma/client');
 const { authMiddleware } = require('../middleware/auth');
 const { isValidAvatar } = require('../security');
 const { notify, usernameOf } = require('../push');
+const { PROFILE_THEMES, PROMO_CODES, PLAN_NAMES, PLAN_SELECT, planOf, planUntilOf } = require('../plans');
+const { rateLimit } = require('../middleware/rateLimit');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -58,8 +60,26 @@ router.get('/friends/requests', authMiddleware, async (req, res) => {
 router.put('/profile', authMiddleware, async (req, res) => {
   try {
     // Витрины фильмов больше нет: showcaseMovieIds от старых версий приложения молча игнорируем
-    const { bio, avatar } = req.body || {};
+    const { bio, avatar, isPrivate, profileTheme } = req.body || {};
     const data = {};
+
+    if (profileTheme !== undefined) {
+      if (profileTheme !== null && !PROFILE_THEMES.includes(profileTheme)) {
+        return res.status(400).json({ error: 'Неизвестная тема профиля' });
+      }
+      const owner = await prisma.user.findUnique({ where: { id: req.userId }, select: PLAN_SELECT });
+      if (profileTheme !== null && planOf(owner) !== 'brilliant') {
+        return res.status(403).json({ error: 'Темы профиля доступны в подписке Brilliant' });
+      }
+      data.profileTheme = profileTheme;
+    }
+
+    if (isPrivate !== undefined) {
+      if (typeof isPrivate !== 'boolean') {
+        return res.status(400).json({ error: 'Неверное значение приватности' });
+      }
+      data.isPrivate = isPrivate;
+    }
 
     if (bio !== undefined) {
       if (bio !== null && (typeof bio !== 'string' || bio.length > 300)) {
@@ -81,12 +101,56 @@ router.put('/profile', authMiddleware, async (req, res) => {
       where: { id: req.userId },
       data,
       // Только безопасные поля: без хэша пароля и кода подтверждения
-      select: { id: true, username: true, email: true, avatar: true, bio: true }
+      select: { id: true, username: true, email: true, avatar: true, bio: true, isPrivate: true, profileTheme: true, ...PLAN_SELECT }
     });
-    res.json({ message: 'Профиль обновлен', user });
+    res.json({ message: 'Профиль обновлен', user: { ...user, plan: planOf(user), planUntil: planUntilOf(user), promoPlan: undefined, promoUntil: undefined } });
   } catch (error) {
     console.error('Ошибка:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// ПРОМОКОД: временная подписка. Подбор кодов перебором ограничен по частоте
+const promoLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Слишком много попыток ввести промокод. Попробуй через 15 минут.'
+});
+
+router.post('/promo', authMiddleware, promoLimiter, async (req, res) => {
+  try {
+    const code = typeof req.body?.code === 'string' ? req.body.code.trim().toLowerCase() : '';
+    const promo = PROMO_CODES[code];
+    if (!promo) {
+      return res.status(400).json({ error: 'Такого промокода нет' });
+    }
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: { ...PLAN_SELECT, promoCodesUsed: true }
+    });
+    if (user.promoCodesUsed.includes(code)) {
+      return res.status(400).json({ error: 'Этот промокод уже активирован' });
+    }
+    if (planOf(user) === promo.plan && !planUntilOf(user)) {
+      return res.status(400).json({ error: `У тебя уже есть бессрочная подписка ${PLAN_NAMES[promo.plan]}` });
+    }
+    // Если промо того же тарифа ещё идёт, продлеваем от его конца, а не от сегодня
+    const now = new Date();
+    const from = user.promoPlan === promo.plan && user.promoUntil > now ? user.promoUntil : now;
+    const promoUntil = new Date(from.getTime() + promo.days * 24 * 60 * 60 * 1000);
+    const updated = await prisma.user.update({
+      where: { id: req.userId },
+      data: { promoPlan: promo.plan, promoUntil, promoCodesUsed: { push: code } },
+      select: PLAN_SELECT
+    });
+    res.json({
+      message: `Подписка ${PLAN_NAMES[promo.plan]} активирована на ${promo.days} дней`,
+      plan: planOf(updated),
+      planUntil: planUntilOf(updated)
+    });
+  } catch (error) {
+    console.error('Ошибка активации промокода:', error);
+    res.status(500).json({ error: 'Не удалось активировать промокод' });
   }
 });
 

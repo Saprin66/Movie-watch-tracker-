@@ -173,7 +173,7 @@ export default function FriendsFeed({ token, onUserClick, onOpenFriends }) {
   const { loading, error, items, hasFriends } = state;
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
           <div className={`${EYEBROW} mb-2.5`}>Активность</div>

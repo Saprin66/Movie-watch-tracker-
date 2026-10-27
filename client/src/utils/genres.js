@@ -31,6 +31,12 @@ const GENRE_NAMES = {
   10768: "Война и политика",
 };
 
+// id жанра по русскому названию (для подбора по любимому жанру)
+export function genreIdByName(name) {
+  const found = Object.entries(GENRE_NAMES).find(([, n]) => n === name);
+  return found ? Number(found[0]) : null;
+}
+
 const capitalize = (text) =>
   text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
 

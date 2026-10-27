@@ -1,17 +1,53 @@
 import { useState } from "react";
 import Icon from "./Icon";
 import { MONTHS, formatHours } from "../utils/watchStats";
+import { planOf, themeOf } from "../utils/plans";
 
 // Общие блоки своего и чужого профиля: шапка, достижения, статистика
 
 // Цветное свечение за стеклом и круглый аватар с ником по центру.
 // avatarAction — кнопка на границе круга (смена фото), children — что под ником.
+// Рамка аватара по подписке: Free — обычная, Gold — золотая, Brilliant — переливается
+const RING = {
+  free: "bg-gradient-to-br from-[#ff7a45] via-[#ffb08c]/60 to-[#8b5cf6]",
+  gold: "bg-gradient-to-br from-[#fff1b8] via-[#ffb347] to-[#d9822b]",
+};
+
+// Значок подписки под ником
+export function PlanBadge({ plan, className = "" }) {
+  if (plan === "gold") {
+    return (
+      <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-extrabold text-[#2a1600] bg-gradient-to-r from-[#ffe08a] via-[#ffb347] to-[#ff8a50] shadow-[0_6px_18px_rgba(255,179,71,0.35)] ${className}`}>
+        <Icon n="crown" className="w-3.5 h-3.5 [filter:brightness(0.15)]" />
+        Gold
+      </span>
+    );
+  }
+  if (plan === "brilliant") {
+    return (
+      <span className={`mg-brilliant-badge inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-extrabold text-[#16082a] shadow-[0_6px_18px_rgba(167,139,250,0.4)] ${className}`}>
+        <Icon n="gem" className="w-3.5 h-3.5 [filter:brightness(0.12)]" />
+        Brilliant
+      </span>
+    );
+  }
+  return null;
+}
+
 export function ProfileHero({ user, avatarAction, children }) {
   const initial = user?.username?.[0]?.toUpperCase() || "U";
+  const plan = planOf(user);
+  // Тема профиля есть только у Brilliant: она заменяет свечение за аватаром
+  const theme = plan === "brilliant" ? themeOf(user?.profileTheme) : null;
   return (
     <>
       <div className="pointer-events-none absolute inset-x-0 -top-10 h-[420px] -z-10 overflow-hidden" aria-hidden="true">
-        {user?.avatar ? (
+        {theme ? (
+          <>
+            <div className="absolute left-[8%] top-4 w-72 h-72 rounded-full blur-[80px] opacity-60" style={{ background: theme.glows[0] }} />
+            <div className="absolute right-[6%] top-20 w-72 h-72 rounded-full blur-[80px] opacity-60" style={{ background: theme.glows[1] }} />
+          </>
+        ) : user?.avatar ? (
           <img src={user.avatar} alt="" className="w-full h-full object-cover blur-[60px] opacity-50 scale-125" />
         ) : (
           <>
@@ -24,11 +60,16 @@ export function ProfileHero({ user, avatarAction, children }) {
 
       <div className="flex flex-col items-center text-center">
         <div className="mg-page-poster relative">
-          <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-full p-[3px] bg-gradient-to-br from-[#ff7a45] via-[#ffb08c]/60 to-[#8b5cf6] shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
+          <div
+            className={`relative w-36 h-36 sm:w-40 sm:h-40 rounded-full overflow-hidden shadow-[0_24px_60px_rgba(0,0,0,0.55)] ${
+              plan === "brilliant" ? "p-1" : plan === "gold" ? `p-1 ${RING.gold}` : `p-[3px] ${RING.free}`
+            }`}
+          >
+            {plan === "brilliant" && <span className="mg-brilliant-ring" aria-hidden="true" />}
             {user?.avatar ? (
-              <img src={user.avatar} alt="Аватар профиля" className="w-full h-full rounded-full object-cover" />
+              <img src={user.avatar} alt="Аватар профиля" className="relative w-full h-full rounded-full object-cover" />
             ) : (
-              <div className="w-full h-full rounded-full bg-[#12152a] flex items-center justify-center font-display text-[56px] font-bold text-white">
+              <div className="relative w-full h-full rounded-full bg-[#12152a] flex items-center justify-center font-display text-[56px] font-bold text-white">
                 {initial}
               </div>
             )}
@@ -42,9 +83,62 @@ export function ProfileHero({ user, avatarAction, children }) {
         >
           {user?.username || "Киноман"}
         </h1>
+        {plan !== "free" && <PlanBadge plan={plan} className="mg-page-rise mt-2" />}
+        {user?.isPrivate && (
+          <span
+            className="mg-page-rise mg-glass-chip mt-2 !py-1 !px-3 !text-xs text-[#d6d9f0]"
+            style={{ animationDelay: "90ms" }}
+          >
+            <Icon n="lock" className="w-3.5 h-3.5 opacity-80" />
+            Приватный профиль
+          </span>
+        )}
         {children}
       </div>
     </>
+  );
+}
+
+// Большая карточка вместо содержимого, когда профиль закрыт для чужих
+export function PrivateProfileNotice({ username, action }) {
+  return (
+    <section className="mg-glass-panel relative overflow-hidden rounded-[28px] px-6 py-10 sm:py-12 text-center">
+      <div
+        className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-[#8b5cf6]/25 blur-[80px]"
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute -bottom-28 right-[-10%] w-64 h-64 rounded-full bg-[#ff7a45]/20 blur-[80px]"
+        aria-hidden="true"
+      />
+      <div className="relative">
+        <div className="mx-auto w-20 h-20 rounded-[26px] p-[2px] bg-gradient-to-br from-[#ff7a45] via-[#ffb08c]/50 to-[#8b5cf6] shadow-[0_18px_40px_rgba(0,0,0,0.45)]">
+          <div className="w-full h-full rounded-[24px] bg-[#12152a] flex items-center justify-center">
+            <Icon n="lock-keyhole" className="w-9 h-9 [filter:invert(1)_sepia(1)_saturate(6)_hue-rotate(335deg)]" />
+          </div>
+        </div>
+        <h2 className="mt-6 font-display text-[22px] sm:text-[26px] font-bold text-white">
+          Это приватный профиль
+        </h2>
+        <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-[#aeb3d6]">
+          {username ? <b className="text-white">{username}</b> : "Пользователь"} использует приватный режим.
+          Журнал, оценки, статистика и друзья видны только его друзьям.
+        </p>
+        <ul className="mx-auto mt-6 grid max-w-md grid-cols-3 gap-2 text-[11px] font-bold text-[#8b91b5]">
+          {[
+            { icon: "film", label: "Журнал" },
+            { icon: "chart-column", label: "Статистика" },
+            { icon: "users", label: "Друзья" },
+          ].map((item) => (
+            <li key={item.label} className="mg-glass-chip flex-col !gap-1.5 !rounded-2xl !py-3">
+              <Icon n={item.icon} className="w-5 h-5 opacity-60" />
+              {item.label}
+            </li>
+          ))}
+        </ul>
+        {action && <div className="mt-7">{action}</div>}
+      </div>
+    </section>
   );
 }
 
@@ -159,7 +253,7 @@ export function AchievementsSection({ achievements }) {
               <h3 className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4]">
                 Получено · {done.length}
               </h3>
-              <ul className="grid gap-2 lg:grid-cols-2">
+              <ul className="grid gap-2">
                 {done.map((a) => (
                   <AchievementRow key={a.id} a={a} />
                 ))}
@@ -171,7 +265,7 @@ export function AchievementsSection({ achievements }) {
               <h3 className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#9aa0c4]">
                 Впереди · {rest.length}
               </h3>
-              <ul className="grid gap-2 lg:grid-cols-2">
+              <ul className="grid gap-2">
                 {rest.map((a) => (
                   <AchievementRow key={a.id} a={a} />
                 ))}

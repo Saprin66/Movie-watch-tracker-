@@ -24,6 +24,17 @@ model User {
   resetRequestedAt  DateTime?
   passwordChangedAt DateTime?   // старые токены после смены пароля недействительны
   bio              String?
+  // Приватный профиль: журнал, статистику и друзей видят только друзья
+  isPrivate        Boolean     @default(false)
+  // Тариф подписки: free | gold | brilliant (оплаты пока нет, выдаётся вручную)
+  plan             String      @default("free")
+  // Тема оформления профиля (только Brilliant): sunset | ocean | aurora | neon | rose
+  profileTheme     String?
+  // Временная подписка по промокоду: действует до promoUntil поверх основного plan
+  promoPlan        String?
+  promoUntil       DateTime?
+  // Активированные промокоды: каждый можно ввести только один раз
+  promoCodesUsed   String[]    @default([])
   // Витрина фильмов удалена из приложения. Колонку не убираем из схемы: prisma db push
   // при запуске сервера отказался бы удалять её с данными. Удалить вручную при миграции.
   showcaseMovieIds String[]    @default([])

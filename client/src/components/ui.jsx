@@ -126,11 +126,73 @@ export function MovieCard({ poster, title, chips, footerLeft, actions, onClick, 
   );
 }
 
-export const Grid = ({ children }) => (
-  <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 gap-x-3 sm:gap-x-4 gap-y-5 sm:gap-y-6">
+// withSidebar: сетка стоит рядом с панелью фильтров, поэтому колонок меньше
+export const Grid = ({ children, withSidebar = false }) => (
+  <div
+    className={`grid grid-cols-3 sm:grid-cols-4 ${
+      withSidebar ? "lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6" : "lg:grid-cols-5 2xl:grid-cols-6"
+    } gap-x-3 sm:gap-x-4 gap-y-5 sm:gap-y-6`}
+  >
     {children}
   </div>
 );
+
+// Номера страниц вокруг текущей: 1 … 4 5 6 … 20
+const pageList = (page, total) => {
+  const pages = new Set([1, total, page - 1, page, page + 1]);
+  const sorted = [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+  const result = [];
+  sorted.forEach((p, i) => {
+    if (i > 0 && p - sorted[i - 1] > 1) result.push(`gap-${p}`);
+    result.push(p);
+  });
+  return result;
+};
+
+export function Pagination({ page, totalPages, onChange, disabled = false }) {
+  if (totalPages <= 1) return null;
+  const btn =
+    "min-w-[44px] h-11 px-3 rounded-xl text-sm font-bold transition-colors disabled:opacity-40 disabled:pointer-events-none";
+  const soft = "bg-white/[0.07] hover:bg-white/[0.12] text-[#e9ebf7]";
+  return (
+    <nav className="flex flex-wrap items-center justify-center gap-1.5 pt-2" aria-label="Страницы">
+      <button
+        type="button"
+        disabled={disabled || page <= 1}
+        onClick={() => onChange(page - 1)}
+        aria-label="Предыдущая страница"
+        className={`${btn} ${soft}`}
+      >
+        ←
+      </button>
+      {pageList(page, totalPages).map((p) =>
+        typeof p === "string" ? (
+          <span key={p} className="px-1 text-[#6f759e]">…</span>
+        ) : (
+          <button
+            key={p}
+            type="button"
+            disabled={disabled}
+            onClick={() => p !== page && onChange(p)}
+            aria-current={p === page ? "page" : undefined}
+            className={`${btn} ${p === page ? "bg-[#ff7a45] text-[#1b0d07]" : soft}`}
+          >
+            {p}
+          </button>
+        ),
+      )}
+      <button
+        type="button"
+        disabled={disabled || page >= totalPages}
+        onClick={() => onChange(page + 1)}
+        aria-label="Следующая страница"
+        className={`${btn} ${soft}`}
+      >
+        →
+      </button>
+    </nav>
+  );
+}
 
 export const Empty = ({ text }) => (
   <div className={`${PANEL} text-center py-16 px-6 text-[#8b91b5]`}>{text}</div>
@@ -217,7 +279,7 @@ export function SubTabs({
   items,
   active,
   onChange,
-  className = "mb-6 flex justify-center sm:justify-start",
+  className = "mb-6 flex justify-center",
   itemClass = "sm:w-[150px]",
 }) {
   const index = Math.max(items.findIndex((t) => t.id === active), 0);

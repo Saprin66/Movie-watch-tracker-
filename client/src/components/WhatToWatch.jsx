@@ -3,17 +3,46 @@ import Icon from "./Icon";
 import Roulette from "./Roulette";
 import { Chip, Grid, MovieCard } from "./ui";
 import { BTN_SOFT, EYEBROW, PAGE_TITLE, SECTION_TITLE } from "./styles";
-import { POSTER, TMDB_API_KEY } from "../config";
-import { fetchTmdb } from "../utils/tmdb";
+import { POSTER, TMDB, TMDB_API_KEY } from "../config";
+import { fetchTmdb, fetchWithRetry } from "../utils/tmdb";
+import { genreIdByName, genreName } from "../utils/genres";
+import { topGenres } from "../utils/watchStats";
 import {
+  genreAffinity,
   keyOf,
   mergeRecommendations,
   pickSeeds,
+  pickSeedsByReviews,
+  rerankByAffinity,
 } from "../utils/recommendations";
+
+// Уровень рекомендаций зависит от подписки
+const REC_MODES = {
+  free: { title: "Рекомендации по любимым жанрам", note: "Базовые" },
+  gold: { title: "Рекомендации по вашим оценкам", note: "Улучшенные · Gold" },
+  brilliant: { title: "Персональные рекомендации", note: "По вашим отзывам · Brilliant" },
+};
+
+// Базовые (Free): популярное в любимом жанре из каталога TMDB
+async function genreRecommendations(movies) {
+  const favourite = topGenres(movies.filter((m) => m.status === "WATCHED"))
+    .map((g) => ({ ...g, id: genreIdByName(g.name) }))
+    .find((g) => g.id);
+  if (!favourite) return { seeds: [], list: [] };
+  const page = 1 + Math.floor(Math.random() * 3);
+  const res = await fetchWithRetry(
+    `${TMDB}/discover/movie?api_key=${TMDB_API_KEY}&language=ru-RU&with_genres=${favourite.id}&sort_by=popularity.desc&vote_count.gte=200&page=${page}`,
+  );
+  const data = res.ok ? await res.json() : { results: [] };
+  const list = (data.results || [])
+    .filter((item) => item.poster_path)
+    .map((item) => ({ key: keyOf("movie", item.id), item: { ...item, media_type: "movie" }, votes: 1 }));
+  return { seeds: [{ title: `жанр «${favourite.name}»` }], list };
+}
 
 const typeOf = (movie) => (movie.mediaType === "tv" ? "tv" : "movie");
 
-export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
+export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched, plan = "free", onOpenPremium }) {
   const [recs, setRecs] = useState({ status: "idle", seeds: [], list: [] });
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -28,28 +57,43 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
   useEffect(() => {
     if (!TMDB_API_KEY || !hasWatched) return;
     let cancelled = false;
-    const seeds = pickSeeds(moviesRef.current, 3);
+    const journal = moviesRef.current;
+    const seeds =
+      plan === "free" ? [] : plan === "brilliant" ? pickSeedsByReviews(journal, 3) : pickSeeds(journal, 3);
 
     setRecs((prev) => ({ ...prev, status: "loading", seeds }));
-    Promise.all(
-      seeds.map((seed) =>
-        fetchTmdb(typeOf(seed), seed.tmdbId, "/recommendations", "&language=ru-RU")
-          .then((found) => ({
-            seed: found ? { ...seed, mediaType: found.type } : seed,
-            results: found?.data.results || [],
-          }))
-          .catch(() => ({ seed, results: [] })),
-      ),
-    ).then((lists) => {
-      if (!cancelled) {
-        setRecs({ status: "ready", seeds, list: mergeRecommendations(lists) });
-      }
-    });
+
+    const load =
+      plan === "free"
+        ? genreRecommendations(journal)
+        : Promise.all(
+            seeds.map((seed) =>
+              fetchTmdb(typeOf(seed), seed.tmdbId, "/recommendations", "&language=ru-RU")
+                .then((found) => ({
+                  seed: found ? { ...seed, mediaType: found.type } : seed,
+                  results: found?.data.results || [],
+                }))
+                .catch(() => ({ seed, results: [] })),
+            ),
+          ).then((lists) => {
+            const merged = mergeRecommendations(lists);
+            const list =
+              plan === "brilliant"
+                ? rerankByAffinity(merged, genreAffinity(journal), (id) => genreName(id))
+                : merged;
+            return { seeds, list };
+          });
+
+    load
+      .catch(() => ({ seeds, list: [] }))
+      .then((result) => {
+        if (!cancelled) setRecs({ status: "ready", ...result });
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [refreshKey, hasWatched]);
+  }, [refreshKey, hasWatched, plan]);
 
   const journalKeys = useMemo(
     () => new Set(movies.map((m) => keyOf(m.mediaType, m.tmdbId))),
@@ -73,7 +117,20 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched }) {
 
       <section>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-          <h2 className={SECTION_TITLE}>Рекомендации по вашим оценкам</h2>
+          <div>
+            <h2 className={SECTION_TITLE}>{REC_MODES[plan].title}</h2>
+            <div className="mt-1 text-xs text-[#8b91b5]">
+              {REC_MODES[plan].note}
+              {plan !== "brilliant" && onOpenPremium && (
+                <>
+                  {" · "}
+                  <button type="button" onClick={onOpenPremium} className="font-bold text-[#ff935f] hover:text-[#ffb08c]">
+                    {plan === "free" ? "Точнее — в Gold и Brilliant" : "По отзывам — в Brilliant"}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
           {hasWatched && TMDB_API_KEY && (
             <button
               type="button"

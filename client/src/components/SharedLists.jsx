@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
+import { LIST_LIMITS, PLAN_NAMES } from "../utils/plans";
 import { Avatar, Chip, MovieCard, Grid, Poster } from "./ui";
 import ConfirmDialog from "./ConfirmDialog";
 import {
@@ -585,6 +586,8 @@ export default function SharedLists({
   onAcceptInvite,
   onDeclineInvite,
   refreshKey = 0,
+  plan = "free",
+  onOpenPremium,
 }) {
   const [lists, setLists] = useState(null);
   const [error, setError] = useState("");
@@ -607,7 +610,7 @@ export default function SharedLists({
 
   if (openListId) {
     return (
-      <div className="max-w-6xl">
+      <div className="max-w-6xl mx-auto">
         <ListDetail
           listId={openListId}
           token={token}
@@ -621,12 +624,25 @@ export default function SharedLists({
   }
 
   return (
-    <div className="max-w-6xl space-y-7">
+    <div className="max-w-6xl mx-auto space-y-7">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className={`${EYEBROW} mb-2.5`}>С друзьями</div>
           <h1 className={PAGE_TITLE}>Смотрим вместе</h1>
           <p className="mt-2.5 text-sm text-[#8b91b5]">Общие списки фильмов, которые хотите посмотреть с друзьями</p>
+          {lists && LIST_LIMITS[plan] !== Infinity && (
+            <p className="mt-1.5 text-[13px] text-[#8b91b5]">
+              Твоих списков: {lists.filter((l) => l.isOwner).length} из {LIST_LIMITS[plan]} на тарифе {PLAN_NAMES[plan]}
+              {onOpenPremium && (
+                <>
+                  {" · "}
+                  <button type="button" onClick={onOpenPremium} className="font-bold text-[#ff935f] hover:text-[#ffb08c]">
+                    Больше списков
+                  </button>
+                </>
+              )}
+            </p>
+          )}
         </div>
         <button onClick={() => setCreateOpen(true)} className={`inline-flex items-center gap-2 h-11 px-5 rounded-xl text-sm ${BTN_ORANGE}`}>
           <Icon n="plus" className={`w-4 h-4 ${DARK_ICON}`} /> Создать список
