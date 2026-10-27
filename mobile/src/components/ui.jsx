@@ -205,9 +205,7 @@ export const PageTitle = ({ children }) => (
 // Логотип: оранжевый квадрат с «play» и надпись MovieGrade
 export const Logo = () => (
   <View className="flex-row items-center gap-3">
-    <View className="w-10 h-10 rounded-xl bg-accent items-center justify-center">
-      <Icon name="play" size={18} color={COLORS.onAccent} />
-    </View>
+    <Image source={require("../../assets/logo-mark.png")} style={{ width: 44, height: 44 }} contentFit="contain" />
     <Text className="text-xl font-bold text-white">
       Movie<Text className="text-accent">Grade</Text>
     </Text>
