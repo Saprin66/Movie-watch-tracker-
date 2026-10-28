@@ -166,7 +166,8 @@ function DuelOption({ item, onPick }) {
 }
 
 // «Что посмотреть сегодня?»: вопросы → колода свайпов → дуэль → один фильм
-export default function TonightPicker({ movies, onOpenMovie, onWant }) {
+// onWant(item) — «Хочу»: в «Буду смотреть»; onSeen(item) — «Уже видел»: в просмотренное
+export default function TonightPicker({ movies, onOpenMovie, onWant, onSeen }) {
   const [step, setStep] = useState("intro");
   const [answers, setAnswers] = useState({ mood: null, time: null, source: "new", kids: false });
   const [deck, setDeck] = useState([]);
@@ -176,7 +177,9 @@ export default function TonightPicker({ movies, onOpenMovie, onWant }) {
   const [exit, setExit] = useState(null);
   const [duel, setDuel] = useState(null); // { champion, queue }
   const [winner, setWinner] = useState(null);
-  const [added, setAdded] = useState(false);
+  // Подсказка под колодой: куда отправился последний фильм
+  const [lastAction, setLastAction] = useState(null);
+  const toastTimer = useRef(null);
   const [error, setError] = useState("");
   const shown = useRef(new Set());
 
@@ -205,7 +208,7 @@ export default function TonightPicker({ movies, onOpenMovie, onWant }) {
     setRejected([]);
     setDuel(null);
     setWinner(null);
-    setAdded(false);
+    setLastAction(null);
     setStep("quiz");
   };
 
@@ -221,6 +224,15 @@ export default function TonightPicker({ movies, onOpenMovie, onWant }) {
 
   const decide = (kind) => {
     if (exit || !deck.length) return;
+    const item = deck[0];
+    // Реакция сразу попадает в журнал: «Хочу» — в «Буду смотреть», «Видел» — в просмотренное
+    if (kind === "like") onWant?.(item);
+    if (kind === "seen") onSeen?.(item);
+    if (kind !== "skip") {
+      clearTimeout(toastTimer.current);
+      setLastAction({ kind, title: titleOf(item), mine: Boolean(item.journalId) });
+      toastTimer.current = setTimeout(() => setLastAction(null), 2600);
+    }
     setExit(kind);
     setTimeout(() => {
       const [current, ...rest] = deck;
@@ -382,7 +394,20 @@ export default function TonightPicker({ movies, onOpenMovie, onWant }) {
               <Icon n="heart" className="w-7 h-7" />
             </button>
           </div>
-          <p className="mt-3 text-center text-[11px] text-[#6f759e]">Свайп вправо — хочу, влево — не сегодня, вверх — уже видел</p>
+          <p
+            role="status"
+            className={`mt-3 min-h-[18px] text-center text-xs font-bold transition-opacity ${lastAction ? "opacity-100" : "opacity-0"} ${lastAction?.kind === "seen" ? "text-[#58dcaa]" : "text-[#ff935f]"}`}
+          >
+            {lastAction &&
+              (lastAction.kind === "seen"
+                ? `«${lastAction.title}» — в просмотренное`
+                : lastAction.mine
+                  ? `«${lastAction.title}» уже в «Буду смотреть»`
+                  : `«${lastAction.title}» — в «Буду смотреть»`)}
+          </p>
+          <p className="mt-1 text-center text-[11px] text-[#6f759e]">
+            Вправо — хочу (в «Буду смотреть»), влево — не сегодня, вверх — уже видел (в просмотренное)
+          </p>
 
           {liked.length >= 2 && (
             <div className="mt-4 flex justify-center">
@@ -432,20 +457,10 @@ export default function TonightPicker({ movies, onOpenMovie, onWant }) {
               >
                 <Icon n="play" className="w-4 h-4" /> Где посмотреть
               </button>
-              {!winner.journalId && (
-                <button
-                  type="button"
-                  disabled={added}
-                  onClick={async () => {
-                    setAdded(true);
-                    await onWant(winner);
-                  }}
-                  className="mg-glass-btn mg-glass-btn--wide h-12 px-5 rounded-full inline-flex items-center gap-2 text-sm font-extrabold text-white disabled:opacity-60"
-                >
-                  <Icon n={added ? "check" : "bookmark-plus"} className="w-4 h-4" />
-                  {added ? "В «Буду смотреть»" : "Сохранить на потом"}
-                </button>
-              )}
+              {/* Победитель — из понравившихся, поэтому он уже в «Буду смотреть» */}
+              <span className="h-12 px-4 rounded-full inline-flex items-center gap-2 text-sm font-bold text-[#c4c8e4] bg-white/[0.06]">
+                <Icon n="bookmark-check" className="w-4 h-4 opacity-80" /> В «Буду смотреть»
+              </span>
               <button
                 type="button"
                 onClick={restart}

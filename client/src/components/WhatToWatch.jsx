@@ -43,7 +43,7 @@ async function genreRecommendations(movies) {
 
 const typeOf = (movie) => (movie.mediaType === "tv" ? "tv" : "movie");
 
-export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched, onWant, plan = "free", onOpenPremium }) {
+export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched, onWant, onSeen, plan = "free", onOpenPremium }) {
   const [recs, setRecs] = useState({ status: "idle", seeds: [], list: [] });
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -114,7 +114,7 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched, onWant
         </p>
       </div>
 
-      <TonightPicker movies={movies} onOpenMovie={onOpenMovie} onWant={onWant} />
+      <TonightPicker movies={movies} onOpenMovie={onOpenMovie} onWant={onWant} onSeen={onSeen} />
 
       <Roulette movies={movies} onOpenMovie={onOpenMovie} onMarkWatched={onMarkWatched} />
 

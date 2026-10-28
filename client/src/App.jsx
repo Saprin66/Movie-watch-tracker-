@@ -1534,7 +1534,13 @@ function MovieTracker() {
               movies={movies}
               onOpenMovie={setSelectedMovie}
               onMarkWatched={(id) => updateMovieStatus(id, "WATCHED")}
-              onWant={(item) => toggleWatchlist(item, null)}
+              // Из «Что посмотреть сегодня?»: фильм из своего списка уже там, новый — добавляем
+              onWant={(item) => (item.journalId ? null : addMovie(tmdbToEntry(item, "WATCHLIST")))}
+              onSeen={(item) =>
+                item.journalId
+                  ? updateMovieStatus(item.journalId, "WATCHED")
+                  : addMovie(tmdbToEntry(item, "WATCHED"))
+              }
             />
           )}
 
