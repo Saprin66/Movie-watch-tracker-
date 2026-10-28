@@ -1,8 +1,15 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { readFileSync } from 'node:fs'
+
+// Версия сайта для футера берётся из package.json
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
 
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(version)
+  },
   plugins: [
     react(),
     VitePWA({
@@ -48,9 +55,30 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // Запросы к нашему API: сначала сеть, при её отсутствии последний ответ из кэша
+        // index.html не кладём в предзагрузку: иначе service worker отдаёт старую
+        // страницу из кэша, и новая версия сайта видна только после очистки кэша.
+        // Страница грузится из сети (см. ниже), а скрипты и стили с хешем в имени
+        // по-прежнему берутся из кэша.
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff2}'],
+        navigateFallback: null,
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
+          {
+            // Сама страница: сначала сеть, кэш — только когда сети нет
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pages',
+              networkTimeoutSeconds: 5,
+              expiration: {
+                maxEntries: 20
+              },
+              cacheableResponse: {
+                statuses: [200]
+              }
+            }
+          },
+          // Запросы к нашему API: сначала сеть, при её отсутствии последний ответ из кэша
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
             handler: 'NetworkFirst',

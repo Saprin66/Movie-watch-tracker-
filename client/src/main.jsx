@@ -11,17 +11,20 @@ const updateSW = registerSW({
   onRegisteredSW(_swUrl, registration) {
     if (!registration) return
 
-    // Периодически проверяем обновления, пока приложение открыто.
-    window.setInterval(() => {
+    const checkForUpdate = () => {
       if (navigator.onLine) registration.update().catch(() => {})
-    }, 60 * 60 * 1000)
+    }
 
-    // При возвращении в приложение сразу проверяем, не вышла ли новая версия.
+    // Периодически проверяем обновления, пока сайт открыт: на компьютере
+    // вкладка может висеть открытой днями.
+    window.setInterval(checkForUpdate, 10 * 60 * 1000)
+
+    // При возвращении на сайт сразу проверяем, не вышла ли новая версия.
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && navigator.onLine) {
-        registration.update().catch(() => {})
-      }
+      if (document.visibilityState === 'visible') checkForUpdate()
     })
+    window.addEventListener('focus', checkForUpdate)
+    window.addEventListener('online', checkForUpdate)
   },
   onRegisterError(error) {
     console.error('Не удалось зарегистрировать PWA service worker:', error)

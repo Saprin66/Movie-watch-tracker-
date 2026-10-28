@@ -11,6 +11,9 @@ export default function Footer({ className = "" }) {
           Movie<span className="text-[#ff7a45]">Grade</span>{" "}
           <span className="text-[#8b91b5]">
             © {new Date().getFullYear()}
+          </span>{" "}
+          <span className="font-semibold text-[#6f759e]">
+            v{import.meta.env.VITE_APP_VERSION}
           </span>
         </div>
 
