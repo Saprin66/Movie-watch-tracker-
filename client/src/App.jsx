@@ -115,6 +115,9 @@ function MovieTracker() {
   const refreshNotificationsRef = useRef(() => {});
   // Удаление аккаунта: окно подтверждения с паролем
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  // Запись журнала, которую собираются удалить кнопкой на карточке
+  const [movieToDelete, setMovieToDelete] = useState(null);
+  const [movieDeleting, setMovieDeleting] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -896,6 +899,7 @@ function MovieTracker() {
       )}
       onClose={onClose}
       onOpenReview={setReviewMovieId}
+      onDelete={setMovieToDelete}
       onOpenPerson={openPerson}
       onEpisodesChanged={fetchMovies}
       movies={movies}
@@ -1885,6 +1889,28 @@ function MovieTracker() {
           onAccept={() => acceptInvite(toastInvite)}
           onDecline={() => declineInvite(toastInvite)}
           onClose={() => setToastInvite(null)}
+        />
+      )}
+
+      {movieToDelete && (
+        <ConfirmDialog
+          title="Удалить из списка?"
+          message={
+            <>
+              <b className="text-white">{movieToDelete.title}</b> пропадёт из журнала
+              {movieToDelete.rating || movieToDelete.comment ? " вместе с оценкой и отзывом" : ""}. Это нельзя отменить.
+            </>
+          }
+          confirmLabel="Удалить"
+          icon="trash-2"
+          busy={movieDeleting}
+          onClose={() => setMovieToDelete(null)}
+          onConfirm={async () => {
+            setMovieDeleting(true);
+            await deleteMovie(movieToDelete.id);
+            setMovieDeleting(false);
+            setMovieToDelete(null);
+          }}
         />
       )}
 

@@ -133,6 +133,7 @@ const SECTION_LABEL =
 export default function MovieDetailsModal({
   movie,
   existing,
+  onDelete,
   onClose,
   onAdd,
   onOpenReview,
@@ -534,6 +535,17 @@ export default function MovieDetailsModal({
           >
             <Icon n="popcorn" className="w-[18px] h-[18px]" />
           </button>
+          {existing && onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(existing)}
+              aria-label="Удалить из моего списка"
+              title="Удалить из моего списка"
+              className="mg-glass-btn shrink-0 w-12 h-12 rounded-full flex items-center justify-center hover:!bg-[#ff453a]/80 hover:!border-[#ff7a70]"
+            >
+              <Icon n="trash-2" className="w-[18px] h-[18px]" />
+            </button>
+          )}
         </div>
       </div>
     </div>
