@@ -434,25 +434,41 @@ app.use('/api/users', userRoutes);
 // Фильмы
 app.get('/api/movies', authMiddleware, async (req, res) => {
   try {
-    const [movies, episodeStats] = await Promise.all([
+    const [movies, episodeStats, lastEpisodes] = await Promise.all([
       prisma.userMovie.findMany({
         where: { userId: req.userId },
         orderBy: { createdAt: 'desc' }
       }),
-      // Сколько серий отмечено у каждого сериала и сколько минут они заняли
+      // Сколько серий отмечено у каждого сериала, сколько минут они заняли
+      // и когда отмечена последняя
       prisma.episodeWatch.groupBy({
         by: ['userMovieId'],
         where: { userMovie: { userId: req.userId } },
         _count: { _all: true },
-        _sum: { runtime: true }
+        _sum: { runtime: true },
+        _max: { watchedAt: true }
+      }),
+      // Самая дальняя отмеченная серия каждого сериала (для трекера сериалов)
+      prisma.episodeWatch.findMany({
+        where: { userMovie: { userId: req.userId }, season: { gt: 0 } },
+        orderBy: [{ userMovieId: 'asc' }, { season: 'desc' }, { episode: 'desc' }],
+        distinct: ['userMovieId'],
+        select: { userMovieId: true, season: true, episode: true }
       })
     ]);
     const statsById = new Map(episodeStats.map((e) => [e.userMovieId, e]));
+    const lastById = new Map(lastEpisodes.map((e) => [e.userMovieId, e]));
     res.json(movies.map((m) => {
       const stat = statsById.get(m.id);
-      return stat
-        ? { ...m, episodesWatched: stat._count._all, episodeMinutes: stat._sum.runtime || 0 }
-        : m;
+      if (!stat) return m;
+      const last = lastById.get(m.id);
+      return {
+        ...m,
+        episodesWatched: stat._count._all,
+        episodeMinutes: stat._sum.runtime || 0,
+        lastEpisodeAt: stat._max.watchedAt,
+        lastEpisode: last ? { season: last.season, episode: last.episode } : null
+      };
     }));
   } catch (error) {
     console.error('Ошибка получения фильмов:', error);

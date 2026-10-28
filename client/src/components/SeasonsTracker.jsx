@@ -2,54 +2,11 @@ import { useEffect, useState } from "react";
 import Icon from "./Icon";
 import { API_URL, TMDB, TMDB_API_KEY } from "../config";
 import { useAuth } from "../context/AuthContext";
+import { airedInSeason, isAired, lastOf, nextAfter } from "../utils/episodes";
 
 const keyOf = (season, episode) => `${season}-${episode}`;
-const today = () => new Date().toISOString().slice(0, 10);
-
-// Вышла ли серия: без даты считаем вышедшей, если сезон не новее последней вышедшей серии
-const isAired = (ep, lastAired) => {
-  if (ep.air_date) return ep.air_date <= today();
-  if (!lastAired) return false;
-  return (
-    ep.season_number < lastAired.season_number ||
-    (ep.season_number === lastAired.season_number && ep.episode_number <= lastAired.episode_number)
-  );
-};
-
-// Сколько серий сезона уже вышло (по деталям сериала, без загрузки сезона)
-function airedInSeason(season, lastAired) {
-  if (!lastAired) return 0;
-  if (season.season_number < lastAired.season_number) return season.episode_count || 0;
-  if (season.season_number === lastAired.season_number) return lastAired.episode_number;
-  return 0;
-}
-
 // Следующая серия после последней отмеченной
-function nextEpisode(seasons, watched, lastAired) {
-  let last = null;
-  for (const key of watched) {
-    const [s, e] = key.split("-").map(Number);
-    if (!last || s > last.s || (s === last.s && e > last.e)) last = { s, e };
-  }
-  const order = seasons.map((x) => x.season_number);
-  let candidate;
-  if (!last) {
-    candidate = order.length ? { s: order[0], e: 1 } : null;
-  } else {
-    const season = seasons.find((x) => x.season_number === last.s);
-    if (season && last.e < season.episode_count) candidate = { s: last.s, e: last.e + 1 };
-    else {
-      const nextSeason = order.find((n) => n > last.s);
-      candidate = nextSeason !== undefined ? { s: nextSeason, e: 1 } : null;
-    }
-  }
-  if (!candidate) return { done: true };
-  const aired =
-    lastAired &&
-    (candidate.s < lastAired.season_number ||
-      (candidate.s === lastAired.season_number && candidate.e <= lastAired.episode_number));
-  return aired ? { season: candidate.s, episode: candidate.e } : { done: true };
-}
+const nextEpisode = (seasons, watched, lastAired) => nextAfter(seasons, lastOf(watched), lastAired);
 
 // Учёт серий сериала из журнала: сезоны, отметки серий и «следующая серия»
 export default function SeasonsTracker({ entry, tmdbId, details, onChanged }) {
