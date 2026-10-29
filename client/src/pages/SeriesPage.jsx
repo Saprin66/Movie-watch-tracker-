@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Icon from "../components/Icon";
 import { Empty, Poster } from "../components/ui";
+import JournalSection from "../components/JournalSection";
 import { EYEBROW, ORANGE_FILTER, PAGE_TITLE, PANEL, SECTION_TITLE } from "../components/styles";
 import { POSTER } from "../config";
 import { fetchTmdb } from "../utils/tmdb";
@@ -174,8 +175,9 @@ const GROUPS = [
   { id: "finished", title: "Досмотрено", icon: "circle-check", hint: "Сериал закончился, все серии отмечены" },
 ];
 
-// Вкладка «Сериалы»: всё начатое — с прогрессом, следующей серией и датой выхода новых
-export default function SeriesPage({ movies, onOpenEntry, onMarkEpisode, onMarkWatched }) {
+// Вкладка «Сериалы»: всё начатое — с прогрессом, следующей серией и датой выхода новых.
+// section — шапка «Моего списка» для боковой панели на компьютере (user, subTabs, activeTab, onTab)
+export default function SeriesPage({ movies, section, onOpenEntry, onMarkEpisode, onMarkWatched }) {
   const started = useMemo(
     () => movies.filter((m) => m.mediaType === "tv" && m.tmdbId && m.episodesWatched > 0),
     [movies],
@@ -225,74 +227,99 @@ export default function SeriesPage({ movies, onOpenEntry, onMarkEpisode, onMarkW
     }
   };
 
-  return (
-    <div className="space-y-7">
-      <div className="text-center">
-        <div className={`${EYEBROW} mb-2.5`}>Мой список</div>
-        <h1 className={PAGE_TITLE}>Сериалы</h1>
-        <p className="mt-2.5 text-sm text-[#8b91b5]">Всё, что ты начал смотреть: где остановился и что дальше</p>
-      </div>
+  // Боковая панель на компьютере: группы с количеством, нажатие прокручивает к группе
+  const groupsAside = rows.length > 0 && (
+    <nav className="space-y-1" aria-label="Группы сериалов">
+      {GROUPS.filter((g) => byGroup[g.id].length).map((g) => (
+        <button
+          key={g.id}
+          type="button"
+          onClick={() => {
+            if (g.id === "finished") setShowFinished(true);
+            document.getElementById(`series-${g.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+          className="w-full h-11 flex items-center gap-3 px-3 rounded-xl text-sm font-bold text-[#aeb3d6] hover:bg-white/[0.05] hover:text-white transition-colors"
+        >
+          <Icon n={g.icon} className="w-[18px] h-[18px] opacity-60" />
+          {g.title}
+          <span className="ml-auto min-w-[28px] h-6 px-2 rounded-full text-xs font-extrabold flex items-center justify-center bg-white/[0.07] text-[#aeb3d6]">
+            {byGroup[g.id].length}
+          </span>
+        </button>
+      ))}
+    </nav>
+  );
 
-      {started.length === 0 ? (
-        <Empty text="Здесь появятся сериалы, у которых отмечена хотя бы одна серия. Отмечать серии можно на странице сериала." />
-      ) : (
-        <>
-          {GROUPS.map((group) => {
-            const items = byGroup[group.id];
-            if (!items.length) return null;
-            const collapsed = group.id === "finished" && !showFinished;
-            return (
-              <section key={group.id} className="space-y-3.5">
-                <div className="flex items-end justify-between gap-3">
-                  <div>
-                    <h2 className={`flex items-center gap-2.5 ${SECTION_TITLE}`}>
-                      <Icon n={group.icon} className={`w-5 h-5 ${ORANGE_FILTER}`} />
-                      {group.title}
-                      <span className="text-sm font-bold text-[#6f759e]">{items.length}</span>
-                    </h2>
-                    <p className="text-xs text-[#6f759e] mt-1">{group.hint}</p>
+  return (
+    <JournalSection {...section} aside={groupsAside}>
+      <div className="space-y-7">
+        <div className="text-center lg:text-left">
+          <div className={`${EYEBROW} mb-2.5 lg:hidden`}>Мой список</div>
+          <h1 className={PAGE_TITLE}>Сериалы</h1>
+          <p className="mt-2.5 text-sm text-[#8b91b5]">Всё, что ты начал смотреть: где остановился и что дальше</p>
+        </div>
+
+        {started.length === 0 ? (
+          <Empty text="Здесь появятся сериалы, у которых отмечена хотя бы одна серия. Отмечать серии можно на странице сериала." />
+        ) : (
+          <>
+            {GROUPS.map((group) => {
+              const items = byGroup[group.id];
+              if (!items.length) return null;
+              const collapsed = group.id === "finished" && !showFinished;
+              return (
+                <section key={group.id} id={`series-${group.id}`} className="space-y-3.5 scroll-mt-28">
+                  <div className="flex items-end justify-between gap-3">
+                    <div>
+                      <h2 className={`flex items-center gap-2.5 ${SECTION_TITLE}`}>
+                        <Icon n={group.icon} className={`w-5 h-5 ${ORANGE_FILTER}`} />
+                        {group.title}
+                        <span className="text-sm font-bold text-[#6f759e]">{items.length}</span>
+                      </h2>
+                      <p className="text-xs text-[#6f759e] mt-1">{group.hint}</p>
+                    </div>
+                    {group.id === "finished" && (
+                      <button
+                        type="button"
+                        onClick={() => setShowFinished((v) => !v)}
+                        aria-expanded={showFinished}
+                        className="shrink-0 text-[13px] font-bold text-[#ff935f] hover:text-[#ffb08a]"
+                      >
+                        {showFinished ? "Скрыть" : "Показать"}
+                      </button>
+                    )}
                   </div>
-                  {group.id === "finished" && (
-                    <button
-                      type="button"
-                      onClick={() => setShowFinished((v) => !v)}
-                      aria-expanded={showFinished}
-                      className="shrink-0 text-[13px] font-bold text-[#ff935f] hover:text-[#ffb08a]"
-                    >
-                      {showFinished ? "Скрыть" : "Показать"}
-                    </button>
+                  {!collapsed && (
+                    <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                      {items.map(({ entry, details: d, progress }) => (
+                        <SeriesCard
+                          key={entry.id}
+                          entry={entry}
+                          details={d}
+                          progress={progress}
+                          busy={busyId === entry.id}
+                          onOpen={() => onOpenEntry(entry)}
+                          onMarkNext={() =>
+                            run(entry, () =>
+                              onMarkEpisode(entry, {
+                                season: progress.next.season,
+                                episode: progress.next.episode,
+                                ...(progress.runtime ? { runtime: progress.runtime } : {}),
+                              }),
+                            )
+                          }
+                          onMarkWatched={() => run(entry, () => onMarkWatched(entry))}
+                        />
+                      ))}
+                    </div>
                   )}
-                </div>
-                {!collapsed && (
-                  <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-                    {items.map(({ entry, details: d, progress }) => (
-                      <SeriesCard
-                        key={entry.id}
-                        entry={entry}
-                        details={d}
-                        progress={progress}
-                        busy={busyId === entry.id}
-                        onOpen={() => onOpenEntry(entry)}
-                        onMarkNext={() =>
-                          run(entry, () =>
-                            onMarkEpisode(entry, {
-                              season: progress.next.season,
-                              episode: progress.next.episode,
-                              ...(progress.runtime ? { runtime: progress.runtime } : {}),
-                            }),
-                          )
-                        }
-                        onMarkWatched={() => run(entry, () => onMarkWatched(entry))}
-                      />
-                    ))}
-                  </div>
-                )}
-              </section>
-            );
-          })}
-          {loading && <p className="text-center text-sm text-[#8b91b5] animate-pulse">Загружаем сериалы…</p>}
-        </>
-      )}
-    </div>
+                </section>
+              );
+            })}
+            {loading && <p className="text-center text-sm text-[#8b91b5] animate-pulse">Загружаем сериалы…</p>}
+          </>
+        )}
+      </div>
+    </JournalSection>
   );
 }

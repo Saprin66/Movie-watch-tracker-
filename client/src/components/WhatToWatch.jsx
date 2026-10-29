@@ -105,8 +105,8 @@ export default function WhatToWatch({ movies, onOpenMovie, onMarkWatched, onWant
     .slice(0, 12);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-9">
-      <div className="text-center">
+    <div className="max-w-5xl mx-auto lg:mx-0 space-y-9">
+      <div className="text-center lg:text-left">
         <div className={`${EYEBROW} mb-2.5`}>Выбор на вечер</div>
         <h1 className={PAGE_TITLE}>Что смотреть</h1>
         <p className="mt-2.5 text-sm text-[#8b91b5]">

@@ -2,8 +2,9 @@ import { useMemo } from "react";
 import Icon from "../components/Icon";
 import AdBanner from "../components/AdBanner";
 import MovieFilters from "../components/MovieFilters";
+import { JournalSidebarTop } from "../components/JournalSection";
 import { Chip, CornerButton, Empty, Grid, MovieCard, SubTabs } from "../components/ui";
-import { BTN_SOFT, DARK_ICON, EYEBROW, ORANGE_FILTER, PAGE_TITLE, PANEL } from "../components/styles";
+import { BTN_SOFT, EYEBROW, ORANGE_FILTER, PAGE_TITLE, PANEL } from "../components/styles";
 import { SORT_OPTIONS, sortMovies } from "../utils/sortMovies";
 import { DEFAULT_FILTERS, KIND_OPTIONS, collectFacets, filterMovies, isFiltering } from "../utils/filterMovies";
 
@@ -113,13 +114,7 @@ export default function JournalPage({
           sortOptions={SORT_OPTIONS}
           top={
             <>
-              <div>
-                <div className={`${EYEBROW} mb-1.5`}>Мой список</div>
-                <h1 className="font-display text-[22px] font-bold leading-tight text-white truncate">
-                  Журнал {user?.username}
-                </h1>
-              </div>
-              <SectionSwitch items={subTabs} active={activeTab} onChange={onTab} />
+              <JournalSidebarTop user={user} subTabs={subTabs} activeTab={activeTab} onTab={onTab} />
               <div className="space-y-1" role="group" aria-label="Статус">
                 {STATUS_TABS.map((t) => {
                   const selected = status === t.id;
@@ -216,38 +211,6 @@ export default function JournalPage({
           )}
         </section>
       </div>
-    </div>
-  );
-}
-
-// Переключатель разделов «Мой список» в боковой панели (на компьютере)
-export function SectionSwitch({ items, active, onChange }) {
-  return (
-    <div
-      className="grid gap-1 p-1 rounded-xl bg-[#0d1021] border border-white/[0.08]"
-      style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
-      role="tablist"
-    >
-      {items.map((t) => {
-        const selected = active === t.id;
-        return (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            aria-label={t.label}
-            title={t.label}
-            onClick={() => onChange(t.id)}
-            className={`h-14 rounded-[9px] flex flex-col items-center justify-center gap-1 text-[12px] font-bold transition-colors ${
-              selected ? "bg-[#ff7a45] text-[#1b0d07]" : "text-[#8b91b5] hover:text-white hover:bg-white/[0.04]"
-            }`}
-          >
-            {t.icon && <Icon n={t.icon} className={`w-[18px] h-[18px] ${selected ? DARK_ICON : "opacity-70"}`} />}
-            {t.short || t.label}
-          </button>
-        );
-      })}
     </div>
   );
 }

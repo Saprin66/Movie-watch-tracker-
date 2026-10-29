@@ -30,6 +30,7 @@ import { EYEBROW, PAGE_TITLE } from "./components/styles";
 import JournalPage from "./pages/JournalPage";
 import SearchPage from "./pages/SearchPage";
 import SeriesPage from "./pages/SeriesPage";
+import JournalSection from "./components/JournalSection";
 import TopBar from "./layout/TopBar";
 import MobileDock from "./layout/MobileDock";
 import FriendsSidebar from "./layout/FriendsSidebar";
@@ -190,6 +191,8 @@ function MovieTracker() {
   const items = navItems(counts);
   const activeSection = sectionOf(activeTab);
   const subTabs = subTabsOf(activeSection, counts);
+  // Шапка боковой панели «Моего списка» на компьютере — общая для журнала, сериалов и подбора
+  const journalSection = { user, subTabs, activeTab, onTab: setActiveTab };
 
   return (
     <div className="min-h-app bg-[#0a0c18] text-[#c4c8e4]">
@@ -229,7 +232,7 @@ function MovieTracker() {
                 )}
                 active={activeTab}
                 onChange={setActiveTab}
-                className={`mb-6 flex justify-center ${activeTab === "movies" ? "lg:hidden" : ""}`}
+                className={`mb-6 flex justify-center ${activeSection === "movies" ? "lg:hidden" : ""}`}
               />
             )}
             {/* key пересоздаёт обёртку при смене вкладки, чтобы проиграть анимацию входа */}
@@ -260,6 +263,7 @@ function MovieTracker() {
               {activeTab === "series" && (
                 <SeriesPage
                   movies={movies}
+                  section={journalSection}
                   onOpenEntry={openEntry}
                   onMarkEpisode={(entry, episode) => journal.markEpisodes(entry.id, [episode])}
                   onMarkWatched={(entry) => updateMovieStatus(entry.id, "WATCHED")}
@@ -277,20 +281,22 @@ function MovieTracker() {
               )}
 
               {activeTab === "discover" && (
-                <WhatToWatch
-                  plan={plan}
-                  onOpenPremium={openPremium}
-                  movies={movies}
-                  onOpenMovie={setSelectedMovie}
-                  onMarkWatched={(id) => updateMovieStatus(id, "WATCHED")}
-                  // Из «Что посмотреть сегодня?»: фильм из своего списка уже там, новый — добавляем
-                  onWant={(item) => (item.journalId ? null : addMovie(tmdbToEntry(item, "WATCHLIST")))}
-                  onSeen={(item) =>
-                    item.journalId
-                      ? updateMovieStatus(item.journalId, "WATCHED")
-                      : addMovie(tmdbToEntry(item, "WATCHED"))
-                  }
-                />
+                <JournalSection {...journalSection}>
+                  <WhatToWatch
+                    plan={plan}
+                    onOpenPremium={openPremium}
+                    movies={movies}
+                    onOpenMovie={setSelectedMovie}
+                    onMarkWatched={(id) => updateMovieStatus(id, "WATCHED")}
+                    // Из «Что посмотреть сегодня?»: фильм из своего списка уже там, новый — добавляем
+                    onWant={(item) => (item.journalId ? null : addMovie(tmdbToEntry(item, "WATCHLIST")))}
+                    onSeen={(item) =>
+                      item.journalId
+                        ? updateMovieStatus(item.journalId, "WATCHED")
+                        : addMovie(tmdbToEntry(item, "WATCHED"))
+                    }
+                  />
+                </JournalSection>
               )}
 
               {activeTab === "feed" && (
