@@ -7,6 +7,8 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const listRoutes = require('./routes/lists');
 const pushRoutes = require('./routes/push');
+const recommendationRoutes = require('./routes/recommendations');
+const publicRoutes = require('./routes/public');
 const { authMiddleware } = require('./middleware/auth');
 const { buildFeed } = require('./feed');
 const { planOf } = require('./plans');
@@ -87,6 +89,9 @@ app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/lists', listRoutes);
 app.use('/api/push', pushRoutes);
+app.use('/api/recommendations', recommendationRoutes);
+// Без входа: публичная страница профиля по ссылке
+app.use('/api/public', publicRoutes);
 
 // === ВСЕ МАРШРУТЫ /api/users/* ДОЛЖНЫ БЫТЬ ВЫШЕ app.use('/api/users', userRoutes) ===
 
