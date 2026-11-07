@@ -9,6 +9,7 @@ import { useBackClose } from "../hooks/useBackClose";
 import WatchProviders from "./WatchProviders";
 import SeasonsTracker from "./SeasonsTracker";
 import CollectionBlock from "./CollectionBlock";
+import RecommendPanel from "./RecommendPanel";
 import { useAuth } from "../context/AuthContext";
 import { itemFromTmdb, listsRequest } from "../utils/listsApi";
 
@@ -142,6 +143,7 @@ export default function MovieDetailsModal({
   movies = [],
   onOpenMovie,
   onAddToWatchlist,
+  friends = [],
   historyKey = "details",
 }) {
   useScrollLock();
@@ -212,9 +214,17 @@ export default function MovieDetailsModal({
   const [listsError, setListsError] = useState("");
   const [listStatus, setListStatus] = useState({});
 
+  // «Посоветовать другу»: открыта только одна из двух панелей
+  const [recommendOpen, setRecommendOpen] = useState(false);
+  const toggleRecommend = () => {
+    setRecommendOpen((v) => !v);
+    setListsOpen(false);
+  };
+
   const toggleLists = async () => {
     const next = !listsOpen;
     setListsOpen(next);
+    setRecommendOpen(false);
     if (next && lists === null) {
       const result = await listsRequest(token);
       setLists(result.ok ? result.data : []);
@@ -450,6 +460,13 @@ export default function MovieDetailsModal({
 
       {/* Действия: стеклянная панель внизу, всегда под рукой */}
       <div className="mg-dock-bottom absolute z-20 left-3 right-3 mx-auto max-w-[560px]">
+        {recommendOpen && (
+          <RecommendPanel
+            movie={{ ...movie, ...(details || {}), media_type: type }}
+            friends={friends}
+            onClose={() => setRecommendOpen(false)}
+          />
+        )}
         {listsOpen && (
           <div className="mg-glass-nav mg-page-rise mb-2 rounded-[24px] p-4 max-h-[45dvh] overflow-y-auto scroll-contain">
             <div className="flex items-center justify-between gap-3 mb-3">
@@ -534,6 +551,16 @@ export default function MovieDetailsModal({
             className={`mg-glass-btn shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${listsOpen ? "mg-glass-btn--orange" : ""}`}
           >
             <Icon n="popcorn" className="w-[18px] h-[18px]" />
+          </button>
+          <button
+            type="button"
+            onClick={toggleRecommend}
+            aria-expanded={recommendOpen}
+            aria-label="Посоветовать другу"
+            title="Посоветовать другу"
+            className={`mg-glass-btn shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${recommendOpen ? "mg-glass-btn--orange" : ""}`}
+          >
+            <Icon n="send" className="w-[18px] h-[18px]" />
           </button>
           {existing && onDelete && (
             <button

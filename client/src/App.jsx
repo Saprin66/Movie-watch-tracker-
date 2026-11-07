@@ -4,6 +4,7 @@ import AuthScreen from "./components/AuthScreen";
 import Landing from "./components/Landing";
 import Footer from "./components/Footer";
 import PrivacyPolicy from "./components/PrivacyPolicy";
+import PublicProfilePage from "./components/PublicProfilePage";
 import { useHashRoute, leaveHashRoute } from "./hooks/useHashRoute";
 import { POLICY_HASH, LOGIN_HASH, REGISTER_HASH } from "./legal";
 import FriendsPanel from "./components/FriendsPanel";
@@ -159,6 +160,7 @@ function MovieTracker() {
       movies={movies}
       onOpenMovie={pushMovie}
       onAddToWatchlist={journal.addToWatchlist}
+      friends={friends}
       onAdd={async (status, details, foundType) => {
         // Фильм могли открыть из журнала друга, франшизы или рулетки: там нет
         // poster_path, а только готовый posterUrl. Если детали ещё не успели
@@ -209,6 +211,24 @@ function MovieTracker() {
             onAcceptFriend: (r) => notifications.answerFriendRequest(r, "accept"),
             onDeclineFriend: (r) => notifications.answerFriendRequest(r, "reject"),
             onOpenFriend: setSelectedUserId,
+            recommendations: notifications.recommendations,
+            unreadRecommendations: notifications.unreadRecommendations,
+            isInJournal: (rec) => movies.some((m) => m.tmdbId === rec.tmdbId && m.mediaType === rec.mediaType),
+            onOpenBell: notifications.markRecommendationsRead,
+            onOpenRecommended: (rec) => setSelectedMovie(entryToMovie(rec)),
+            // Совет принят: фильм в «Буду смотреть», сам совет больше не нужен
+            onWantRecommended: async (rec) => {
+              const created = await addMovie({
+                tmdbId: rec.tmdbId,
+                title: rec.title,
+                posterUrl: rec.posterUrl,
+                status: "WATCHLIST",
+                mediaType: rec.mediaType,
+                ...(rec.releaseYear ? { releaseYear: rec.releaseYear } : {}),
+              });
+              if (created) await notifications.dismissRecommendation(rec);
+            },
+            onDismissRecommended: notifications.dismissRecommendation,
           }}
           account={{
             user,
@@ -552,6 +572,16 @@ function MovieTracker() {
   );
 }
 
+const PUBLIC_PROFILE_PREFIX = "#/u/";
+function publicProfileName(hash) {
+  if (!hash.startsWith(PUBLIC_PROFILE_PREFIX)) return null;
+  try {
+    return decodeURIComponent(hash.slice(PUBLIC_PROFILE_PREFIX.length)).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 function App() {
   const { token, user } = useAuth();
   const hash = useHashRoute();
@@ -565,6 +595,9 @@ function App() {
 
   // Политика открывается и без входа, и по прямой ссылке
   if (hash === POLICY_HASH) return <PrivacyPolicy />;
+  // Публичный профиль по ссылке #/u/<ник> — и для гостей, и для вошедших
+  const publicUsername = publicProfileName(hash);
+  if (publicUsername) return <PublicProfilePage key={publicUsername} username={publicUsername} />;
   // Один и тот же экран для входа и подтверждения email: после регистрации
   // он не перемонтируется и не теряет шаг ввода кода
   if (needsVerification || (!token && isAuthRoute)) {

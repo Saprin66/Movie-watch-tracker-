@@ -4,6 +4,7 @@ import { Avatar } from "./ui";
 import { AchievementsSection, ProfileHero, StatsSection } from "./ProfileParts";
 import FranchisesSection from "./FranchisesSection";
 import { useProfileStats } from "../hooks/useProfileStats";
+import { ShareProfileButton } from "./PublicProfilePage";
 
 const FRIENDS_PREVIEW = 5;
 
@@ -28,7 +29,15 @@ export default function ProfilePage({
 
   return (
     <div className="relative isolate mx-auto max-w-xl lg:max-w-none">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {/* Ссылка на публичную страницу работает только у открытого профиля */}
+        {user?.username && !user?.isPrivate && (
+          <ShareProfileButton
+            username={user.username}
+            label="Ссылка на профиль"
+            className="mg-glass-btn h-11 px-4 rounded-full inline-flex items-center gap-2 text-sm font-bold text-white"
+          />
+        )}
         <button
           type="button"
           onClick={onOpenSettings}

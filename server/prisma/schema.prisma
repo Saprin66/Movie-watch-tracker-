@@ -47,6 +47,8 @@ model User {
   listMemberships  SharedListMember[]
   listItemsAdded   SharedListItem[]   @relation("listItemsAdded")
   pushTokens       PushToken[]
+  recommendationsSent     Recommendation[] @relation("recommendationsSent")
+  recommendationsReceived Recommendation[] @relation("recommendationsReceived")
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 }
@@ -164,4 +166,26 @@ model PushToken {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+}
+
+// Совет фильма другу: «посмотри вот это». Получатель видит его в уведомлениях,
+// может добавить в «Буду смотреть» или скрыть (тогда запись удаляется).
+model Recommendation {
+  id          String    @id @default(uuid())
+  fromId      String
+  toId        String
+  from        User      @relation("recommendationsSent", fields: [fromId], references: [id], onDelete: Cascade)
+  to          User      @relation("recommendationsReceived", fields: [toId], references: [id], onDelete: Cascade)
+  tmdbId      Int
+  mediaType   String    @default("movie") // movie | tv
+  title       String
+  posterUrl   String?
+  releaseYear Int?
+  note        String?   // короткая записка от друга
+  readAt      DateTime? // когда получатель открыл уведомления
+  createdAt   DateTime  @default(now())
+
+  // Один и тот же фильм одному другу советуют один раз
+  @@unique([fromId, toId, tmdbId, mediaType])
+  @@index([toId])
 }

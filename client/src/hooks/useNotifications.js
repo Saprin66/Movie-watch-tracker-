@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { listsRequest } from "../utils/listsApi";
+import { apiRequest } from "../utils/api";
 
-// Уведомления: заявки в друзья и приглашения в общие списки.
+// Уведомления: заявки в друзья, приглашения в общие списки и советы фильмов от друзей.
 // Обновляются при входе, раз в минуту и при возврате на сайт.
 // onInviteAccepted(listId) — открыть список, в который только что вступили.
 export function useNotifications({ onFriendsChanged, onInviteAccepted }) {
@@ -10,6 +11,7 @@ export function useNotifications({ onFriendsChanged, onInviteAccepted }) {
   const [requestsCount, setRequestsCount] = useState(0);
   const [friendRequests, setFriendRequests] = useState([]);
   const [listInvites, setListInvites] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
   const [toastInvite, setToastInvite] = useState(null);
   const [listsRefreshKey, setListsRefreshKey] = useState(0);
   const refreshRef = useRef(() => {});
@@ -21,11 +23,13 @@ export function useNotifications({ onFriendsChanged, onInviteAccepted }) {
 
     const refresh = async () => {
       if (document.visibilityState === "hidden") return;
-      const [requests, invites] = await Promise.all([
+      const [requests, invites, recs] = await Promise.all([
         getFriendRequests(),
         listsRequest(token, "/invites"),
+        apiRequest("/recommendations", { token }),
       ]);
       if (cancelled) return;
+      if (recs.ok && Array.isArray(recs.data)) setRecommendations(recs.data);
       const requestList = Array.isArray(requests) ? requests : [];
       setFriendRequests(requestList);
       setRequestsCount(requestList.length);
@@ -85,6 +89,19 @@ export function useNotifications({ onFriendsChanged, onInviteAccepted }) {
     refresh();
   };
 
+  // Колокольчик открыт: все советы прочитаны, счётчик гаснет
+  const markRecommendationsRead = () => {
+    if (!recommendations.some((r) => !r.readAt)) return;
+    const now = new Date().toISOString();
+    setRecommendations((prev) => prev.map((r) => (r.readAt ? r : { ...r, readAt: now })));
+    apiRequest("/recommendations/read", { token, method: "POST" });
+  };
+
+  const dismissRecommendation = async (rec) => {
+    setRecommendations((prev) => prev.filter((r) => r.id !== rec.id));
+    await apiRequest(`/recommendations/${rec.id}`, { token, method: "DELETE" });
+  };
+
   const answerFriendRequest = async (request, action) => {
     await handleFriendRequest(request.id, action);
     setFriendRequests((prev) => prev.filter((r) => r.id !== request.id));
@@ -98,6 +115,10 @@ export function useNotifications({ onFriendsChanged, onInviteAccepted }) {
     setRequestsCount,
     friendRequests,
     listInvites,
+    recommendations,
+    unreadRecommendations: recommendations.filter((r) => !r.readAt).length,
+    markRecommendationsRead,
+    dismissRecommendation,
     toastInvite,
     closeToast: () => setToastInvite(null),
     listsRefreshKey,

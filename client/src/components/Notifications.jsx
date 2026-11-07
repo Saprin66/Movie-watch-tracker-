@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
-import { Avatar } from "./ui";
+import { Avatar, Poster } from "./ui";
 import { BTN_ORANGE, BTN_SOFT, DARK_ICON } from "./styles";
 import { formatTimeAgo } from "../utils/time";
 
@@ -47,10 +47,87 @@ function InviteText({ invite }) {
   );
 }
 
-// Колокольчик в шапке: приглашения в общие списки и заявки в друзья
+// Совет фильма от друга: открыть, добавить в «Буду смотреть» или скрыть
+function RecommendationItem({ rec, inJournal, onOpen, onWant, onDismiss }) {
+  const [busy, setBusy] = useState(false);
+  const want = async () => {
+    setBusy(true);
+    try {
+      await onWant(rec);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="rounded-xl p-3 hover:bg-white/[0.03]">
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={() => onOpen(rec)}
+          aria-label={`Открыть «${rec.title}»`}
+          className="relative shrink-0 w-12 h-[72px] rounded-lg overflow-hidden"
+        >
+          <Poster src={rec.posterUrl} title={rec.title} small className="w-full h-full" />
+          {!rec.readAt && (
+            <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-[#ff7a45] border-2 border-[#12152a]" aria-label="Новое" />
+          )}
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm leading-snug text-[#c4c8e4]">
+            <b className="text-white">{rec.from?.username || "Друг"}</b> советует{" "}
+            <button type="button" onClick={() => onOpen(rec)} className="font-bold text-white hover:underline text-left">
+              «{rec.title}»
+            </button>
+            {rec.releaseYear ? <span className="text-[#7b81a6]"> ({rec.releaseYear})</span> : null}
+          </p>
+          {rec.note && (
+            <p className="mt-1.5 rounded-lg bg-white/[0.05] px-2.5 py-1.5 text-[13px] leading-snug text-[#d6d9f0] break-words">
+              {rec.note}
+            </p>
+          )}
+          <p className="mt-1 text-xs text-[#7b81a6]">{formatTimeAgo(rec.createdAt)}</p>
+          <div className="mt-2.5 flex gap-2">
+            {inJournal ? (
+              <span className="flex-1 h-10 px-3 rounded-xl text-[13px] inline-flex items-center justify-center gap-1.5 bg-white/[0.05] text-[#aeb3d6]">
+                <Icon n="check" className="w-4 h-4 opacity-70" /> Уже в списке
+              </span>
+            ) : (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={want}
+                className={`flex-1 h-10 px-3 rounded-xl text-[13px] inline-flex items-center justify-center gap-1.5 disabled:opacity-50 ${BTN_ORANGE}`}
+              >
+                <Icon n="eye" className={`w-4 h-4 ${DARK_ICON}`} /> Буду смотреть
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onDismiss(rec)}
+              aria-label={`Скрыть совет «${rec.title}»`}
+              className={`flex-1 h-10 px-3 rounded-xl text-[13px] disabled:opacity-50 ${BTN_SOFT}`}
+            >
+              Скрыть
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Колокольчик в шапке: приглашения в общие списки, заявки в друзья и советы фильмов
 export function NotificationsBell({
   invites,
   requests,
+  recommendations = [],
+  unreadRecommendations = 0,
+  isInJournal = () => false,
+  onOpenBell,
+  onOpenRecommended,
+  onWantRecommended,
+  onDismissRecommended,
   onAcceptInvite,
   onDeclineInvite,
   onAcceptFriend,
@@ -59,7 +136,15 @@ export function NotificationsBell({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
-  const count = invites.length + requests.length;
+  const count = invites.length + requests.length + unreadRecommendations;
+  const total = invites.length + requests.length + recommendations.length;
+
+  // Открыли колокольчик — советы считаются прочитанными
+  useEffect(() => {
+    if (open) onOpenBell?.();
+    // onOpenBell пересоздаётся при каждом рендере
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -101,7 +186,7 @@ export function NotificationsBell({
         >
           <div className="px-3 pt-2.5 pb-2 font-display text-base font-semibold text-white">Уведомления</div>
 
-          {count === 0 && (
+          {total === 0 && (
             <div className="px-3 pb-5 pt-2 text-sm text-[#8b91b5]">Новых уведомлений нет.</div>
           )}
 
@@ -128,6 +213,25 @@ export function NotificationsBell({
                 </div>
               </div>
             </div>
+          ))}
+
+          {recommendations.length > 0 && (
+            <div className="px-3 pt-3 pb-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#7b81a6]">
+              Советы друзей
+            </div>
+          )}
+          {recommendations.map((rec) => (
+            <RecommendationItem
+              key={`rec-${rec.id}`}
+              rec={rec}
+              inJournal={isInJournal(rec)}
+              onOpen={(r) => {
+                setOpen(false);
+                onOpenRecommended(r);
+              }}
+              onWant={onWantRecommended}
+              onDismiss={onDismissRecommended}
+            />
           ))}
 
           {requests.map((r) => (
